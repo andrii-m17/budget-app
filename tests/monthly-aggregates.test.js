@@ -86,7 +86,7 @@ test('mandatoryPaymentsSummary: обов\'язкові платежі та ві�
 function debtSandbox(){
   return buildSandbox(
     { debts: [], hiddenFrom: {}, expenses: [], bankAccounts: [], installmentAccounts: [] },
-    ['debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'hiddenEntryKey', 'hiddenEntryFor', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'isCardVisibleForMonth', 'cardCreatedMonth',
+    ['debtTotalsForMonth', 'installmentMonthPayTotal', 'isInstallmentVisibleForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'hiddenEntryKey', 'hiddenEntryFor', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'isCardVisibleForMonth', 'cardCreatedMonth',
       // Rev #30 (6D.44) — debtTotalsForMonth() тепер сканує activeDebts(), не сирий debts.
       'activeDebts',
       // Rev 2.22.75 (6D.148) — debtTotalsForMonth() тепер для installment-
@@ -169,6 +169,7 @@ test('debtTotalsForMonth: є прив\'язана витрата цього мі
   ctx.expenses = [
     { linkedInstallment: 'Банк-1 Прилад', date: '2026-08-02', amount: 1500 },
   ];
+  ctx.installmentAccounts = [{ name: 'Банк-1 Прилад' }]; // Rev 2.32.396 (FIX-PAY): «Разом на місяць» рахується за списком ОЧ, як в «Обліку»
   const result = ctx.debtTotalsForMonth('2026-08');
   assert.equal(result.list.length, 1);
   // Rev 2.32.177: внесений серпневий залишок 25619 — опора (до платежу місяця),

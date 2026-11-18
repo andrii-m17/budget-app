@@ -225,7 +225,7 @@ function upcomingPayments(opts){
   const place = function(item){
     const past = item.kind === 'installment' ? installmentDuePassed(item.month, item.date, today) : item.date < today; // Rev 2.32.152: для ОЧ спільне з рядком визначення (пільга +1 день); картки без змін
     if(past){ if(item.month === m0) result.unconfirmed.push(item); return; }
-    if(item.kind === 'installment' && item.date < today) item = Object.assign({}, item, { date: today }); // пільговий день (dueDate+1): показуємо як «сьогодні», щоб екран «Платежі» й картка не бачили минулу дату (payRelative, смуга днів, «Наступний»)
+    if(item.kind === 'installment' && item.date < today) item = Object.assign({}, item, { overdue: true }); // Rev 2.32.396 (FIX-PAY): пільговий день (dueDate+1) лишається зі СПРАВЖНЬОЮ датою й позначкою «прострочено» (раніше переносився на сьогодні: «18-те» замість «до 17 лис» в «Обліку»). Смуга днів його не малює (дата поза вікном), «Наступний» і екран «Платежі» показують «Прострочено».
     if(item.date <= windowEnd) result.items.push(item);
     else if(item.date <= laterEnd) result.later.push(item);
   };
@@ -259,9 +259,9 @@ function upcomingPayments(opts){
       if(rec){ amount = rec.monthlyPayment; }
       else if(stdPay != null){ amount = installmentPayAmount(stdPay, chainBefore); }
       else{
-        const prev = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month < month && d.monthlyPayment != null; }).sort(function(a, b){ return a.month.localeCompare(b.month); }).map(function(d){ return d.monthlyPayment; });
-        const mode = expectedPaymentForCard(prev.slice().reverse()); // Rev 2.32.70: prev хронологічно → нові спершу
-        if(mode != null){ amount = mode; estimated = true; }
+        // Rev 2.32.396 (FIX-PAY): очікуваний платіж — ТИМ САМИМ правилом, що в «Обліку» (typicalMonthlyPayment: мода всіх попередніх платежів, при рівності новіший). Раніше expectedPaymentForCard (два найновіші однакові → вони) давав «≈ 5 000 ₴» там, де «Облік» показував 6 000 ₴. expectedPaymentForCard лишається (тести, інші виклики не змінено).
+        const mode = installmentTypicalPay(debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name; }), month);
+        if(mode != null && mode > 0){ amount = mode; estimated = true; }
       }
       place({ kind: 'installment', name: inst.name, date: ppClampDate(month, inst.dueDay), month: month, amount: amount, estimated: estimated });
     });
@@ -318,7 +318,7 @@ function payCompactAmount(n){
 }
 function payAmountShortText(it){ return it.amount == null ? 'сума невідома' : (it.estimated ? '≈ ' : '') + payCompactAmount(it.amount) + ' ₴'; }
 // Драбина «Найближчого»: dp — день («Сб 17» чи «17 жов»), name — назва (випадає цілою, ніколи не обрізається).
-function payNextLadder(dp, name){ return ['Наступний · ' + dp + ' · ' + name, 'Далі · ' + dp + ' · ' + name, dp + ' · ' + name, 'Далі · ' + dp]; }
+function payNextLadder(dp, name, overdue){ if(overdue) return ['Прострочено · ' + dp + ' · ' + name, 'Прострочено · ' + dp, dp + ' · ' + name, dp]; return ['Наступний · ' + dp + ' · ' + name, 'Далі · ' + dp + ' · ' + name, dp + ' · ' + name, 'Далі · ' + dp]; } // Rev 2.32.396: прострочений — з позначкою замість «Наступний»
 // Rev 2.32.160 (PAY-ICONS): драбина переліку назв без дат. Спершу прибирається хвіст переліку з «+K» («А, Б, В» → «А, Б +1» → «А +2»), потім лише заголовок; «…» немає. Повертає пари { h: заголовок, t: перелік } — заголовок і перелік фарбуються окремо.
 function payNamesParts(head, names){
   const n = names.length, out = [];
@@ -359,7 +359,7 @@ function paymentsCardModel(r, today, hasAccounts){
     m.totalShort = (r.load.total === 0 && r.load.unknown > 0) ? m.total : (r.load.estimated ? '≈ ' : '') + payCompactAmount(r.load.total) + ' ₴';
     const f = r.items[0];
     const dp = payDow(f.date) + ' ' + (+f.date.slice(8, 10));
-    m.next = { label: 'Наступний · ' + dp + ' · ' + f.name, amount: payAmountText(f), amountShort: payAmountShortText(f), ladder: payNextLadder(dp, f.name) };
+    m.next = { label: (f.overdue ? 'Прострочено' : 'Наступний') + ' · ' + dp + ' · ' + f.name, amount: payAmountText(f), amountShort: payAmountShortText(f), ladder: payNextLadder(dp, f.name, !!f.overdue), overdue: !!f.overdue };
   }else if(nextItem && nextItem.month === today.slice(0, 7)){
     m.state = 'empty'; m.calm = 'Тиждень без платежів';
     const dp = payDow(nextItem.date) + ' ' + payDateShort(nextItem.date);
@@ -433,7 +433,7 @@ function renderPaymentsCard(){
     host.appendChild(strip);
   }
   if(m.next){
-    const l = payEl('div', 'pay-line1'); const lt = payEl('span', 'l', m.next.label); const rt = payEl('span', 'r', m.next.amount);
+    const l = payEl('div', 'pay-line1' + (m.next.overdue ? ' amber' : '')); const lt = payEl('span', 'l', m.next.label); const rt = payEl('span', 'r', m.next.amount);
     lt._payLadder = m.next.ladder; lt._payAmt = { el: rt, full: m.next.amount, short: m.next.amountShort };
     const lw = payEl('span', 'lw'); lw.appendChild(payIconFor('next')); lw.appendChild(lt); // Rev 2.32.160: календар перед текстом
     l.appendChild(lw); l.appendChild(rt); host.appendChild(l);
@@ -507,9 +507,9 @@ function payRelative(date, today){
 // Модель екрана (без DOM): секції «Потребує уваги», «Найближчі 14 днів», «Пізніше», «Картки без дати». r — результат upcomingPayments (horizon 14).
 function paymentsScreenModel(r, today){
   const row = function(it, amber){
-    return { kind: it.kind, name: it.name, month: it.month, date: it.date, amount: it.amount, estimated: !!it.estimated, amountText: it.date === null ? payFmt(it.amount) : payAmountText(it), amber: !!amber,
+    return { kind: it.kind, name: it.name, month: it.month, date: it.date, amount: it.amount, estimated: !!it.estimated, amountText: it.date === null ? payFmt(it.amount) : payAmountText(it), amber: !!amber || !!it.overdue,
       day: it.date ? +it.date.slice(8, 10) : null, mon: it.date ? PAY_MONTHS_SHORT[+it.date.slice(5, 7) - 1] : null,
-      sub: amber ? 'Не позначено сплаченим' : (it.date ? payRelative(it.date, today) : 'Мінімальний платіж') };
+      sub: it.overdue ? 'Прострочено · ' + ppDayDiff(it.date, today) + ' ' + pluralUa(ppDayDiff(it.date, today), ['день', 'дні', 'днів']) : amber ? 'Не позначено сплаченим' : (it.overdue ? 'Прострочено · ' + ppDayDiff(it.date, today) + ' ' + pluralUa(ppDayDiff(it.date, today), ['день', 'дні', 'днів']) : (it.date ? payRelative(it.date, today) : 'Мінімальний платіж')) };
   };
   const sections = [];
   if(r.unconfirmed.length) sections.push({ key: 'attention', title: 'Потребує уваги', rows: r.unconfirmed.map(function(x){ return row(x, true); }) });

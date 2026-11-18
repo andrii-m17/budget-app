@@ -25,7 +25,7 @@ test('upcomingPayments: оцінка ОЧ без запису місяця ви�
   const D = function(m, pay, extra){ return Object.assign({ kind: 'installment', name: 'iPhone', month: m, monthlyPayment: pay, balance: 9 }, extra || {}); };
   const hist = [D('2026-05', 6000), D('2026-06', 6000), D('2026-07', 6000), D('2026-08', 5000), D('2026-09', 5000)];
   const r = JSON.parse(JSON.stringify(c.upcomingPayments({ today: '2026-10-15', horizonDays: 7, installments: [{ name: 'iPhone', dueDay: 17 }], cards: [], debtsByMonth: hist, expenses: [], hidden: {} })));
-  assert.equal(r.items[0].amount, 5000); assert.equal(r.items[0].estimated, true);
+  assert.equal(r.items[0].amount, 6000, 'Rev 2.32.396 (FIX-PAY): очікуваний платіж — як в «Обліку» (мода всіх попередніх, 6000×3 проти 5000×2), а не «два найновіші»'); assert.equal(r.items[0].estimated, true);
   const r2 = JSON.parse(JSON.stringify(c.upcomingPayments({ today: '2026-10-15', horizonDays: 7, installments: [{ name: 'iPhone', dueDay: 17 }], cards: [], debtsByMonth: hist.concat([D('2026-10', 6000)]), expenses: [], hidden: {} })));
   assert.equal(r2.items[0].amount, 6000); assert.equal(r2.items[0].estimated, false);
 });
@@ -34,6 +34,6 @@ test('охоронні: typicalMonthlyPayment і розрахунок залиш
   assert.ok(!/expectedPaymentForCard/.test(typical));
   const est = SRC.slice(SRC.indexOf('function estimateInstallment'), SRC.indexOf('function estimateInstallment') + 1500);
   assert.match(est, /typicalMonthlyPayment\(name, 'installment', month\)/); assert.ok(!/expectedPaymentForCard/.test(est));
-  assert.equal((SRC.match(/expectedPaymentForCard\(/g) || []).length, 2, 'оголошення й один виклик у upcomingPayments');
-  assert.match(SRC, /const mode = expectedPaymentForCard\(prev\.slice\(\)\.reverse\(\)\);/);
+  assert.equal((SRC.match(/expectedPaymentForCard\(/g) || []).length, 1, 'Rev 2.32.396: лише оголошення; upcomingPayments оцінює як «Облік»');
+  assert.match(SRC, /const mode = installmentTypicalPay\(debts\.filter/);
 });

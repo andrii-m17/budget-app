@@ -81,14 +81,15 @@ test('картка «Найближчі платежі» відкриває ек
   assert.match(SRC, /function openPaymentsScreen\(date\)/);
 });
 
-// Rev 2.32.152 (OCH-DUE): пільговий день (dueDate+1) — ОЧ показується як «Сьогодні», без «Через -1 дні», у load; «без позначки» лише з дати+2
-test('пільговий день dueDate+1: ОЧ у «Найближчих» з датою «сьогодні», payRelative «Сьогодні», у навантаженні; не в «Потребує уваги»', function(){
+// Rev 2.32.152 (OCH-DUE) + Rev 2.32.396 (FIX-PAY): пільговий день (dueDate+1) — ОЧ лишається у «Найближчих» зі СПРАВЖНЬОЮ датою й позначкою overdue (не переноситься на сьогодні), у навантаженні; не в «Потребує уваги»; «без позначки» лише з дати+2
+test('пільговий день dueDate+1: ОЧ у «Найближчих» зі справжньою датою й overdue, у навантаженні; не в «Потребує уваги»', function(){
   const mk = (today) => c.upcomingPayments({ today: today, horizonDays: 14, installments: [I('X', 15)], debtsByMonth: [D('X', '2026-10', { monthlyPayment: 5000 })], expenses: [] });
   const g = mk('2026-10-16');
   assert.equal(g.unconfirmed.length, 0); assert.equal(g.items.length, 1);
-  assert.equal(g.items[0].date, '2026-10-16'); assert.equal(c.payRelative(g.items[0].date, '2026-10-16'), 'Сьогодні');
+  assert.equal(g.items[0].date, '2026-10-15', 'справжня дата, не «сьогодні»'); assert.equal(g.items[0].overdue, true);
   assert.equal(g.load.total, 5000); assert.equal(g.load.count, 1);
   const m = c.paymentsScreenModel(g, '2026-10-16');
   assert.ok(!/Через -\d/.test(JSON.stringify(m)), 'жодного від\'ємного «Через -1 дні»');
+  assert.equal(m.sections[0].rows[0].sub, 'Прострочено · 1 день'); assert.equal(m.sections[0].rows[0].amber, true);
   const d2 = mk('2026-10-17'); assert.equal(d2.unconfirmed.length, 1); assert.equal(d2.items.length, 0);
 });

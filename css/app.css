@@ -1073,7 +1073,7 @@
   .pay-msgs{ border-top:1px solid var(--line); }
   .pay-msg{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); min-height:34px; font-size:var(--fs-footnote); color:var(--text-2); }
   .pay-msg + .pay-msg{ border-top:1px solid var(--line); }
-  .pay-msg.amber{ color:var(--color-warning); }
+  .pay-msg.amber, .pay-line1.amber .l{ color:var(--color-warning); } /* Rev 2.32.396 (FIX-PAY): «Прострочено · дата · назва» у рядку «Наступний» */
   .pay-msg .l{ min-width:0; white-space:nowrap; }
   .pay-msg .r{ flex:none; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
   /* Rev 2.32.160 (PAY-ICONS): значки рядків (20 px; кола — як bankIcon без логотипа: нейтральне коло surface-hover, SVG 58%); «!» — жовте коло; перелік назв у приглушеному кольорі (--color-text-tertiary: токена --color-text-muted у проєкті немає); день найближчого платежу — скляна пілюля з рамкою info і сяйвом, «скоро» (≤ installment_days) — рамка й сяйво warning. */
