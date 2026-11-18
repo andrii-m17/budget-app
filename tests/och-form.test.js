@@ -182,9 +182,9 @@ test('підказка про відхилення: лише коли введе
 
 // ---- Rev 2.32.173 (OCH-FORM-3): фінальний макет — розміри, скло, стани ----
 const FINAL = (function(){ const i = CSS.indexOf('Rev 2.32.173/174 (OCH-FORM-3'); const k = CSS.indexOf('*/', i) + 2; return CSS.slice(k, k + 5200); })();
-test('фінальний макет: шторка r 28 зверху з відступом 14, ручка 36×4, заголовок (логотип 32 r 8, назва 15/500, підзаголовок 11, закриття коло 30)', function(){
+test('фінальний макет: шторка r 28 зверху з відступом 14, ручка 36×5 (Rev 2.32.371, DS-4a: було 36×4), заголовок (логотип 32 r 8, назва 15/500, підзаголовок 11, закриття коло 30)', function(){
   assert.match(FINAL, /@media \(max-width:1279px\)\{\s*#installment-drawer\{ border-radius:var\(--r-xl\) var\(--r-xl\) var\(--radius-xl\) var\(--radius-xl\); padding:14px 14px 12px; \}/);
-  assert.match(CSS, /\.drawer-handle::before\{ content:''; width:36px; height:4px;/);
+  assert.match(CSS, /\.drawer-handle::before\{ content:''; width:36px; height:5px;/);
   assert.match(FINAL, /#installment-drawer \.drawer-head-icon\{ width:32px; height:32px; border-radius:var\(--r-xs\);/);
   assert.match(FINAL, /#installment-drawer \.drawer-head h2\{ font-size:var\(--fs-subhead\); font-weight:500; \}/); assert.match(FINAL, /\.drawer-head-sub\{ font-size:var\(--fs-caption2\); \}/);
   assert.match(FINAL, /#installment-drawer \.drawer-close\{ width:30px; height:30px; border-radius:50%; \}/);
@@ -211,9 +211,9 @@ test('без скла: жодних --och-glass-*, градієнтів, бли�
   assert.match(SRC, /const SEGMENT_SELECTOR = '\.struct-tabs, \.theme-toggle, \.n-days';/);
   assert.match(SRC, /b\.classList\.toggle\('active', on\);/);
 });
-test('фінальний макет: шторка r 28 зверху з відступом 14, ручка 36×4, заголовок (логотип 32 r 8, назва 15/500, підзаголовок 11, закриття коло 30)', function(){
+test('фінальний макет: шторка r 28 зверху з відступом 14, ручка 36×5 (Rev 2.32.371, DS-4a: було 36×4), заголовок (логотип 32 r 8, назва 15/500, підзаголовок 11, закриття коло 30)', function(){
   assert.match(FINAL, /@media \(max-width:1279px\)\{\s*#installment-drawer\{ border-radius:var\(--r-xl\) var\(--r-xl\) var\(--radius-xl\) var\(--radius-xl\); padding:14px 14px 12px; \}/);
-  assert.match(CSS, /\.drawer-handle::before\{ content:''; width:36px; height:4px;/);
+  assert.match(CSS, /\.drawer-handle::before\{ content:''; width:36px; height:5px;/);
   assert.match(FINAL, /#installment-drawer \.drawer-head-icon\{ width:32px; height:32px; border-radius:var\(--r-xs\);/);
   assert.match(FINAL, /#installment-drawer \.drawer-head h2\{ font-size:var\(--fs-subhead\); font-weight:500; \}/); assert.match(FINAL, /\.drawer-head-sub\{ font-size:var\(--fs-caption2\); \}/);
   assert.match(FINAL, /#installment-drawer \.drawer-close\{ width:30px; height:30px; border-radius:50%; \}/);

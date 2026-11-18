@@ -56,6 +56,7 @@ test('DS-N4b: відступи (padding/margin/gap) у app.css на --sp-*, кр
   assert.equal(JSON.parse(lines[0]).replaced.spN4, 0, 'є відступ, який можна замінити на токен');
   const j = JSON.parse(lines[1]);
   // Rev 2.32.355 (DS-3b): ліміт 137 → 138: gap 5px обгортки .tbx (той самий проміжок іконка–підпис, що в кнопки таббару)
-  assert.ok(j.spExceptions.length <= 138, 'винятків (форми шторок, kb-*, таббар) не більше 138, зараз ' + j.spExceptions.length);
+  // Rev 2.32.371 (DS-4a): ліміт 138 → 139: margin-bottom -1px смужки шторки (висота 5 px за макетом без зсуву розкладки)
+  assert.ok(j.spExceptions.length <= 139, 'винятків (форми шторок, kb-*, таббар) не більше 139, зараз ' + j.spExceptions.length);
   ['--sp-1: 4px', '--sp-2: 8px', '--sp-3: 12px', '--sp-4: 16px', '--sp-5: 20px', '--sp-6: 24px', '--sp-8: 32px', '--sp-10: 40px', '--sp-12: 48px'].forEach(function(t){ assert.ok(TOK.indexOf(t) !== -1, t); });
 });
