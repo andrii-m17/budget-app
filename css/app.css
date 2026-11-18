@@ -2373,6 +2373,19 @@
      пригашуємо стару до нейтрального кольору; сама бульбашка вже й так
      переїхала до нової позиції. */
   nav.tabbar.pressed button.active:not(.preview-active){ color:var(--color-muted); }
+  /* Rev 2.32.352 (DS-3a): залита іконка вибраної вкладки (SVG і правила з макета analytics-ds). Невибрані лишаються контурними. Без анімацій: рух (пружина, натиск) це DS-3b. Під час перетягування (.pressed) стара .active знову контурна, як і її колір. «Витрати» не змінено. */
+  nav.tabbar svg .f, .side svg .f{ fill:currentColor; fill-opacity:0; }
+  nav.tabbar svg .in, .side svg .in{ stroke:currentColor; }
+  nav.tabbar svg .s, .side svg .s{ opacity:0; }
+  nav.tabbar svg, .side svg{ overflow:visible; }
+  nav.tabbar button.active svg .f, nav.tabbar button.preview-active svg .f, .side button.side-tab.active svg .f{ fill-opacity:1; }
+  nav.tabbar button.active svg .in, nav.tabbar button.preview-active svg .in, .side button.side-tab.active svg .in{ stroke:var(--surface); }
+  nav.tabbar button.active svg .s, nav.tabbar button.preview-active svg .s, .side button.side-tab.active svg .s{ opacity:1; }
+  nav.tabbar button.active svg .o, nav.tabbar button.preview-active svg .o, .side button.side-tab.active svg .o{ opacity:0; }
+  nav.tabbar.pressed button.active:not(.preview-active) svg .f{ fill-opacity:0; }
+  nav.tabbar.pressed button.active:not(.preview-active) svg .in{ stroke:currentColor; }
+  nav.tabbar.pressed button.active:not(.preview-active) svg .s{ opacity:0; }
+  nav.tabbar.pressed button.active:not(.preview-active) svg .o{ opacity:1; }
   nav.tabbar.pressed button.tab-vytraty.active:not(.preview-active) .tb-icon-wrap{ background:var(--accent); }
   nav.tabbar.pressed button.tab-vytraty.active:not(.preview-active) .tb-label{ color:var(--text-2); }
   nav.tabbar svg{ width:18px; height:18px; }
