@@ -25,11 +25,11 @@ test('PAYLIST 1. екран: плитки збігаються з моделлю
     const m = paymentsScreenModel(computeUpcomingNow(14), kyivTodayISO());
     const q = s => Array.from(document.querySelectorAll('#payments-body ' + s));
     return { model: { tiles: m.tiles.map(t => [t.label, t.count]), wait: m.wait.length, days: m.window ? m.window.days.length : 0, later: m.later.length },
-      dom: { tiles: q('.pl-tile').map(t => [t.querySelector('.pl-tile-lab').textContent, parseInt(t.querySelector('.pl-tile-cnt').textContent, 10) || 0]), wait: q('.pl-wait').length, waitBtn: q('.pl-wait .submit-btn').map(b => b.textContent), days: q('.pl-day').length, later: q('.pl-month').length },
+      dom: { tiles: q('.pl-tile').map(t => [t.querySelector('.pl-tile-lab').textContent, parseInt(t.querySelector('.pl-tile-cnt').textContent, 10) || 0]), wait: q('.pl-wait-item').length, waitCards: q('.pl-wait').length, waitBtn: q('.pl-wait .submit-btn').map(b => b.textContent), days: q('.pl-day').length, later: q('.pl-month').length },
       text: document.getElementById('payments-body').innerText };
   });
   expect(info.dom.tiles).toEqual(info.model.tiles); expect(info.dom.wait).toBe(info.model.wait); expect(info.dom.days).toBe(info.model.days); expect(info.dom.later).toBe(info.model.later);
-  info.dom.waitBtn.forEach(t => expect(t).toBe('Внести платіж'));
+  info.dom.waitBtn.forEach(t => expect(t).toBe('Внести')); expect(info.dom.waitCards).toBe(info.model.wait ? 1 : 0);
   expect(info.text).not.toMatch(/Прострочено/); expect(info.text).not.toMatch(/NaN|undefined/);
   expect(info.dom.tiles.map(t => t[0])).toEqual(['Чекає внесення', 'Цей тиждень', 'До кінця місяця']);
 });
@@ -57,7 +57,7 @@ test('PAYLIST 3. дотик рядка платежу ОЧ відкриває н
 });
 test('PAYLIST 4. картка «Чекає внесення»: кнопка відкриває наявну форму (без збереження); бурштин лише коли є що вносити', async ({ page }) => {
   await openScreen(page);
-  const waits = await page.locator('#payments-body .pl-wait').count();
+  const waits = await page.locator('#payments-body .pl-wait-item').count();
   const amber = await page.locator('#payments-body .pl-tile.amber').count();
   expect(amber).toBe(waits > 0 ? 1 : 0);
   test.skip(waits === 0, 'на цей день немає невнесених платежів');
@@ -85,7 +85,7 @@ test('PAYLIST 5. плитки: суми й підписи кількості н�
 
 // ===== DS-PAYLIST Rev 2 (внесення через витрату) =====
 // дотик по платежу: невнесений — кнопка картки «Внести платіж», інший — рядок у групі дня
-const tapPick = (page, pick) => { const nm = pick.name.replace(/^[^\p{L}]+/u, ''); return (pick.wait ? page.locator('#payments-body .pl-wait', { hasText: nm }).locator('.submit-btn').first() : page.locator('#payments-body .pl-day .pay-line', { hasText: nm }).first()).click(); };
+const tapPick = (page, pick) => { const nm = pick.name.replace(/^[^\p{L}]+/u, ''); return (pick.wait ? page.locator('#payments-body .pl-wait-item', { hasText: nm }).locator('.submit-btn').first() : page.locator('#payments-body .pl-day .pay-line', { hasText: nm }).first()).click(); };
 async function seedAndModel(page){
   return page.evaluate(() => {
     const today = kyivTodayISO(), m = paymentsScreenModel(computeUpcomingNow(14, null), today);
@@ -142,7 +142,7 @@ test('PAYLIST 8. вибраний минулий місяць: невнесен�
     const a = paymentsScreenModel(computeUpcomingNow(14, null), kyivTodayISO()).wait.filter(w => w.month === prev).length;
     const b = paymentsScreenModel(computeUpcomingNow(14, prev), kyivTodayISO()).wait.filter(w => w.month === prev).length;
     selectedMonth = prev; renderAll(); openPaymentsScreen(null);
-    return { a, b, dom: document.querySelectorAll('#payments-body .pl-wait').length, prev };
+    return { a, b, dom: document.querySelectorAll('#payments-body .pl-wait-item').length, prev };
   });
   expect(r.a).toBe(0); expect(r.b).toBeGreaterThan(0); expect(r.dom).toBeGreaterThanOrEqual(r.b);
   await page.waitForTimeout(300);
@@ -159,10 +159,10 @@ test('PAYLIST 9. екран перемальовується після збер
     const m = paymentsScreenModel(computeUpcomingNow(14, null), kyivTodayISO());
     const w = m.wait[0] || (m.window && m.window.days[0].rows[0]);
     if(!w) return null;
-    const before = document.querySelectorAll('#payments-body .pay-line, #payments-body .pl-wait').length;
+    const before = document.querySelectorAll('#payments-body .pay-line, #payments-body .pl-wait-item').length;
     expenses.push({ id: 'x-test-1', name: 'Платіж', amount: Math.max(w.amount || 1000, 1000) * 2, date: kyivTodayISO(), category: '🏦 Оплати Частинами', linkedInstallment: w.name });
     renderAll();
-    const after = document.querySelectorAll('#payments-body .pay-line, #payments-body .pl-wait').length;
+    const after = document.querySelectorAll('#payments-body .pay-line, #payments-body .pl-wait-item').length;
     return { before, after };
   });
   test.skip(r === null, 'на цей день немає платежів');
@@ -186,3 +186,49 @@ test('PAYLIST 10. офлайн: внесення без мережі — вит�
   expect(still).toBe(false);
   await context.setOffline(false);
 });
+
+// ===== DS-PAYLIST Rev 3: «Чекає внесення» — одна картка з рядками =====
+async function seedWait(page, dueDays){
+  await installClock(page);
+  await page.goto('/index.html?fixture=typical');
+  await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
+  await page.waitForFunction(() => !document.querySelector('.avatar-status-dot.syncing'), null, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  await page.evaluate(days => {
+    const cur = kyivTodayISO().slice(0, 7), nxt = ppNextMonth(cur);
+    const names = ['Банк А Телефон', 'Банк Б Ноутбук з дуже довгою назвою, щоб перевірити обрізання в один рядок', 'Банк Б Навушники', 'Банк А Холодильник'];
+    installmentAccounts = days.map((d, i) => ({ name: names[i], dueDay: d, initialAmount: 20000, termMonths: 10, payment: 1000 + i * 300, startDate: '2025-01-01', firstPayment: 'same_day', payMode: 'manual' }));
+    bankAccounts = []; debts = [];
+    installmentAccounts.forEach((a, i) => [cur, nxt].forEach(mo => debts.push({ kind: 'installment', name: a.name, month: mo, balance: 15000 - i * 500, monthlyPayment: 1000 + i * 300 })));
+    switchTab('analytics'); renderAll(); openPaymentsScreen(null);
+  }, dueDays);
+  await page.waitForTimeout(600);
+}
+for (const n of [1, 4]) {
+  test('PAYLIST 11.' + n + '. «Чекає внесення», ' + n + ' платеж(і): одна картка, рядок ≤ 72 пт, кнопка ≥ 44 пт, назва в один рядок; дотик по кнопці й по рядку відкриває форму', async ({ page }) => {
+    await seedWait(page, [2, 5, 8, 11].slice(0, n));
+    const g = await page.evaluate(() => {
+      const cards = document.querySelectorAll('#payments-body .pl-wait'), items = Array.from(document.querySelectorAll('#payments-body .pl-wait-item'));
+      const title = document.querySelector('#payments-body .pl-wait-title').textContent, cap = document.querySelector('#payments-body .pl-wait ~ .struct-caption');
+      return { cards: cards.length, n: items.length, h: items.map(i => Math.round(i.getBoundingClientRect().height)), btn: items.map(i => { const r = i.querySelector('.submit-btn').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; }), nameH: items.map(i => Math.round(i.querySelector('.pay-line-name').getBoundingClientRect().height)), title, cap: cap && cap.textContent, capSize: cap && getComputedStyle(cap).fontSize, noOverflow: document.documentElement.scrollWidth <= window.innerWidth };
+    });
+    expect(g.cards, 'одна картка').toBe(1); expect(g.n).toBe(n);
+    g.h.forEach(h => expect(h, 'висота рядка ≤ 72: ' + JSON.stringify(g)).toBeLessThanOrEqual(72));
+    g.btn.forEach(b => { expect(b[1], 'кнопка ≥ 44 пт: ' + JSON.stringify(g)).toBeGreaterThanOrEqual(44); expect(b[0], 'ширина за текстом (не на всю ширину)').toBeLessThan(140); });
+    g.nameH.forEach(h => expect(h, 'назва в один рядок (≤ 24 пт)').toBeLessThanOrEqual(24));
+    expect(g.title).toMatch(new RegExp('^Чекає внесення · ' + n + ' · ')); expect(g.cap).toBe('Ці платежі ще не внесено у витрати. «Внести» відкриває готову витрату з прив\'язкою до ОЧ.'); expect(g.capSize).toBe('13px'); expect(g.noOverflow).toBe(true);
+    // дотик по кнопці → форма
+    const before = await page.evaluate(() => expenses.length);
+    await page.locator('#payments-body .pl-wait-item .submit-btn').first().click();
+    await page.waitForTimeout(500);
+    let st = await page.evaluate(() => ({ tab: lastActiveTab, name: document.getElementById('expfielda7').value, n: expenses.length, block: document.getElementById('pay-link-block').classList.contains('show') }));
+    expect(st.tab).toBe('vytraty'); expect(st.name).toMatch(/Банк А Телефон/); expect(st.block).toBe(true); expect(st.n).toBe(before);
+    // дотик по рядку поза кнопкою → те саме (знову відкрити екран; форма вже має підстановку → запит про чернетку, підтверджуємо)
+    await page.evaluate(() => { document.getElementById('expfielda7').value = ''; document.getElementById('f-amount').value = ''; switchTab('analytics'); openPaymentsScreen(null); });
+    await page.waitForTimeout(400);
+    await page.locator('#payments-body .pl-wait-item .pay-line-name').first().click();
+    await page.waitForTimeout(500);
+    st = await page.evaluate(() => ({ tab: lastActiveTab, name: document.getElementById('expfielda7').value }));
+    expect(st.tab).toBe('vytraty'); expect(st.name).toMatch(/Банк А Телефон/);
+  });
+}

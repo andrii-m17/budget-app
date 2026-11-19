@@ -97,7 +97,7 @@ test('upcomingPayments(opts.month): за замовчуванням минули
 test('охоронні: екран передає вибраний місяць; ОЧ без проміжної шторки; блок і підказка — не поля; перемальовування в renderAll', function(){
   assert.match(SRC, /computeUpcomingNow\(14, typeof selectedMonth === 'string' \? selectedMonth : null\)/);
   assert.match(SRC, /else if\(r\.kind === 'installment'\) payInstallmentPrefill\(r\); else openPayAction\(r\);/);
-  assert.match(SRC, /btn\.addEventListener\('click', function\(\)\{ if\(r\.kind === 'installment'\) payInstallmentPrefill\(r\); else openPayAction\(r\); \}\)/);
+  assert.match(SRC, /const act = function\(\)\{ if\(r\.kind === 'installment'\) payInstallmentPrefill\(r\); else openPayAction\(r\); \};/); // Rev 2.32.420: рядок і кнопка «Внести» — та сама дія
   assert.match(SRC, /<div class="field installment-link-hint pay-link-block" id="pay-link-block" role="status"><\/div>/);
   assert.ok(!/<input[^>]*pay-(link|similar)/.test(SRC));
   assert.match(SRC, /if\(isPaymentsOpen\) safeCall\(renderPaymentsScreen, 'renderPaymentsScreen'\);/);

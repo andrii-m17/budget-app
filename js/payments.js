@@ -573,7 +573,7 @@ function payTilesModel(r, today){
 }
 // Модель екрана (без DOM). r — результат upcomingPayments (horizon 14).
 function paymentsScreenModel(r, today){
-  const wait = r.unconfirmed.map(function(x){ const row = payRowModel(x, today); row.text = 'Платіж ' + payDateShort(x.date) + ' ще не внесено у витрати'; row.action = x.kind === 'installment' ? 'Внести платіж' : 'Позначити сплаченим'; return row; });
+  const wait = r.unconfirmed.map(function(x){ const row = payRowModel(x, today); row.text = 'Платіж ' + payDateShort(x.date) + ' · ' + row.amountText; row.action = 'Внести'; return row; }); // Rev 2.32.420 (DS-PAYLIST Rev 3): один рядок «Платіж дата · сума», кнопка «Внести» (для картки — наявна шторка «Позначити сплаченим»)
   const days = payDayGroups(r.items, today), winSum = paySum(r.items.map(function(x){ return payRowModel(x, today); }));
   const win = r.items.length ? { title: 'Найближчі 14 днів', count: r.items.length, countText: r.items.length + ' ' + payPlural(r.items.length), sumText: paySumText(winSum), days: days } : null;
   const months = [], byM = {};
@@ -582,7 +582,7 @@ function paymentsScreenModel(r, today){
   const undated = r.undatedList.map(function(x){ const row = payRowModel(x, today); row.amountText = payFmt(x.amount); row.amountPlain = payFmt(x.amount); row.approx = false; return row; });
   const empty = !wait.length && !win && !later.length && !undated.length;
   const noday = r.noDay.map(function(name){ return { kind: 'installment', name: name, month: today.slice(0, 7), date: null, amount: null, estimated: false, amountText: '', amountPlain: '', approx: false, sub: 'Без дня платежу', go: 'installments', day: null, mon: null }; });
-  return { tiles: payTilesModel(r, today), wait: wait, window: win, later: later, undated: undated, undatedCaption: 'Це мінімальні платежі з «Обліку». Додайте день платежу в картці, і вона з\'явиться в календарі.', noday: noday, nodayCaption: 'Додайте день платежу в ОЧ («Облік» → ОЧ), і платіж з\'явиться в календарі.', empty: empty, caption: 'Суми з «≈» очікувані за попередніми місяцями. Торкніться платежу, щоб внести його й зафіксувати факт.' };
+  return { tiles: payTilesModel(r, today), wait: wait, waitTitle: 'Чекає внесення · ' + wait.length + ' · ' + payTilesModel(r, today)[0].sumText, waitCaption: 'Ці платежі ще не внесено у витрати. «Внести» відкриває готову витрату з прив\'язкою до ОЧ.', window: win, later: later, undated: undated, undatedCaption: 'Це мінімальні платежі з «Обліку». Додайте день платежу в картці, і вона з\'явиться в календарі.', noday: noday, nodayCaption: 'Додайте день платежу в ОЧ («Облік» → ОЧ), і платіж з\'явиться в календарі.', empty: empty, caption: 'Суми з «≈» очікувані за попередніми місяцями. Торкніться платежу, щоб внести його й зафіксувати факт.' };
 }
 // Дії для рядка: ОЧ — «Внести платіж»; картка — «Позначити сплаченим» (витрата не створюється).
 function payActionModel(item){
@@ -615,16 +615,22 @@ function payTilesEl(tiles){
   tiles.forEach(function(t){ const c = payEl('div', 'pl-tile' + (t.amber ? ' amber' : '')); c.appendChild(payEl('span', 'pl-tile-lab', t.label)); c.appendChild(paySumEl('pl-tile-amt', t.sum, t.sumText)); c.appendChild(payEl('span', 'pl-tile-cnt', t.countText)); row.appendChild(c); });
   return row;
 }
-function payWaitEl(rows){
+// Rev 2.32.420 (DS-PAYLIST Rev 3): «Чекає внесення» — ОДНА бурштинова картка з рядками (і для одного платежу): логотип, назва в один рядок, бурштинове «Платіж дата · сума», праворуч компактна кнопка «Внести» (44 пт, ширина за текстом). Дотик по рядку поза кнопкою робить те саме: ОЧ — наявна підстановка форми (payInstallmentPrefill), картка — наявна шторка «Позначити сплаченим». Логіка внесення не змінена.
+function payWaitEl(rows, title, caption){
   const sec = payEl('div', 'struct-section');
-  sec.appendChild(payEl('div', 'pl-wait-title', 'Чекає внесення · ' + rows.length));
+  sec.appendChild(payEl('div', 'pl-wait-title', title));
+  const card = payEl('div', 'pl-wait');
   rows.forEach(function(r){
-    const card = payEl('div', 'pl-wait'); const top = payEl('div', 'pl-wait-row');
-    top.appendChild(payLogoEl(r.name, r.kind)); const tx = payEl('span', 'pl-wait-text'); tx.appendChild(payEl('span', 'pay-line-name', stripLeadingEmoji(r.name))); tx.appendChild(payEl('span', 'pl-wait-sub', r.text)); top.appendChild(tx); top.appendChild(payAmtEl('pay-line-amt', r)); card.appendChild(top);
-    const btn = payEl('button', 'submit-btn pill', r.action); btn.type = 'button';
-    btn.addEventListener('click', function(){ if(r.kind === 'installment') payInstallmentPrefill(r); else openPayAction(r); }); // Rev 2.32.418: ОЧ — наявна підстановка без змін логіки; картка — наявна шторка «Позначити сплаченим» (не витрата)
-    card.appendChild(btn); sec.appendChild(card);
+    const act = function(){ if(r.kind === 'installment') payInstallmentPrefill(r); else openPayAction(r); };
+    const item = payEl('div', 'pl-wait-item'); item.addEventListener('click', act);
+    item.appendChild(payLogoEl(r.name, r.kind));
+    const tx = payEl('span', 'pl-wait-text'); tx.appendChild(payEl('span', 'pay-line-name', stripLeadingEmoji(r.name))); tx.appendChild(payEl('span', 'pl-wait-sub', r.text)); item.appendChild(tx);
+    const btn = payEl('button', 'submit-btn pill pl-wait-btn', r.action); btn.type = 'button';
+    btn.addEventListener('click', function(ev){ ev.stopPropagation(); act(); });
+    item.appendChild(btn); card.appendChild(item);
   });
+  sec.appendChild(card);
+  sec.appendChild(payEl('div', 'struct-caption', caption));
   return sec;
 }
 function payLaterEl(months){
@@ -657,7 +663,7 @@ function renderPaymentsScreen(){
   body.textContent = '';
   if(m.empty){ body.appendChild(payEl('div', 'mono-note', 'Найближчих платежів немає')); body.appendChild(payEl('div', 'struct-caption', m.caption)); }
   else body.appendChild(payTilesEl(m.tiles));
-  if(m.wait.length) body.appendChild(payWaitEl(m.wait));
+  if(m.wait.length) body.appendChild(payWaitEl(m.wait, m.waitTitle, m.waitCaption));
   if(m.window){
     body.appendChild(payEl('div', 'struct-group-label pl-winlabel', m.window.title + ' · ' + m.window.countText + ' · ' + m.window.sumText));
     m.window.days.forEach(function(g){ body.appendChild(payDayGroupEl(g)); });

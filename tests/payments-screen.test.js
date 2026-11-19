@@ -22,7 +22,7 @@ const DATA = { installments: [I('ПУМБ Dyson', 4), I('ПУМБ iPhone', 17), 
 test('Rev 2.32.418 (DS-PAYLIST): модель — плитки, «Чекає внесення», групи 14 днів, «Пізніше» по місяцях, картки без дати', function(){
   const m = model(DATA);
   assert.deepEqual(m.tiles.map(t => t.key), ['wait', 'week', 'rest']);
-  assert.equal(m.wait.length, 1); assert.equal(m.wait[0].name, 'ПУМБ Dyson'); assert.equal(m.wait[0].text, 'Платіж 4 жов ще не внесено у витрати'); assert.equal(m.wait[0].action, 'Внести платіж');
+  assert.equal(m.wait.length, 1); assert.equal(m.wait[0].name, 'ПУМБ Dyson'); assert.match(m.wait[0].text, /^Платіж 4 жов · ≈ 2\s000\s₴$/); assert.equal(m.wait[0].action, 'Внести'); assert.match(m.waitTitle, /^Чекає внесення · 1 · ≈ 2\s000\s₴$/); assert.match(m.waitCaption, /^Ці платежі ще не внесено у витрати\./);
   assert.equal(m.window.title, 'Найближчі 14 днів'); assert.equal(m.window.count, 4);
   assert.deepEqual(m.later.map(x => x.key), ['2026-10', '2026-11']); assert.equal(m.later[0].title, 'Жовтень'); assert.equal(m.later[1].title, 'Листопад');
   assert.equal(m.undated.length, 1); assert.equal(m.undated[0].name, 'Приват Банк');

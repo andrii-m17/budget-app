@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.419"><link rel="stylesheet" href="./css/app.css?v=2.32.419"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.420"><link rel="stylesheet" href="./css/app.css?v=2.32.420"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -875,7 +875,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.419</div>
+  <div class="version-footer">Money Tree · Rev 2.32.420</div>
 </div>
   </div>
 </div>
@@ -1661,16 +1661,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.419"></script>
-<script src="./js/util-date.js?v=2.32.419"></script>
-<script src="./js/util-safe.js?v=2.32.419"></script>
-<script src="./js/util-misc.js?v=2.32.419"></script>
-<script src="./js/diag.js?v=2.32.419"></script>
-<script src="./js/shell.js?v=2.32.419"></script>
-<script src="./js/structure.js?v=2.32.419"></script>
-<script src="./js/analytics.js?v=2.32.419"></script>
-<script src="./js/payments.js?v=2.32.419"></script>
-<script src="./js/sheets.js?v=2.32.419"></script>
+<script src="./js/util-format.js?v=2.32.420"></script>
+<script src="./js/util-date.js?v=2.32.420"></script>
+<script src="./js/util-safe.js?v=2.32.420"></script>
+<script src="./js/util-misc.js?v=2.32.420"></script>
+<script src="./js/diag.js?v=2.32.420"></script>
+<script src="./js/shell.js?v=2.32.420"></script>
+<script src="./js/structure.js?v=2.32.420"></script>
+<script src="./js/analytics.js?v=2.32.420"></script>
+<script src="./js/payments.js?v=2.32.420"></script>
+<script src="./js/sheets.js?v=2.32.420"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6761,7 +6761,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.419';
+const APP_VERSION = '2.32.420';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
