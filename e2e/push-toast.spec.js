@@ -71,18 +71,30 @@ test('PUSH-TOAST 3. daily-expense-reminder: «Переглянути» → «В�
   expect(await page.locator('.success-toast').textContent()).toContain('Друге');
   expect(errors).toEqual([]);
 });
-test('PUSH-TOAST знімки (DS_SHOTS_DIR): тост у темній і світлій темах, 390 і 320 pt', async ({ page }) => {
+test('PUSH-TOAST знімки (DS_SHOTS_DIR): тост з кнопкою, без кнопки і тост Monobank; темна й світла теми; 320, 390, 430 pt', async ({ page }) => {
   test.skip(!SHOTS, 'потрібен DS_SHOTS_DIR');
-  test.setTimeout(180000); fs.mkdirSync(SHOTS, { recursive: true });
-  for(const [w, h] of [[390, 844], [320, 700]]){
-    await page.setViewportSize({ width: w, height: h });
+  test.setTimeout(300000); fs.mkdirSync(SHOTS, { recursive: true });
+  const long = 'Учасниця внесла 12 витрат за сьогодні, перегляньте їх у журналі';
+  const names = ['btn', 'nobtn', 'mono'];
+  for(const w of [320, 390, 430]){
+    await page.setViewportSize({ width: w, height: 760 });
     await boot(page);
     for(const theme of ['dark', 'light']){
-      await page.evaluate(t => { document.documentElement.setAttribute('data-theme', t); switchTab('analytics'); document.querySelectorAll('.success-toast').forEach(e => e.remove()); successToastActive = null; }, theme);
-      await page.waitForTimeout(700);
-      await receive(page, 'other-actor-summary', { push_id: 's-' + theme + w }, 'Учасниця внесла 12 витрат');
-      await page.waitForTimeout(900);
-      await page.screenshot({ path: path.join(SHOTS, 'toast-' + w + '-' + theme + '.png'), clip: { x: 0, y: 0, width: w, height: 190 } });
+      for(const name of names){
+        await page.evaluate(t => { document.documentElement.setAttribute('data-theme', t); switchTab('analytics'); document.querySelectorAll('.success-toast').forEach(e => e.remove()); successToastActive = null; }, theme);
+        await page.waitForTimeout(500);
+        await page.evaluate(([n, long]) => {
+          if(n === 'btn') pushToastReceive({ title: 'Money Tree', body: long, data: { type: 'other-actor-summary', push_id: 'x' + Date.now() } });
+          else if(n === 'nobtn') showToast({ kind: 'info', icon: 'info', title: long, durationMs: 6000 });
+          else showToast({ kind: 'info', icon: 'info', title: 'Нова витрата Monobank', actionLabel: 'Переглянути', durationMs: 6000, onAction: function(){} });
+        }, [name, long]);
+        await page.waitForTimeout(900);
+        const m = await page.evaluate(() => { const t = document.querySelector('.success-toast'), b = t.querySelector('.success-toast-action'), ti = t.querySelector('.success-toast-title'); const lh = parseFloat(getComputedStyle(ti).lineHeight) || 1; return { toast: Math.round(t.getBoundingClientRect().width), btn: b ? Math.round(b.getBoundingClientRect().width) : 0, lines: Math.round(ti.getBoundingClientRect().height / lh), bg: getComputedStyle(t).backgroundColor }; });
+        expect(m.lines, name + ' ' + w + ': заголовок ≤ 2 рядків').toBeLessThanOrEqual(2);
+        if(m.btn) expect(m.btn, name + ' ' + w + ': кнопка за вмістом (текст + 2×12 px), без фіксованої частки ширини').toBeLessThanOrEqual(132);
+        expect(/rgba\(.*,\s*0?\.(9|92)\d*\)/.test(m.bg), 'фон ' + m.bg + ' щільний (.9/.92)').toBe(true);
+        await page.screenshot({ path: path.join(SHOTS, 'toast-' + w + '-' + theme + '-' + name + '.png'), clip: { x: 0, y: 0, width: w, height: 210 } });
+      }
     }
   }
 });
