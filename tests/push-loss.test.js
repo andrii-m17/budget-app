@@ -163,3 +163,11 @@ test('формат: декларативний лише mono-inbox + пілот 
   assert.equal(P.inboxTarget({ inbox_id: 'a-b_1' }), 'a-b_1');
   assert.equal(P.inboxTarget({ inbox_id: '../x' }), 'latest');
 });
+
+test('push_id читається лише з data.push_id, верхній рівень тіла ігнорується', async function () {
+  const w = mk();
+  await P.handlePush(req({ user_id: 'u1', title: 'T', push_id: PID, data: { type: 'test' } }), w.deps);
+  assert.equal(w.logs[0].push_id, null);
+  await P.handlePush(req({ user_id: 'u1', title: 'T', data: { type: 'test', push_id: PID } }), w.deps);
+  assert.equal(w.logs[1].push_id, PID);
+});
