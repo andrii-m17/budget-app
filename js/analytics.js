@@ -1124,15 +1124,16 @@ function balFlipPlan(card, pairs, toOpen){
   const cr0 = card.getBoundingClientRect();
   const first = pairs.map(function(p){ return rel(toOpen ? p.bottom : p.tile, cr0); });
   const styles = pairs.map(function(p){ const cs = getComputedStyle(toOpen ? p.bottom : p.tile); return { fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight, letterSpacing: cs.letterSpacing, lineHeight: cs.lineHeight, color: cs.color, textTransform: cs.textTransform }; });
-  card.classList.add('bal-measure');
+  const quiet = Array.prototype.slice.call(card.querySelectorAll('.bal-xp, .bal-xin')); // на час вимірювання переходи вимкнено інлайном (без !important)
+  quiet.forEach(function(el){ el.style.transition = 'none'; });
   card.classList.toggle('open', toOpen);
   const cr1 = card.getBoundingClientRect();
   const last = pairs.map(function(p){ return rel(toOpen ? p.tile : p.bottom, cr1); });
   const toFs = pairs.map(function(p){ return parseFloat(getComputedStyle(toOpen ? p.tile : p.bottom).fontSize) || 0; });
   const texts = pairs.map(function(p){ return balFlipText(toOpen ? p.bottom : p.tile, p.label); });
   card.classList.toggle('open', !toOpen);
-  void card.offsetHeight; // зафіксувати початковий стан до зняття .bal-measure
-  card.classList.remove('bal-measure');
+  void card.offsetHeight; // зафіксувати початковий стан до повернення переходів
+  quiet.forEach(function(el){ el.style.transition = ''; });
   return { first: first, last: last, styles: styles, toFs: toFs, texts: texts };
 }
 function balFlipRun(card, pairs, plan, toOpen){

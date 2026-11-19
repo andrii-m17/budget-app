@@ -2829,10 +2829,10 @@
 .bal-card.open > .bal-xp.bal-inv{ grid-template-rows:0fr; }
 .bal-card.open > .bal-xp.bal-inv .bal-xin{ opacity:0; transition-delay:0ms; }
 .bal-divider{ height:1px; background:var(--line); }
-/* Rev 2.32.415 (FIX-1119 п.10): FLIP-розгортання «Сімейного балансу»: копії значень летять між нижніми колонками й верхніми плитками (лише transform/opacity); .bal-measure вимикає переходи на час вимірювання */
+/* Rev 2.32.415 (FIX-1119 п.10): FLIP-розгортання «Сімейного балансу»: копії значень летять між нижніми колонками й верхніми плитками (лише transform/opacity) */
 .bal-card{ position:relative; }
 .bal-ghost{ position:absolute; left:0; top:0; margin:0; pointer-events:none; white-space:nowrap; transform-origin:0 0; z-index:5; will-change:transform, opacity; }
-.bal-measure, .bal-measure *{ transition:none !important; }
+/* час вимірювання: переходи .bal-xp/.bal-xin вимикаються інлайном із JS (balFlipPlan), без !important */
 .bal-cols{ display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-4); }
 .bal-lab{ display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-footnote); line-height:18px; font-weight:500; color:var(--text-2); }
 .bal-cv{ font-size:var(--fs-title3); line-height:26px; font-weight:600; white-space:nowrap; color:var(--text); }
