@@ -28,7 +28,8 @@ test('fix1119-flip-frames', async ({ browser }) => {
     });
     const clip = { x: 0, y: box.y, width: 390, height: box.h };
     for (const dir of ['open', 'close']) {
-      if (dir === 'close') { await page.evaluate(async () => { toggleBalanceCard(); await new Promise(r => setTimeout(r, 900)); }); }
+      // згортання знімаємо з розгорнутого стану (після фази open картка розгорнута): один toggle = анімація згортання
+      if (dir === 'close') { const isOpen = await page.evaluate(() => document.getElementById('bal-card').classList.contains('open')); if (!isOpen) throw new Error('перед згортанням картка має бути розгорнутою'); }
       await page.evaluate(() => { toggleBalanceCard(); });
       await page.evaluate(() => { document.getAnimations().forEach(a => a.pause()); });
       for (const pr of STEPS) {
@@ -38,9 +39,14 @@ test('fix1119-flip-frames', async ({ browser }) => {
       }
       await page.evaluate(() => { document.getAnimations().forEach(a => { try { a.finish(); } catch (e) {} }); });
       await page.waitForTimeout(500);
-      // повернути в початковий стан для наступного напряму: після close картка згорнута; після open — розгорнута
     }
     await ctx.close();
+  }
+  // перевірка: кадри розгортання й згортання різні (раніше збігалися побайтово)
+  const crypto = require('crypto');
+  for (const theme of ['dark', 'light']) for (const pr of STEPS.slice(1, -1)) {
+    const h = d => crypto.createHash('md5').update(fs.readFileSync(path.join(DIR, 'flip-' + d + '-' + theme + '-' + String(pr).padStart(3, '0') + '.png'))).digest('hex');
+    if (h('open') === h('close')) throw new Error('кадри open і close збігаються: ' + theme + ' ' + pr);
   }
   // контактні аркуші: один PNG на тему й напрям (6 кадрів у ряд)
   const page = await browser.newPage({ viewport: { width: 1240, height: 400 } });

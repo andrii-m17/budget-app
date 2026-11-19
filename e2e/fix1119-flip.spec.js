@@ -17,7 +17,7 @@ test('FLIP 1. розгортання: 4 копії (2 значення + 2 пі�
     await new Promise(r => setTimeout(r, 900));
     return { n: ghosts.length, props: Array.from(props).sort(), left: document.querySelectorAll('#bal-card .bal-ghost').length, v: document.getElementById('bal-v-inc').textContent, vo: getComputedStyle(document.getElementById('bal-v-inc')).opacity, c: document.getElementById('bal-c-inc-v').textContent };
   });
-  expect(info.n).toBe(4); expect(info.props).toEqual(['opacity', 'transform']); expect(info.left).toBe(0);
+  expect(info.n).toBe(4); expect(info.props).toEqual(['transform']); // одна копія без згасання (відповідь чату: ніколи дві копії) expect(info.left).toBe(0);
   expect(info.v).toBe(info.c); expect(info.vo).toBe('1');
 });
 test('FLIP 2. згортання: копії є, після кінця немає; нижні значення повернулись (opacity 1)', async ({ page }) => {

@@ -1147,11 +1147,11 @@ function balFlipRun(card, pairs, plan, toOpen){
     card.appendChild(g);
     const fs = parseFloat(st.fontSize) || 1, sc = plan.toFs[i] > 0 ? plan.toFs[i] / fs : 1, gh = g.getBoundingClientRect().height;
     const dx = l.x - f.x, dy = (l.y + l.h / 2) - f.y - gh * sc / 2; // вирівнювання за центром рядка
-    run(g, [{ transform: 'translate(0, 0) scale(1)', opacity: 1 }, { transform: 'translate(' + dx + 'px, ' + dy + 'px) scale(' + sc + ')', opacity: 1, offset: .7 }, { transform: 'translate(' + dx + 'px, ' + dy + 'px) scale(' + sc + ')', opacity: 0 }], base);
+    // Rev 2.32.416 (відповідь чату): ніколи дві копії суми — летить ОДНА копія (opacity 1 до кінця), справжні елементи (звідки й куди) приховані на весь час польоту; на кінці копія знімається, а значення в місці призначення з'являється одразу (balFlipClear)
+    run(g, [{ transform: 'translate(0, 0) scale(1)' }, { transform: 'translate(' + dx + 'px, ' + dy + 'px) scale(' + sc + ')' }], base);
     const src = toOpen ? p.bottom : p.tile, dst = toOpen ? p.tile : p.bottom;
-    src.style.opacity = '0'; // справжній елемент прихований, поки летить копія
+    src.style.opacity = '0';
     dst.style.opacity = '0';
-    run(dst, [{ opacity: 0 }, { opacity: 0, offset: .6 }, { opacity: 1 }], base);
   });
   const tiles = document.querySelectorAll('#bal-card .bal-kpi');
   Array.prototype.forEach.call(tiles, function(t, i){
