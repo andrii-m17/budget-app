@@ -953,8 +953,10 @@ function odoRender(el, text, replay){
   }else{
     let di = 0;
     const start = (replay && !reduced);
-    el.innerHTML = chars.map(function(c){
+    // Rev 2.32.409 (FIX-1119 п.1): пробіл МІЖ цифрами (група тисяч з fmt()) — окремий фіксований проміжок .odg (а не вузький символ пробілу, що на iPhone виглядав як «без пробілу» поруч із широкими стовпчиками цифр); ширина цифр рівна (tabular-nums у CSS)
+    el.innerHTML = chars.map(function(c, i){
       if(/\d/.test(c)){ const d = digits[di++]; return '<span class="od"><span class="odc z" style="--d:' + (start ? 0 : d) + '">0\n1\n2\n3\n4\n5\n6\n7\n8\n9</span></span>'; }
+      if(/\s/.test(c) && /\d/.test(chars[i - 1] || '') && /\d/.test(chars[i + 1] || '')) return '<span class="odx odg" aria-hidden="true"></span>';
       return '<span class="odx">' + escapeHtml(c) + '</span>';
     }).join('');
     el.dataset.odoShape = shape;

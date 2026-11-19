@@ -36,11 +36,33 @@ test('CSS: розміри макета (h40, 0 16, pill, gap 8), fixed під sa
   assert.ok(/\.mini-head\.mh-noblur\{ background:var\(--surface\); \}/.test(CSS));
   assert.ok(/prefers-reduced-motion: reduce\)\{ \.mini-head, \.mini-head\.on\{ transition:none; \} \}/.test(CSS));
 });
-test('фон капсули щільніший за таббар: --glass-press (не --glass), розмиття лишилось (Rev 2.32.367)', function(){
+test('фон капсули — звичайне скло таббара --glass (Rev 2.32.409, повернення з 2.32.367), розмиття лишилось', function(){
   const r = (CSS.match(/\.mini-head\{[^}]*\}/) || [''])[0];
-  assert.ok(/background:var\(--glass-press\);/.test(r) && !/background:var\(--glass\)/.test(r));
+  assert.ok(/background:var\(--glass\);/.test(r) && !/background:var\(--glass-press\)/.test(r));
   assert.ok(/\.mini-head:not\(\.mh-noblur\)\.on\{ -webkit-backdrop-filter:blur\(24px\) saturate\(180%\)/.test(CSS));
 });
 test('розмітка: кнопка з aria-label «Повернутися нагору»', function(){
   assert.ok(/<button type="button" class="mini-head" id="mini-head" aria-label="Повернутися нагору"/.test(SRC));
+});
+
+// Rev 2.32.409 (FIX-1119 п.3): без тексту капсула не показується
+test('ready:false (немає місяця або «Баланс») — капсулу не показуємо; без ready (старі виклики) поведінка та сама', function(){
+  assert.equal(c.miniHeadShouldShow(Object.assign({}, ok, { ready: false })), false);
+  assert.equal(c.miniHeadShouldShow(Object.assign({}, ok, { ready: true })), true);
+  assert.equal(c.miniHeadShouldShow(ok), true);
+});
+test('miniHeadHasText: потрібні місяць і скінченний «Баланс»; «—» або порожнє — ні', function(){
+  const mk = function(month, bal, sav){
+    const els = { 'mini-head-month': { textContent: month }, 'mini-head-bal': { textContent: bal } };
+    return buildSandbox({ document: { getElementById: function(id){ return els[id] || null; } }, lastDashSavings: sav }, ['miniHeadHasText']);
+  };
+  assert.equal(mk('лис', '−9 535 ₴', -9535).miniHeadHasText(), true);
+  assert.equal(mk('', '−9 535 ₴', -9535).miniHeadHasText(), false, 'без місяця');
+  assert.equal(mk('лис', '—', null).miniHeadHasText(), false, 'без залишку');
+  assert.equal(mk('лис', '', 5).miniHeadHasText(), false);
+  assert.equal(mk('лис', '0 ₴', 0).miniHeadHasText(), true, 'нуль — це значення');
+});
+test('miniHeadRefresh перед показом перемальовує текст і передає ready', function(){
+  const fn = SRC.slice(SRC.indexOf('function miniHeadRefresh'), SRC.indexOf('function miniHeadOnScroll'));
+  assert.ok(/miniHeadPaint\(\);/.test(fn) && /ready: miniHeadHasText\(\)/.test(fn));
 });

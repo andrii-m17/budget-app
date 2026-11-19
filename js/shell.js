@@ -1478,8 +1478,9 @@ function updateScrollTopBtn(){
 const MINI_HEAD_SHOW_Y = 150;
 const MINI_HEAD_BLUR = true;
 // Чиста функція: s = { tab, y, max, kb, drawer } → чи показувати капсулу
+// Rev 2.32.409 (FIX-1119 п.3): без тексту капсула не показується (s.ready === false: місяць або «Баланс» ще не відомі — скло було порожнім, коли її показував скрол раніше за перший renderDashboard / після зміни місяця).
 function miniHeadShouldShow(s){
-  return !!s && s.tab === 'analytics' && s.y > MINI_HEAD_SHOW_Y && s.max > 48 && !s.kb && !s.drawer;
+  return !!s && s.tab === 'analytics' && s.y > MINI_HEAD_SHOW_Y && s.max > 48 && !s.kb && !s.drawer && s.ready !== false;
 }
 let lastDashSavings = null; // «Баланс» місяця — те саме значення, що renderDashboard показує в #kpi-savings (monthAggregates → savings); нових формул немає
 let miniHeadLast = { y: 0, max: 0 };
@@ -1488,9 +1489,14 @@ function miniHeadPaint(){
   if(selectedMonth) m.textContent = monthShortName(selectedMonth, monthKey(localDateISO()));
   b.textContent = (typeof lastDashSavings === 'number' && isFinite(lastDashSavings)) ? fmt(lastDashSavings) : '—';
 }
+function miniHeadHasText(){
+  const m = document.getElementById('mini-head-month'), b = document.getElementById('mini-head-bal');
+  return !!m && !!b && m.textContent.trim() !== '' && typeof lastDashSavings === 'number' && isFinite(lastDashSavings) && b.textContent.trim() !== '' && b.textContent.trim() !== '—';
+}
 function miniHeadRefresh(){
   const el = document.getElementById('mini-head'); if(!el) return;
-  const on = miniHeadShouldShow({ tab: lastActiveTab, y: miniHeadLast.y, max: miniHeadLast.max, kb: document.body.classList.contains('kb-open'), drawer: !!document.querySelector('.drawer.open, .app-modal.open') });
+  miniHeadPaint(); // Rev 2.32.409 (FIX-1119 п.3): текст завжди свіжий перед показом (місяць міг змінитись без renderDashboard)
+  const on = miniHeadShouldShow({ ready: miniHeadHasText(), tab: lastActiveTab, y: miniHeadLast.y, max: miniHeadLast.max, kb: document.body.classList.contains('kb-open'), drawer: !!document.querySelector('.drawer.open, .app-modal.open') });
   if(el.classList.contains('on') !== on){ el.classList.toggle('on', on); el.setAttribute('aria-hidden', on ? 'false' : 'true'); el.tabIndex = on ? 0 : -1; }
 }
 function miniHeadOnScroll(s){ miniHeadLast = { y: s.y, max: s.max }; miniHeadRefresh(); }
