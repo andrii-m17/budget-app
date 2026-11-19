@@ -105,3 +105,44 @@ test('19. PUSH-2: застосунок знову активний, є нові 
   await page.waitForTimeout(1200);
   expect(await page.locator('.success-toast').count()).toBe(0);
 });
+
+// Rev 2.32.405 (BUG-PUSH-OPEN): дотик до сповіщення веде на екран у кожному стані; повтор пропускається лише для тієї самої події кліку.
+async function pushBoot(page){
+  await page.goto('/index.html?fixture=typical');
+  await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && typeof queuePushAction === 'function' && document.querySelector('.tabbar-glass'));
+  await page.waitForTimeout(1200);
+  await page.evaluate(() => { window.__vis = 'visible'; Object.defineProperty(document, 'visibilityState', { configurable: true, get(){ return window.__vis; } }); });
+}
+const goTab = (page, t) => page.evaluate(x => { switchTab(x); }, t);
+test('PUSH-OPEN 1. застосунок відкритий: клік (message) → екран «Борги»; повтор тієї самої події — ні, новий дотик — так', async ({ page }) => {
+  await pushBoot(page); await goTab(page, 'vytraty'); await page.waitForTimeout(600);
+  const at = String(Date.now());
+  await page.evaluate(a => queuePushAction({ type: 'monthly-debt-reminder', _at: a }, 'message'), at);
+  await expect.poll(() => activeTab(page), { timeout: 6000 }).toBe('accounting');
+  await goTab(page, 'vytraty'); await page.waitForTimeout(600);
+  await page.evaluate(a => queuePushAction({ type: 'monthly-debt-reminder', _at: a }, 'message'), at);
+  await page.waitForTimeout(1500);
+  expect(await activeTab(page), 'той самий клік вдруге не веде').toBe('vytraty');
+  await page.evaluate(() => queuePushAction({ type: 'monthly-debt-reminder', _at: String(Date.now() + 1) }, 'message'));
+  await expect.poll(() => activeTab(page), { timeout: 6000 }).toBe('accounting');
+});
+test('PUSH-OPEN 2. запис з IndexedDB (pageshow) під час hidden, потім message з тією ж міткою у видимій сторінці: екран відкривається (було: duplicate)', async ({ page }) => {
+  await pushBoot(page); await goTab(page, 'vytraty'); await page.waitForTimeout(600);
+  const at = String(Date.now());
+  await page.evaluate(() => { window.__vis = 'hidden'; });
+  await page.evaluate(a => queuePushAction({ type: 'monthly-debt-reminder', _at: a }, 'idb-pageshow'), at);
+  await page.waitForTimeout(1500);
+  expect(await activeTab(page), 'поки hidden — на місці').toBe('vytraty');
+  await page.evaluate(() => { window.__vis = 'visible'; });
+  await page.evaluate(a => queuePushAction({ type: 'monthly-debt-reminder', _at: a }, 'message'), at);
+  await expect.poll(() => activeTab(page), { timeout: 6000 }).toBe('accounting');
+});
+test('PUSH-OPEN 3. у фоні й після сну: дія чекає видимості й виконується один раз (visibilitychange)', async ({ page }) => {
+  await pushBoot(page); await goTab(page, 'vytraty'); await page.waitForTimeout(600);
+  await page.evaluate(() => { window.__vis = 'hidden'; });
+  await page.evaluate(() => queuePushAction({ type: 'monthly-debt-reminder', _at: String(Date.now()) }, 'message'));
+  await page.waitForTimeout(1200);
+  expect(await activeTab(page)).toBe('vytraty');
+  await page.evaluate(() => { window.__vis = 'visible'; document.dispatchEvent(new Event('visibilitychange')); });
+  await expect.poll(() => activeTab(page), { timeout: 6000 }).toBe('accounting');
+});

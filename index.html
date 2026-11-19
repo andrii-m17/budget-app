@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.404"><link rel="stylesheet" href="./css/app.css?v=2.32.404"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.405"><link rel="stylesheet" href="./css/app.css?v=2.32.405"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -876,7 +876,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.404</div>
+  <div class="version-footer">Money Tree · Rev 2.32.405</div>
 </div>
   </div>
 </div>
@@ -1661,16 +1661,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.404"></script>
-<script src="./js/util-date.js?v=2.32.404"></script>
-<script src="./js/util-safe.js?v=2.32.404"></script>
-<script src="./js/util-misc.js?v=2.32.404"></script>
-<script src="./js/diag.js?v=2.32.404"></script>
-<script src="./js/shell.js?v=2.32.404"></script>
-<script src="./js/structure.js?v=2.32.404"></script>
-<script src="./js/analytics.js?v=2.32.404"></script>
-<script src="./js/payments.js?v=2.32.404"></script>
-<script src="./js/sheets.js?v=2.32.404"></script>
+<script src="./js/util-format.js?v=2.32.405"></script>
+<script src="./js/util-date.js?v=2.32.405"></script>
+<script src="./js/util-safe.js?v=2.32.405"></script>
+<script src="./js/util-misc.js?v=2.32.405"></script>
+<script src="./js/diag.js?v=2.32.405"></script>
+<script src="./js/shell.js?v=2.32.405"></script>
+<script src="./js/structure.js?v=2.32.405"></script>
+<script src="./js/analytics.js?v=2.32.405"></script>
+<script src="./js/payments.js?v=2.32.405"></script>
+<script src="./js/sheets.js?v=2.32.405"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6761,7 +6761,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.404';
+const APP_VERSION = '2.32.405';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8356,7 +8356,12 @@ function pushApplyDiag(result, reason, pushType){
 function queuePushAction(action, source){
   if(!action || !action.type) return false;
   const stamp = action._at || action.at || null;
-  if(isDuplicatePushStamp(handledPushStamps, stamp)){ pushApplyDiag('skipped', 'duplicate', action.type); return false; } // Rev 2.32.41 (F): причина пропуску — у діагностику
+  if(isDuplicatePushStamp(handledPushStamps, stamp)){
+    // Rev 2.32.405 (BUG-PUSH-OPEN, клас C): мітка кліку вже відома, але якщо дію ще НЕ виконано (запис з IndexedDB прийшов на pageshow, поки сторінка була hidden, і чекає видимості), той самий клік у видимій сторінці має її запустити, а не відсікатися як «дубль». Справжнім дублем є лише клік, чия дія вже виконана (used) або чекає запуску (scheduled). Отримання сповіщення мітки не ставить: вона є лише в notificationclick (sw.js).
+    const pp = pendingPush;
+    if(pp && String(pp.action._at || pp.action.at || '') === String(stamp) && pendingPushState(pp, Date.now()) === 'ready' && !pp.scheduled){ pushApplyDiag('retry', 'pending-' + source, action.type); runPendingPushAction(source); return true; }
+    pushApplyDiag('skipped', 'duplicate', action.type); return false; // Rev 2.32.41 (F): причина пропуску — у діагностику
+  }
   if(stamp && /^\d+$/.test(String(stamp)) && Date.now() - Number(stamp) > PUSH_PENDING_TTL_MS){ pushApplyDiag('skipped', 'stale', action.type); return false; } // застарілий клік (напр. запис в IndexedDB лишився з минулого разу)
   if(stamp){ handledPushStamps.push(String(stamp)); if(handledPushStamps.length > 20) handledPushStamps.shift(); }
   pendingPush = createPendingPush(action, Date.now());
@@ -8380,7 +8385,7 @@ function runPendingPushAction(reason){
   // «used» ставиться лише коли дію реально виконано; якщо сторінку сховали до rAF (rAF у прихованій сторінці не спрацьовує) — дія лишається очікуваною до наступного тригера. Таймер 600 мс — запасний шлях, якщо rAF затримано.
   const go = function(){
     if(fired) return; fired = true;
-    if(document.visibilityState !== 'visible'){ p.scheduled = false; return; }
+    if(document.visibilityState !== 'visible'){ p.scheduled = false; setTimeout(function(){ runPendingPushAction('retry'); }, 700); return; } // Rev 2.32.405 (BUG-PUSH-OPEN): сторінку сховали до виконання — одна відкладена повторна спроба (далі — visibilitychange/pageshow/focus/повтор кліку); без зациклення: runPendingPushAction нічого не робить, поки сторінка hidden
     p.used = true; // рівно один раз
     Promise.resolve(handlePushAction(p.action)).then(function(done){
       pushApplyDiag('opened', reason, p.action.type);
