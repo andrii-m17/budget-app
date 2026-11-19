@@ -4,15 +4,17 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'send-push-notification', 'index.ts'), 'utf8');
+// PUSH-LOSS: логіка перенесена в _shared/push.ts; охорона читає обидва файли разом.
+const FN = path.join(__dirname, '..', 'supabase', 'functions');
+const SRC = fs.readFileSync(path.join(FN, 'send-push-notification', 'index.ts'), 'utf8') + '\n' + fs.readFileSync(path.join(FN, '_shared', 'push.ts'), 'utf8');
 test('v12: декларативний формат лише для mono-inbox, користувача з секрету й пристрою з app_visible === true', () => {
-  assert.match(SRC, /type === "mono-inbox" && DECLARATIVE_USERS\.has\(userId\) && appVisible === true \? "declarative" : "legacy"/);
+  assert.match(SRC, /type === "mono-inbox" && users\.has\(userId\) && appVisible === true \? "declarative" : "legacy"/);
   assert.match(SRC, /Deno\.env\.get\("DECLARATIVE_PUSH_USERS"\)/);
   assert.match(SRC, /\.select\("id, endpoint, p256dh, auth, app_visible"\)/);
 });
 test('v12: формат повідомлення за ТЗ (web_push 8030, notification з navigate на #mono/<id>, верхні title/body/data)', () => {
   assert.match(SRC, /web_push: 8030/);
-  assert.match(SRC, /navigate: `\$\{APP_URL\}#mono\/\$\{inboxTarget\(notifData\)\}`/);
+  assert.match(SRC, /navigate: `\$\{deps\.appUrl\}#mono\/\$\{inboxTarget\(notifData\)\}`/);
   assert.match(SRC, /const APP_URL = "https:\/\/[a-z0-9-]+\.github\.io\/budget-app\/index\.html";/); // PRIV-2a: форма адреси, без облікового запису в тесті
   assert.match(SRC, /lang: "uk",\s*\n\s*tag: "mono-inbox"/);
   assert.match(SRC, /\/\^\[A-Za-z0-9_-\]\{1,64\}\$\/\.test\(id\) \? id : "latest"/);
