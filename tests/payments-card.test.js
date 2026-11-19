@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = require('./extract').readIndexWithCss();
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'upcomingPayments', 'findAccountMonthDebt', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payPlural', 'pickCardVariant', 'payCompactAmount', 'payAmountShortText', 'payNextLadder', 'payNamesParts', 'payPartsText', 'payUnconfirmedParts', 'payUnconfirmedLadder', 'payNoDayParts', 'paymentsCardModel']);
+const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'upcomingPayments', 'findAccountMonthDebt', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payPlural', 'pickCardVariant', 'payCompactAmount', 'payAmountShortText', 'payNextLadder', 'payNamesParts', 'payPartsText', 'payUnconfirmedParts', 'payUnconfirmedLadder', 'payNoDayParts', 'paySameDaySum', 'paymentsCardModel']);
 const I = function(name, dueDay){ return { name: name, dueDay: dueDay }; };
 const D = function(name, month, extra){ return Object.assign({ kind: 'installment', name: name, month: month }, extra || {}); };
 function model(o){
@@ -135,4 +135,30 @@ test('CARD-1: охоронні — немає ellipsis/overflow:hidden у ряд
   const fn = SRC.slice(SRC.indexOf('function renderPaymentsCard'), SRC.indexOf('/* ============ Екран «Платежі» і дії'));
   assert.match(fn, /fitPaymentsCard\(host\);/); assert.match(fn, /new ResizeObserver\(/); assert.match(fn, /function fitPaymentsCard\(host\)/);
   assert.match(fn, /pickCardVariant\(function\(i\)/);
+});
+
+// Rev 2.32.410 (FIX-1119 п.4): кілька платежів одного дня в рядку «Наступний»
+test('два ОЧ в один день: «Наступний · Пт 20 · 2 платежі», сума обох (≈ якщо хоч одна очікувана), дата для дотику', function(){
+  const mk = function(extra){
+    const r = c.upcomingPayments({ today: '2026-11-19', horizonDays: 7, installments: [I('Моно Ноутбук1', 20), I('Моно Ноутбук2', 20)], cards: [],
+      debtsByMonth: [D('Моно Ноутбук1', '2026-11', { monthlyPayment: 4200 }), D('Моно Ноутбук2', '2026-11', Object.assign({ monthlyPayment: 900 }, extra || {}))], expenses: [] });
+    return j(c.paymentsCardModel(r, '2026-11-19', true));
+  };
+  const m = mk();
+  assert.equal(m.next.label, 'Наступний · Пт 20 · 2 платежі'); assert.equal(m.next.date, '2026-11-20'); assert.equal(m.next.count, 2);
+  assert.match(m.next.amount, /^5\s100\s₴$/, 'сума ОБОХ, не лише першого');
+  assert.ok(m.next.ladder.every(function(x){ return !/Ноутбук/.test(x); }) && /2 платежі/.test(m.next.ladder[0]));
+  const one = j(c.paymentsCardModel(c.upcomingPayments({ today: '2026-11-19', horizonDays: 7, installments: [I('Моно Ноутбук1', 20)], cards: [], debtsByMonth: [D('Моно Ноутбук1', '2026-11', { monthlyPayment: 4200 })], expenses: [] }), '2026-11-19', true));
+  assert.equal(one.next.label, 'Наступний · Пт 20 · Моно Ноутбук1'); assert.equal(one.next.count, 1);
+});
+test('paySameDaySum: відомі суми додаються; невідома або очікувана → estimated; усі без суми → null', function(){
+  assert.deepEqual(j(c.paySameDaySum([{ amount: 100 }, { amount: 50 }])), { amount: 150, estimated: false });
+  assert.deepEqual(j(c.paySameDaySum([{ amount: 100 }, { amount: null }])), { amount: 100, estimated: true });
+  assert.deepEqual(j(c.paySameDaySum([{ amount: 100, estimated: true }, { amount: 5 }])), { amount: 105, estimated: true });
+  assert.deepEqual(j(c.paySameDaySum([{ amount: null }, { amount: null }])), { amount: null, estimated: false });
+});
+test('рядок «Наступний» відкриває «Платежі» на даті платежу (stopPropagation, не на шар усієї картки)', function(){
+  const fn = SRC.slice(SRC.indexOf('function renderPaymentsCard'), SRC.indexOf('let payCardRO'));
+  assert.ok(/l\.classList\.add\('tap'\); l\.addEventListener\('click', function\(ev\)\{ ev\.stopPropagation\(\); openAll\(m\.next\.date\); \}\)/.test(fn));
+  assert.match(SRC, /\.pay-line1\.tap\{ pointer-events:auto;/);
 });

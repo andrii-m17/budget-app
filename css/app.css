@@ -1074,6 +1074,7 @@
   .pay-line1{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); min-height:34px; font-size:var(--fs-subhead); }
   .pay-line1 .l{ min-width:0; color:var(--text-2); white-space:nowrap; } /* Rev 2.32.84 (CARD-1): без overflow:hidden і «…» — текст підбирається драбиною (fitPaymentsCard) */
   .pay-line1 .r{ flex:none; font-weight:700; font-variant-numeric:tabular-nums; }
+  .pay-line1.tap{ pointer-events:auto; cursor:pointer; touch-action:manipulation; } /* Rev 2.32.410 (FIX-1119 п.4): рядок «Наступний» відкриває день платежу */
   .pay-calm{ font-size:var(--fs-subhead); font-weight:700; padding:var(--sp-2) 0 0; white-space:nowrap; }
   .pay-msgs{ border-top:1px solid var(--line); }
   .pay-msg{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); min-height:34px; font-size:var(--fs-footnote); color:var(--text-2); }

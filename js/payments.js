@@ -334,6 +334,12 @@ function payUnconfirmedLadder(names){ return payUnconfirmedParts(names).map(payP
 function payNoDayParts(names){ return payNamesParts('ОЧ без дати · ' + names.length, names); }
 // Підсвічений день смуги (Rev 2.32.167: завжди синє скло, без варіанта «скоро»): найближчий платіж; у смузі він завжди не сплачений повністю (upcomingPayments відсіває сплачені через installmentPaidFull).
 // Модель компактної картки (без DOM; Rev 2.32.71). r — результат upcomingPayments (horizon 7). Стани: week / empty / allpaid.
+// Rev 2.32.410 (FIX-1119 п.4): підсумок кількох платежів одного дня як один «умовний» платіж: сума відомих; estimated, якщо хоч один очікуваний або без суми; усі без суми — amount:null
+function paySameDaySum(items){
+  const known = items.filter(function(x){ return x.amount != null; });
+  if(!known.length) return { amount: null, estimated: false };
+  return { amount: known.reduce(function(a, x){ return a + x.amount; }, 0), estimated: known.length < items.length || items.some(function(x){ return !!x.estimated; }) };
+}
 function paymentsCardModel(r, today, hasAccounts){
   if(!hasAccounts) return { hidden: true };
   const m = { hidden: false, window: '7 днів', total: null, totalShort: null, headLadder: [{ title: 'Найближчі платежі', window: '7 днів' }, { title: 'Найближчі платежі', window: '' }, { title: 'Платежі', window: '' }],
@@ -359,7 +365,11 @@ function paymentsCardModel(r, today, hasAccounts){
     m.totalShort = (r.load.total === 0 && r.load.unknown > 0) ? m.total : (r.load.estimated ? '≈ ' : '') + payCompactAmount(r.load.total) + ' ₴';
     const f = r.items[0];
     const dp = payDow(f.date) + ' ' + (+f.date.slice(8, 10));
-    m.next = { label: (f.overdue ? 'Прострочено' : 'Наступний') + ' · ' + dp + ' · ' + f.name, amount: payAmountText(f), amountShort: payAmountShortText(f), ladder: payNextLadder(dp, f.name, !!f.overdue), overdue: !!f.overdue };
+    // Rev 2.32.410 (FIX-1119 п.4): кілька платежів одного дня — рядок «Наступний · Пт 20 · 2 платежі» із сумою ВСІХ платежів дня (≈, якщо хоч одна очікувана чи невідома), дотик відкриває екран «Платежі» на цій даті; раніше показувався лише перший («… Ноутбук 1»)
+    const same = r.items.filter(function(x){ return x.date === f.date; });
+    const nameTxt = same.length > 1 ? same.length + ' ' + payPlural(same.length) : f.name;
+    const sumItem = same.length > 1 ? paySameDaySum(same) : f;
+    m.next = { label: (f.overdue ? 'Прострочено' : 'Наступний') + ' · ' + dp + ' · ' + nameTxt, amount: payAmountText(sumItem), amountShort: payAmountShortText(sumItem), ladder: payNextLadder(dp, nameTxt, !!f.overdue), overdue: !!f.overdue, date: f.date, count: same.length };
   }else if(nextItem && nextItem.month === today.slice(0, 7)){
     m.state = 'empty'; m.calm = 'Тиждень без платежів';
     const dp = payDow(nextItem.date) + ' ' + payDateShort(nextItem.date);
@@ -437,6 +447,7 @@ function renderPaymentsCard(){
     lt._payLadder = m.next.ladder; lt._payAmt = { el: rt, full: m.next.amount, short: m.next.amountShort };
     const lw = payEl('span', 'lw'); lw.appendChild(payIconFor('next')); lw.appendChild(lt); // Rev 2.32.160: календар перед текстом
     l.appendChild(lw); l.appendChild(rt); host.appendChild(l);
+    if(m.next.date){ l.classList.add('tap'); l.addEventListener('click', function(ev){ ev.stopPropagation(); openAll(m.next.date); }); } // Rev 2.32.410 (FIX-1119 п.4): дотик по рядку «Наступний» відкриває «Платежі» на дні цього платежу
   }
   if(m.done){
     const d = payEl('div', 'pay-done'); const ico = payEl('span', 'pay-done-ico'); ico.innerHTML = PAY_CHECK_SVG; d.appendChild(ico);
