@@ -1339,12 +1339,13 @@ function donutModel(items, maxNamed, base){
   if(list.length - mx > 1){ head = list.slice(0, mx); rest = list.slice(mx); } // «Решта» лише коли в них щонайменше дві позиції
   const raw = head.map(function(i){ return { key: i.key, name: i.name, sum: Number(i.sum), icon: i.icon || '', parent: i.parent || '', other: false, restKeys: [] }; });
   if(rest.length) raw.push({ key: '__other', name: 'Решта', sum: rest.reduce(function(s, i){ return s + Number(i.sum); }, 0), icon: '📦', parent: '', other: true, restKeys: rest.map(function(i){ return i.key; }) });
+  // Rev 2.32.412 (FIX-1119 п.6–7): сектори ДІЛЯТЬ ВСЕ коло між собою (дуга = частка серед показаних позицій, arc), а відсоток у підписі й списку — від усіх витрат місяця (share/pct, рішення 18.11); сірої доріжки більше немає. У «Категоріях» base = сума позицій, тож arc = share. Підпис ховається, якщо дуга вужча за DONUT_LABEL_MIN (не вміщується).
   let a = 0;
   const segs = raw.map(function(s){
-    const share = s.sum / total * 100, mid = (a + share / 2) / 100 * 2 * Math.PI - Math.PI / 2, single = raw.length === 1 && total === covered;
-    const out = Object.assign({}, s, { share: share, pct: Math.round(share), label: share >= DONUT_LABEL_MIN,
-      dash: single ? 100 : Math.max(share - 0.8, 0.3), offset: single ? -a : -(a + 0.4), lx: 104 + DONUT_R * Math.cos(mid), ly: 104 + DONUT_R * Math.sin(mid) });
-    a += share;
+    const share = s.sum / total * 100, arc = s.sum / covered * 100, mid = (a + arc / 2) / 100 * 2 * Math.PI - Math.PI / 2, single = raw.length === 1;
+    const out = Object.assign({}, s, { share: share, arc: arc, pct: Math.round(share), label: arc >= DONUT_LABEL_MIN,
+      dash: single ? 100 : Math.max(arc - 0.8, 0.3), offset: single ? -a : -(a + 0.4), lx: 104 + DONUT_R * Math.cos(mid), ly: 104 + DONUT_R * Math.sin(mid) });
+    a += arc;
     return out;
   });
   return { total: total, covered: covered, count: list.length, empty: false, segs: segs };
@@ -1440,7 +1441,7 @@ function renderBalDonut(){
   const wrap = document.getElementById('bal-sunwrap'); if(!wrap || !balCatData) return;
   const items = balCatItems(), model = donutModel(items, 5, balCatBase());
   if(model.empty){ wrap.innerHTML = '<svg viewBox="0 0 36 36" role="img" aria-label="Немає витрат"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--surface-2)" stroke-width="7.4"/></svg><button type="button" class="bal-suc" id="bal-sunc" aria-label="Скинути вибір"></button>'; applyCatSel(); return; }
-  let segs = model.total > model.covered + 0.5 ? '<circle class="bal-track" cx="18" cy="18" r="14" fill="none" stroke="var(--surface-2)" stroke-width="7.4"/>' : ''; // Rev 2.32.398 (FIX-SUB): неохоплена частка витрат — нейтральна доріжка
+  let segs = ''; // Rev 2.32.412 (FIX-1119 п.6): сірої доріжки немає — сектори ділять усе коло
   let labs = '';
   model.segs.forEach(function(s, i){
     const col = catColor(s, balCatMode, balCatData.cats, balCatData.subs);
@@ -1458,7 +1459,7 @@ function catsSheetHtml(){
   const items = balCatItems(), max = items.length ? items[0].sum : 0;
   const rows = items.map(function(i){ return catRowHtml(i, max, balCatMode, catColor(i, balCatMode, balCatData.cats, balCatData.subs), true); }).join('');
   return '<div class="bal-seg2" id="bal-cat-seg-s"><div class="ind"></div><button type="button" aria-pressed="true" data-m="cat">Категорії</button><button type="button" aria-pressed="false" data-m="sub">Підкатегорії</button></div>' +
-    '<div class="bal-sunwrap" id="bal-sunwrap"></div><div class="bal-hint">Сектор показує частку витрат місяця. Торкніться сектора або рядка.</div><div id="bal-call">' + (rows || '<div class="empty-hint">' + (balCatMode === 'sub' && balCatData && balCatData.total > 0 ? 'Немає витрат із підкатегоріями' : 'Немає витрат за цей місяць') + '</div>') + '</div>';
+    '<div class="bal-sunwrap" id="bal-sunwrap"></div><div class="bal-hint">' + (balCatMode === 'sub' ? 'Кільце порівнює підкатегорії між собою; відсотки — від усіх витрат місяця. Торкніться сектора або рядка.' : 'Сектор показує частку витрат місяця. Торкніться сектора або рядка.') + '</div><div id="bal-call">' + (rows || '<div class="empty-hint">' + (balCatMode === 'sub' && balCatData && balCatData.total > 0 ? 'Немає витрат із підкатегоріями' : 'Немає витрат за цей місяць') + '</div>') + '</div>';
 }
 let balCatSheetSig = null;
 function renderCatsSheet(force){

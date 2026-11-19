@@ -2936,7 +2936,8 @@
 .bal-suc .bal-cpos{ color:var(--income-text); font-weight:600; }
 .bal-suc .bal-cpos.up{ color:var(--expense); }
 .bal-dl{ position:absolute; transform:translate(-50%, -50%); display:flex; flex-direction:column; align-items:center; font-size:var(--fs-caption2); line-height:11px; font-weight:700; color:var(--on-ring); text-shadow:0 1px 2px var(--on-ring-shadow); pointer-events:none; transition:opacity var(--t-s) var(--ease-standard); animation:balFade var(--t-m) var(--ease-standard) backwards; animation-delay:calc(var(--n) * var(--bal-dl-step) + var(--bal-dl-base)); }
-.bal-dl i{ font-style:normal; font-size:var(--fs-subhead); line-height:16px; text-shadow:none; }
+.bal-dl{ gap:var(--sp-1); } /* Rev 2.32.412 (FIX-1119 п.7): відступ між емодзі й відсотком */
+.bal-dl i{ font-style:normal; font-size:var(--fs-subhead); line-height:18px; text-shadow:none; }
 .bal-dl.dim{ opacity:.2; }
 .bal-hint{ margin-top:calc(var(--sp-2) * -1); font-size:var(--fs-caption1); line-height:16px; text-align:center; color:var(--text-3); }
 /* ===== Rev 2.32.390 (DS-5c-2): картка «Потенціал економії» (макет analytics-ds v18). Лише токени; розкриття — клас .bal-card (як у «Сімейному балансі»). ===== */

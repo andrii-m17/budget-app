@@ -113,13 +113,26 @@ test('охоронне: анімація дуги вимикається при 
   assert.ok(/const items = balCatItems\(\), model = donutModel\(items, 5, balCatBase\(\)\)/.test(SRC), 'кільце будується з позицій поточного режиму');
 });
 
-test('FIX-SUB: donutModel з базою — частки від усіх витрат, кільце заповнене частково (решта — доріжка), одна підкатегорія не стає повним колом', () => {
+test('FIX-1119 п.6: donutModel з базою — відсотки від усіх витрат, але сектори ділять ВСЕ коло між собою (без доріжки)', () => {
   const items = [{ key: 's:a', name: 'a', sum: 2000 }, { key: 's:b', name: 'b', sum: 1000 }];
   const m = j('donutModel(' + JSON.stringify(items) + ', 5, 10000)');
   assert.equal(m.total, 10000); assert.equal(m.covered, 3000);
-  assert.deepEqual(m.segs.map(s => s.pct), [20, 10]); assert.ok(Math.abs(m.segs.reduce((s, x) => s + x.share, 0) - 30) < 1e-9, 'сектори займають 30 % кола');
+  assert.deepEqual(m.segs.map(s => s.pct), [20, 10], 'відсотки — від усіх витрат (рішення 18.11)');
+  assert.ok(Math.abs(m.segs.reduce((s, x) => s + x.arc, 0) - 100) < 1e-9, 'дуги займають 100 % кола');
+  assert.ok(Math.abs(m.segs[0].arc - 66.6667) < 1e-3 && Math.abs(m.segs[1].arc - 33.3333) < 1e-3, 'дуга = частка серед підкатегорій');
+  assert.ok(Math.abs(m.segs[0].dash - (m.segs[0].arc - 0.8)) < 1e-9, 'довжина дуги з arc, не з share');
   const one = j('donutModel([{ key: "s:a", name: "a", sum: 2500 }], 5, 10000)');
-  assert.ok(one.segs[0].dash < 30, 'одна підкатегорія — частина кола, не 100');
+  assert.equal(one.segs[0].dash, 100, 'одна підкатегорія займає все коло'); assert.equal(one.segs[0].pct, 25, 'а відсоток усе одно від усіх витрат');
   const full = j('donutModel([{ key: "c:a", name: "a", sum: 2500 }], 5)');
   assert.equal(full.segs[0].dash, 100, 'без бази поведінка незмінна');
+  const cat = j('donutModel([{ key: "c:a", name: "a", sum: 600 }, { key: "c:b", name: "b", sum: 400 }])');
+  assert.deepEqual(cat.segs.map(s => [s.share, s.arc]), [[60, 60], [40, 40]], 'категорії: arc = share');
+});
+test('FIX-1119 п.6–7: сірої доріжки немає в рендері; підпис — емодзі й % з відступом; видно лише коли дуга ≥ межі', () => {
+  const fn = SRC.slice(SRC.indexOf('function renderBalDonut'), SRC.indexOf('function catsSheetHtml'));
+  assert.ok(!/bal-track/.test(fn), 'доріжка прибрана');
+  assert.match(SRC, /\.bal-dl\{ gap:var\(--sp-1\); \}/);
+  const m = j('donutModel([{ key: "s:a", name: "a", sum: 9400 }, { key: "s:b", name: "b", sum: 600 }], 5, 100000)');
+  assert.deepEqual(m.segs.map(s => s.label), [true, false], 'дуга 6 % вужча за межу 7 % — підпису немає');
+  assert.ok(m.segs[1].arc < 7 && m.segs[0].arc > 90);
 });
