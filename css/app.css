@@ -1051,10 +1051,10 @@
   /* Rev 2.32.418 (DS-PAYLIST Rev 1): екран «Платежі»: плитки підсумку, картка «Чекає внесення» (бурштин лише тут), групи за днями, «Пізніше» по місяцях. Розміри й радіуси лише з токенів (UI_PATTERNS: плитка --r-s, картка --r-l, кнопка .submit-btn.pill --r-m), без значень з макета */
   .pl-tiles{ display:flex; gap:var(--sp-2); margin-bottom:var(--sp-6); }
   .pl-tile{ flex:1; min-width:0; display:flex; flex-direction:column; gap:var(--sp-1); padding:var(--sp-3); background:var(--surface-2); border-radius:var(--r-s); }
-  .pl-tile-lab{ font-size:var(--fs-caption1); font-weight:600; color:var(--text-2); }
+  .pl-tile-lab{ font-size:var(--fs-caption1); line-height:16px; min-height:32px; font-weight:600; color:var(--text-2); } /* Rev 2.32.418 (правка): під підпис завжди два рядки (32 пт), щоб суми й підписи кількості стояли на одній лінії в усіх трьох плитках; шрифт не зменшено */
   .pl-tile.amber .pl-tile-lab{ color:var(--warn-text); }
-  .pl-tile-amt{ font-size:var(--fs-body); font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .pl-tile-cnt{ font-size:var(--fs-caption1); color:var(--text-2); }
+  .pl-tile-amt{ font-size:var(--fs-body); line-height:22px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .pl-tile-cnt{ font-size:var(--fs-caption1); line-height:16px; color:var(--text-2); }
   .pl-approx{ color:var(--text-3); font-weight:500; }
   .pl-logo{ flex:none; display:block; width:40px; height:40px; }
   .pl-logo svg{ display:block; }
@@ -1065,7 +1065,8 @@
   .pl-wait-text .pay-line-name{ font-weight:600; }
   .pl-wait-sub{ display:block; font-size:var(--fs-footnote); font-weight:600; color:var(--warn-text); }
   .pl-wait > .submit-btn{ width:100%; margin-top:0; }
-  .pl-winlabel{ margin-top:var(--sp-2); }
+  .struct-group-label.pl-winlabel{ margin-top:var(--sp-2); margin-bottom:var(--sp-4); } /* Rev 2.32.418 (правка): відступ від заголовка розділу до першого дня (--sp-4, як між розділом і змістом на «Структурі») */
+  #payments-screen{ padding-bottom:calc(112px + env(safe-area-inset-bottom, 0px)); } /* Rev 2.32.418 (правка): останній рядок не ховається під панеллю вкладок (112 пт — висота панелі з відступом) + нижня безпечна зона */
   .pl-dayhead{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-3); margin:0 var(--sp-4) var(--sp-2); }
   .pl-daytitle{ font-size:var(--fs-subhead); font-weight:700; color:var(--text); }
   .pl-daysub{ font-weight:500; color:var(--text-2); }

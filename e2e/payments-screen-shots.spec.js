@@ -12,6 +12,8 @@ test('payments-screen-shots', async ({ browser }) => {
     const page = await ctx.newPage(); await installClock(page);
     await page.goto('/index.html?fixture=typical');
     await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
+    await page.waitForFunction(() => !document.querySelector('.avatar-status-dot.syncing'), null, { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(1500); // Rev 2.32.418 (правка): пул мока завершено до підстановки даних — інакше він перезаписує їх посеред знімка (різні набори в темній і світлій темі)
     await page.evaluate(t => {
       document.documentElement.setAttribute('data-theme', t);
       const today = kyivTodayISO(), cur = today.slice(0, 7), nxt = ppNextMonth(cur);
@@ -24,6 +26,8 @@ test('payments-screen-shots', async ({ browser }) => {
       switchTab('analytics'); renderAll(); openPaymentsScreen(null);
     }, theme);
     await page.waitForTimeout(800);
+    const names = await page.evaluate(() => Array.from(document.querySelectorAll('#payments-body .pay-line-name')).map(e => e.textContent));
+    (global.__plNames = global.__plNames || {})[theme] = names.join('|');
     const tag = (n) => path.join(DIR, 'payments-' + TAG + '-' + theme + (n || '') + '.png');
     await page.screenshot({ path: tag('') });
     await page.evaluate(() => { const s = document.getElementById('payments-screen'); s.scrollTop = s.scrollHeight; });
@@ -33,4 +37,5 @@ test('payments-screen-shots', async ({ browser }) => {
     if (has) { await page.waitForTimeout(300); await page.screenshot({ path: tag('-expanded') }); }
     await ctx.close();
   }
+  if (global.__plNames.dark !== global.__plNames.light) throw new Error('набори даних у темній і світлій темі різні: ' + JSON.stringify(global.__plNames));
 });

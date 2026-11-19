@@ -5,6 +5,8 @@ async function openScreen(page){
   await installClock(page);
   await page.goto('/index.html?fixture=typical');
   await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
+  await page.waitForFunction(() => !document.querySelector('.avatar-status-dot.syncing'), null, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(1500); // пул мока завершено до підстановки даних
   await page.evaluate(() => {
     const today = kyivTodayISO(), cur = today.slice(0, 7), nxt = ppNextMonth(cur);
     const days = [3, 9, 17, 18, 25];
@@ -66,4 +68,19 @@ test('PAYLIST 4. картка «Чекає внесення»: кнопка ві
   await page.waitForTimeout(500);
   const st = await page.evaluate(() => ({ tab: lastActiveTab, amount: document.getElementById('f-amount').value, n: expenses.length }));
   expect(st.tab).toBe('vytraty'); expect(st.amount).not.toBe(''); expect(st.n).toBe(before);
+});
+test('PAYLIST 5. плитки: суми й підписи кількості на одній лінії; відступ після заголовка розділу; після прокрутки до кінця останній рядок над панеллю вкладок', async ({ page }) => {
+  await openScreen(page);
+  const g = await page.evaluate(() => {
+    const tiles = Array.from(document.querySelectorAll('#payments-body .pl-tile'));
+    const tops = sel => tiles.map(t => Math.round(t.querySelector(sel).getBoundingClientRect().top));
+    const lab = document.querySelector('#payments-body .pl-winlabel'), day = lab && lab.nextElementSibling;
+    const s = document.getElementById('payments-screen'); s.scrollTop = s.scrollHeight;
+    return { amt: tops('.pl-tile-amt'), cnt: tops('.pl-tile-cnt'), labH: tiles.map(t => Math.round(t.querySelector('.pl-tile-lab').getBoundingClientRect().height)), gap: lab && day ? Math.round(day.getBoundingClientRect().top - lab.getBoundingClientRect().bottom) : null };
+  });
+  expect(new Set(g.amt).size, 'суми на одній лінії: ' + JSON.stringify(g)).toBe(1); expect(new Set(g.cnt).size, 'підписи кількості на одній лінії').toBe(1); expect(g.labH.every(h => h >= 32)).toBe(true);
+  if (g.gap !== null) expect(g.gap, 'відступ заголовок розділу → перший день ≥ 16').toBeGreaterThanOrEqual(16);
+  await page.waitForTimeout(300);
+  const end = await page.evaluate(() => { const last = Array.from(document.querySelectorAll('#payments-body > *')).pop(), bar = document.querySelector('.tabbar-glass'); return { lastBottom: last.getBoundingClientRect().bottom, barTop: bar.getBoundingClientRect().top }; });
+  expect(end.lastBottom, 'останній елемент над панеллю вкладок: ' + JSON.stringify(end)).toBeLessThanOrEqual(end.barTop);
 });
