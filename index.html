@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.405"><link rel="stylesheet" href="./css/app.css?v=2.32.405"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.406"><link rel="stylesheet" href="./css/app.css?v=2.32.406"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -876,7 +876,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.405</div>
+  <div class="version-footer">Money Tree · Rev 2.32.406</div>
 </div>
   </div>
 </div>
@@ -1661,16 +1661,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.405"></script>
-<script src="./js/util-date.js?v=2.32.405"></script>
-<script src="./js/util-safe.js?v=2.32.405"></script>
-<script src="./js/util-misc.js?v=2.32.405"></script>
-<script src="./js/diag.js?v=2.32.405"></script>
-<script src="./js/shell.js?v=2.32.405"></script>
-<script src="./js/structure.js?v=2.32.405"></script>
-<script src="./js/analytics.js?v=2.32.405"></script>
-<script src="./js/payments.js?v=2.32.405"></script>
-<script src="./js/sheets.js?v=2.32.405"></script>
+<script src="./js/util-format.js?v=2.32.406"></script>
+<script src="./js/util-date.js?v=2.32.406"></script>
+<script src="./js/util-safe.js?v=2.32.406"></script>
+<script src="./js/util-misc.js?v=2.32.406"></script>
+<script src="./js/diag.js?v=2.32.406"></script>
+<script src="./js/shell.js?v=2.32.406"></script>
+<script src="./js/structure.js?v=2.32.406"></script>
+<script src="./js/analytics.js?v=2.32.406"></script>
+<script src="./js/payments.js?v=2.32.406"></script>
+<script src="./js/sheets.js?v=2.32.406"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6761,7 +6761,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.405';
+const APP_VERSION = '2.32.406';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8412,6 +8412,92 @@ function closeOpenSheetsForPush(){
   try{ document.querySelectorAll('.drawer.open .drawer-close').forEach(function(b){ b.click(); }); }catch(e){}
   // Rev 2.32.41 (F): відкритий екран архіву дзвіночка (повноекранний, не шторка) лишався зверху й перекривав ціль переходу (відтворено в preview для backup-reminder/daily-expense-reminder; для mono-inbox лишався відкритим під «Вхідними»)
   try{ if(typeof closeNotifArchive === 'function') closeNotifArchive(); }catch(e){}
+}
+// ===== Rev 2.32.406 (PUSH-TOAST, клас B): тост «Переглянути» для сповіщення, коли застосунок відкритий і на екрані =====
+// Причина: WebKit 268797 — при відкритому застосунку дотик до банера не доходить до сторінки (notificationclick не викликається), тож нічого не відкривається. Сигнал: service worker у `push` (одразу після отримання, ДО дотику) шле видимим вікнам повідомлення 'push-received' з тим, що показав банер (title/body — вже з урахуванням «Приховувати суми», це робить сервер — і data). Обрано замість Realtime user_notifications: (1) текст збігається з банером і нейтральний при hide_details (в user_notifications лежить повний текст); (2) сервер не шле push у тихі години й для вимкнених типів — тоста теж не буде; (3) не залежить від WebSocket і від затримки запису рядка. Ризик: без SW (не встановлений PWA/перший запуск до claim) повідомлення немає — тоста нема, як і раніше. Альтернатива (Realtime) лишається запасним шляхом на майбутнє.
+const PUSH_TOAST_MS = 6000;
+const PUSH_TOAST_SETTING = { 'other-actor-summary': 'other_actor_changes', 'other-actor-added': 'other_actor_changes', 'other-actor-changed': 'other_actor_changes', 'other-actor-deleted': 'other_actor_deletions', 'daily-expense-reminder': 'daily_reminder', 'installment-deadline': 'installment_deadline', 'monthly-debt-reminder': 'month_start', 'backup-reminder': 'backup_reminder', 'weekly-summary': 'weekly_summary', 'month-end': 'month_end' };
+const PUSH_TOAST_STATE = { lastPushId: '' };
+// Тихі години за часом Києва (як на сервері is_quiet_now): settings.quiet_enabled, quiet_start/quiet_end «ГГ:ХХ», інтервал через північ дозволений.
+function pushToastQuietNow(settings, now){
+  if(!settings || !settings.quiet_enabled) return false;
+  const re = /^(\d{2}):(\d{2})/;
+  const a = re.exec(String(settings.quiet_start || '')), b = re.exec(String(settings.quiet_end || ''));
+  if(!a || !b) return false;
+  let hm;
+  try{ hm = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(now || new Date()); }catch(e){ return false; }
+  const m = /^(\d{2}):(\d{2})/.exec(hm); if(!m) return false;
+  const cur = Number(m[1]) * 60 + Number(m[2]), s0 = Number(a[1]) * 60 + Number(a[2]), e0 = Number(b[1]) * 60 + Number(b[2]);
+  if(s0 === e0) return false;
+  return s0 < e0 ? (cur >= s0 && cur < e0) : (cur >= s0 || cur < e0);
+}
+// Вибір тоста (чиста функція). msg: { title, body, data:{type, push_id, …} }. ctx: { visible, settings (notificationSettings або null), now, screen (де користувач зараз) }.
+// Повертає { show:false, reason } або { show:true, title, subtitle, actionLabel|null, same:boolean }.
+function pushToastPlan(msg, ctx){
+  const c = ctx || {};
+  const data = msg && msg.data && typeof msg.data === 'object' ? msg.data : null;
+  const type = data && typeof data.type === 'string' ? data.type : '';
+  if(!type) return { show: false, reason: 'no-type' };
+  if(c.visible === false) return { show: false, reason: 'hidden' };
+  if(type === 'mono-inbox') return { show: false, reason: 'mono' }; // своє повідомлення Monobank (monoNewToastCheck): без другого тоста
+  const route = routeForPushType(type, data);
+  if(!route || !route.screen) return { show: false, reason: 'no-route' };
+  const st = c.settings;
+  if(st){
+    if(st.notifications_enabled === false) return { show: false, reason: 'disabled' };
+    const key = PUSH_TOAST_SETTING[type];
+    if(key && st[key] === false) return { show: false, reason: 'disabled' };
+    if(pushToastQuietNow(st, c.now)) return { show: false, reason: 'quiet' };
+  }
+  const title = String(msg.title || '').trim(), body = String(msg.body || '').trim();
+  const generic = !title || title === 'Money Tree';
+  const main = (generic ? (body || title) : title).slice(0, 90) || 'Нове сповіщення';
+  const sub = (!generic && body) ? body.slice(0, 90) : '';
+  const same = !!c.screen && c.screen === route.screen;
+  return { show: true, title: main, subtitle: sub, actionLabel: same ? null : 'Переглянути', same: same, screen: route.screen };
+}
+// Де користувач зараз — у термінах route.screen (best-effort): шторки/діалоги не враховуються.
+function pushToastCurrentScreen(){
+  try{
+    if(typeof isNotifArchiveOpen !== 'undefined' && isNotifArchiveOpen) return 'archive';
+    if(isTrashOpen) return 'trash';
+    if(isMonoInboxOpen) return 'mono-inbox';
+    if(lastActiveTab === 'vytraty') return isJournalOpen ? 'journal' : 'vytraty';
+    if(lastActiveTab === 'accounting'){
+      const vis = function(t){ const el = document.getElementById('acct-tab-panel-' + t); return !!el && !el.classList.contains('hidden'); };
+      return vis('debts') ? 'debts' : (vis('installments') ? 'installments' : 'accounting');
+    }
+    if(lastActiveTab === 'analytics') return 'analytics';
+    if(lastActiveTab === 'service') return 'service';
+  }catch(e){}
+  return '';
+}
+function pushToastRec(o){
+  try{ pushDebugEvent(Object.assign({ type: 'push-toast' }, o)); }catch(e){}
+}
+// «Переглянути»: те саме, що дотик до сповіщення (handlePushAction з даними цього сповіщення), і позначка прочитаним (рядок архіву за push_id; якщо Realtime ще не доніс його — одне оновлення архіву).
+async function pushToastOpen(data){
+  pushToastRec({ pushType: data.type, tapped: true });
+  const done = await handlePushAction(Object.assign({}, data));
+  if(done === false) return;
+  try{
+    if(!notifArchive.loaded || !notifRowsForPush(notifArchive.rows, data).length) await loadNotifArchive();
+    await markPushNotificationsRead(data);
+  }catch(e){}
+}
+function pushToastReceive(msg){
+  const data = msg && msg.data && typeof msg.data === 'object' ? msg.data : null;
+  const type = data && typeof data.type === 'string' ? data.type : null;
+  const pid = data && data.push_id != null ? String(data.push_id) : '';
+  if(pid && pid === PUSH_TOAST_STATE.lastPushId) return; // те саме сповіщення двічі (кілька вікон/повторна доставка)
+  const plan = pushToastPlan(msg, { visible: document.visibilityState === 'visible', settings: (typeof notificationSettings !== 'undefined') ? notificationSettings : null, now: new Date(), screen: pushToastCurrentScreen() });
+  pushToastRec({ pushType: type, shown: plan.show, reason: plan.show ? (plan.same ? 'same-screen' : 'ok') : plan.reason });
+  if(!plan.show) return;
+  if(pid) PUSH_TOAST_STATE.lastPushId = pid;
+  const o = { kind: 'info', icon: 'info', title: plan.title, durationMs: PUSH_TOAST_MS };
+  if(plan.subtitle) o.subtitle = plan.subtitle;
+  if(plan.actionLabel){ o.actionLabel = plan.actionLabel; o.onAction = function(){ return pushToastOpen(data).catch(function(){}); }; }
+  showToast(o);
 }
 document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible'){ runPendingPushAction('visible'); checkPendingPushFromIdb('visible'); } if(typeof monoActiveSync === 'function') monoActiveSync(); }); // Rev 2.32.278 (PUSH-2): стан для сервера + запасне повідомлення
 window.addEventListener('pageshow', function(){ runPendingPushAction('pageshow'); checkPendingPushFromIdb('pageshow'); if(typeof monoActiveSync === 'function') monoActiveSync(); });
@@ -23204,6 +23290,7 @@ if(pushActionType){
 // з тим самим action-об'єктом, що передається в handlePushAction() вище.
 if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', function(event){
+    if(event.data && event.data.type === 'push-received'){ try{ pushToastReceive(event.data); }catch(e){} return; } // Rev 2.32.406 (PUSH-TOAST)
     if(event.data && event.data.type === 'push-click-info'){
       // Rev 2.32.30 (P): діагностика кліку з боку SW — без значень
       if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-click', pushType: event.data.pushType || null, clients: event.data.clients, focus: event.data.focus });

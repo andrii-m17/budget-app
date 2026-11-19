@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.32.405';
+const CACHE_NAME = 'budget-app-v2.32.406';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -250,10 +250,20 @@ function rcptRecord(pid, t0, cold, idle, shown){
     return rcptWrite({ push_id: pid.toLowerCase(), received_at: new Date(t0).toISOString(), shown_at: shownAt, cold_start: cold, idle_s: idle, app_state: state });
   }).catch(function(){ return null; });
 }
+// Rev 2.32.406 (PUSH-TOAST): WebKit 268797 — при відкритому застосунку дотик до банера не доходить до сторінки; тому видимим вікнам одразу після отримання шлемо текст банера (title/body/data), а сторінка показує тост «Переглянути». Лише postMessage: показ сповіщення й журнал від нього не залежать (усі помилки гасяться); сама перевірка видимості тут тільки для адресатів повідомлення, не для показу.
+function swNotifyVisibleClients(msg){
+  try{
+    if(!msg || !self.clients || typeof self.clients.matchAll !== 'function') return Promise.resolve();
+    return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(cs){
+      cs.filter(function(c){ return c.visibilityState === 'visible'; }).forEach(function(c){ try{ c.postMessage(msg); }catch(e){} });
+    }).catch(function(){});
+  }catch(e){ return Promise.resolve(); }
+}
 self.addEventListener('push', function(event){
   let type = null;
   let rcptPid = null;
   let problem = null;
+  let toastMsg = null; // Rev 2.32.406 (PUSH-TOAST): що показав банер — для тоста у відкритому застосунку
   let shownPromise;
   const t0 = Date.now();
   const rcptCold = swPushSeen === 0; const rcptIdle = Math.max(0, Math.round((t0 - (swLastPushAt || SW_BOOT_AT)) / 1000)); swPushSeen++; swLastPushAt = t0; // Rev 2.32.298 (PUSH-RCPT)
@@ -279,13 +289,15 @@ self.addEventListener('push', function(event){
     // Rev 2.32.29 — сповіщення Monobank: той самий tag замінює попереднє, але renotify:true — кожне нове привертає увагу (звук/вібрація), а не губиться в центрі сповіщень.
     if(inner.type === 'mono-inbox' || (inner.type === 'test' && notifTag === 'mono-inbox')){ options.tag = 'mono-inbox'; options.renotify = true; } // Rev 2.32.104 (NOTIF-3 Rev 3): тестовий push з tag 'mono-inbox' будується так само, як реальний (tag й renotify), щоб відтворити реальні умови
     meta = diagMeta(inner, options.tag);
+    if(inner.type && inner.type !== 'test') toastMsg = { type: 'push-received', title: title.slice(0, 120), body: options.body.slice(0, 200), data: inner };
     shownPromise = self.registration.showNotification(title, options);
   }catch(err){
     problem = errText('handler: ', err);
     try{ shownPromise = self.registration.showNotification('Money Tree'); }catch(err2){ shownPromise = Promise.reject(err2); }
   }
+  const notifyVisible = swNotifyVisibleClients(toastMsg); // Rev 2.32.406 (PUSH-TOAST): не впливає на показ сповіщення
   event.waitUntil(
-    shownPromise.then(function(){
+    Promise.all([notifyVisible, shownPromise.then(function(){
       return Promise.all([
         withTimeout(writePushLog({ ts: Date.now(), type: type, shown: true, error: problem }), PUSH_LOG_TIMEOUT_MS),
         withTimeout(rcptRecord(rcptPid, t0, rcptCold, rcptIdle, true), PUSH_LOG_TIMEOUT_MS), // Rev 2.32.298 (PUSH-RCPT)
@@ -302,7 +314,7 @@ self.addEventListener('push', function(event){
           diagRecord(function(vis){ const now = Date.now(); return [Object.assign({ ts: t0, ev: 'push-received', vis: vis }, meta), Object.assign({ ts: now, ev: ok ? 'show-retry-ok' : 'show-error', dur: now - t0, err: diagStr(errText('show: ', err)) }, meta)]; }, true)
         ]).then(function(){ if(!ok) throw err; });
       });
-    })
+    })])
   );
 });
 

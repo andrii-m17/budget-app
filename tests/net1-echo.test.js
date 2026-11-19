@@ -224,7 +224,7 @@ test('пакетні шляхи не змінені: pushExpensesBatch бере 
 });
 
 test('охоронні: подія самописця в білих списках; Realtime гасить лише витрати; доходи й борги не чіпались', function () {
-  assert.match(SRC, /const REC_ALLOWED_TYPES = \[[^\]]*'echo-skip', 'pull-skip', 'suggest-tap'\]/);
+  assert.match(SRC, /const REC_ALLOWED_TYPES = \[[^\]]*'echo-skip', 'pull-skip', 'suggest-tap', 'push-toast'\]/);
   assert.match(SRC, /const REC_ALLOWED_KEYS = \['sinceClose', 'idShort',/);
   assert.match(SRC, /if\(domain\.table === 'expenses' && selfEchoCheck\(payload\) !== 'pass'\) return;/);
   assert.ok(/if\(!error && !\(opts && opts\.suppressPull\)\) await pullIncomesCore\(\);/.test(SRC) && /if\(!error && !\(opts && opts\.suppressPull\)\) await pullDebtsCore\(\);/.test(SRC), 'NET-2: доходи й борги без змін');
