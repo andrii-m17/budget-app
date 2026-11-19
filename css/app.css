@@ -2821,7 +2821,7 @@
 /* розкриття на місці: висота 320 мс, вміст із затримкою 80 мс */
 .bal-xp{ display:grid; grid-template-rows:0fr; margin-top:calc(var(--sp-3) * -1); transition:grid-template-rows var(--t-m) var(--ease-standard); } /* Rev 2.32.416 (FIX-1119 п.10, відповідь чату): висота росте й зменшується тією самою тривалістю (--t-m = 320 мс, як FLIP значень) і рівномірною кривою --ease-standard (було --ease-out: ≈ 60 % висоти вже на 20 % часу, картка стрибала й стояла порожньою) */
 .bal-xp > div{ overflow:hidden; min-height:0; }
-.bal-xin{ display:flex; flex-direction:column; gap:var(--sp-3); padding-top:var(--sp-3); opacity:0; transition:opacity var(--t-m) var(--ease-standard); }
+.bal-xin{ display:flex; flex-direction:column; gap:var(--sp-3); padding-top:var(--sp-3); opacity:0; transition:opacity var(--t-s) var(--ease-out); } /* Rev 2.32.417: вміст з'являється швидше за ріст висоти (200 мс ease-out проти 320 мс), щоб не було кадрів із порожньою карткою */
 .bal-card.open > .bal-xp{ grid-template-rows:1fr; }
 .bal-card.open > .bal-xp .bal-xin{ opacity:1; transition-delay:var(--bal-inx); }
 .bal-xp.bal-inv{ grid-template-rows:1fr; }

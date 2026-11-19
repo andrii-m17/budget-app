@@ -11091,7 +11091,7 @@ async function saveIncomeDrawer(){
   if(pushedRecord) pushIncomeRecordPilot(pushedRecord);
   closeIncomeEditor();
   renderAll();
-  showToast({ kind: 'success', title: 'Збережено' }); // Rev 2.32.417 (FIX-1119 п.8): стандартний тост TOAST-1 (зверху, з анімацією) замість дрібного «Збережено» внизу шторки
+  showToast({ kind: 'success', title: 'Збережено' }); // Rev 2.32.413 (FIX-1119 п.8): стандартний тост TOAST-1 (зверху, з анімацією) замість дрібного «Збережено» внизу шторки
 }
 function flashField(id){ const el=document.getElementById(id); el.style.borderColor='var(--color-error)'; setTimeout(()=>{el.style.borderColor='';},900); }
 
@@ -11879,7 +11879,7 @@ async function saveInstallmentDrawer(confirmedDup){
   closeInstallmentEditor();
   renderAll();
   if(pushedRecord && !pushedRecord.deletedAt && pushedRecord.balance === 0) setTimeout(function(){ offerHidePaidOffInstallment(newName); }, 350); // Rev 2.32.69: пропозиція приховати (нічого не ховається без підтвердження)
-  showToast({ kind: 'success', title: 'Збережено', subtitle: stripLeadingEmoji(newName) }); // Rev 2.32.417 (FIX-1119 п.8): стандартний тост TOAST-1
+  showToast({ kind: 'success', title: 'Збережено', subtitle: stripLeadingEmoji(newName) }); // Rev 2.32.413 (FIX-1119 п.8): стандартний тост TOAST-1
 }
 function deleteInstallmentFromDrawer(){
 // Rev 2.32.87 (FIX-UI-1b): «Скасувати» у підтвердженні видалення лишає відкритою шторку деталей; вона закривається лише після успішного видалення (onDone). Ризик: підтвердження тепер поверх шторки (app-modal z-index 96 > шторка 91; лічильник прокрутки вкладений), фокус після «Скасувати» повертається на кнопку «Видалити».
@@ -12217,7 +12217,7 @@ async function saveCardDebtDrawer(confirmedDup){
   if(pushedRecord) pushDebtRecordPilot(pushedRecord);
   closeCardDebtEditor();
   renderAll();
-  showToast({ kind: 'success', title: 'Збережено', subtitle: stripLeadingEmoji(newName) }); // Rev 2.32.417 (FIX-1119 п.8): стандартний тост TOAST-1
+  showToast({ kind: 'success', title: 'Збережено', subtitle: stripLeadingEmoji(newName) }); // Rev 2.32.413 (FIX-1119 п.8): стандартний тост TOAST-1
 }
 // Rev 2.16.5 — "Видалити картку" тепер у самій шторці (не окрема іконка на
 // компактному рядку) — закриваємо шторку й одразу відкриваємо той самий
@@ -17130,7 +17130,7 @@ function monoInboxRowHtml(row){
   const lm = monoInstLabelModel(row, monoInbox.instPick, installmentAccounts);
   const instLabel = lm ? '<button type="button" class="mono-inst-label' + (lm.on ? '' : ' off') + '" data-mono-inst-toggle="1" aria-pressed="' + (lm.on ? 'true' : 'false') + '"><span>' + (lm.on ? '🔗 Платіж за ОЧ «' + escapeHtml(lm.name) + '»' : 'Без ОЧ') + '</span></button>' : '';
   // Rev 2.32.330 (MONO-REFUND): мітка повернення (інформаційна) і мітка-кнопка підказки; свайп підказки: «Ігнорувати» + «Врахувати»
-  // Rev 2.32.417 (FIX-1119 п.9): підказка повернення (skipped + refund_suggest) — компактна позначка «↩ Повернення» в рядку назви; детальний текст («Повернення до витрати 12 лис, 1 200 ₴ ›», з переходом до вибору) показується за дотиком по позначці (monoInbox.refundOpen). Інформаційна мітка «Повернено N ₴ із M ₴» (врахованого) без змін.
+  // Rev 2.32.414 (FIX-1119 п.9): підказка повернення (skipped + refund_suggest) — компактна позначка «↩ Повернення» в рядку назви; детальний текст («Повернення до витрати 12 лис, 1 200 ₴ ›», з переходом до вибору) показується за дотиком по позначці (monoInbox.refundOpen). Інформаційна мітка «Повернено N ₴ із M ₴» (врахованого) без змін.
   const refundOpen = !!(monoInbox.refundOpen && monoInbox.refundOpen[safeId(row.id)]);
   const refundChip = m.suggest ? '<button type="button" class="mono-chip-refund" data-mono-refund-toggle="1" aria-expanded="' + (refundOpen ? 'true' : 'false') + '" aria-label="Повернення: показати подробиці">↩ Повернення</button>' : '';
   const refundLabel = m.refundLabel ? '<span class="mono-refund-label"><span>' + escapeHtml(m.refundLabel) + '</span></span>' : (m.suggest && refundOpen ? '<button type="button" class="mono-refund-label" data-mono-refund-pick="1"><span>' + escapeHtml(m.suggestLabel) + '</span></button>' : '');
@@ -17666,7 +17666,7 @@ async function monoDetailIgnore(){
     if(e.target.closest('[data-mono-add]')){ e.stopPropagation(); if(typeof closeSwipeActions === 'function') closeSwipeActions(); monoAcceptFromRow(id); return; }
     if(e.target.closest('[data-mono-ignore]')){ e.stopPropagation(); if(typeof closeSwipeActions === 'function') closeSwipeActions(); monoIgnoreRow(id); return; }
     if(e.target.closest('[data-mono-consider]')){ e.stopPropagation(); if(typeof closeSwipeActions === 'function') closeSwipeActions(); monoConsiderSuggested(id); return; } // Rev 2.32.330 (MONO-REFUND)
-    if(e.target.closest('[data-mono-refund-toggle]')){ e.stopPropagation(); monoInbox.refundOpen = monoInbox.refundOpen || {}; if(monoInbox.refundOpen[id]) delete monoInbox.refundOpen[id]; else monoInbox.refundOpen[id] = true; renderMonoInbox(); return; } // Rev 2.32.417 (FIX-1119 п.9)
+    if(e.target.closest('[data-mono-refund-toggle]')){ e.stopPropagation(); monoInbox.refundOpen = monoInbox.refundOpen || {}; if(monoInbox.refundOpen[id]) delete monoInbox.refundOpen[id]; else monoInbox.refundOpen[id] = true; renderMonoInbox(); return; } // Rev 2.32.414 (FIX-1119 п.9)
     if(e.target.closest('[data-mono-refund-pick]')){ e.stopPropagation(); monoRefundPickFromLabel(id); return; }
     if(suppressNextRowTapSelect){ suppressNextRowTapSelect = false; return; }
     if(wrap.classList.contains('swipe-open')){ if(typeof closeSwipeActions === 'function') closeSwipeActions(); return; }
