@@ -284,7 +284,6 @@
   .add-trigger-btn,
   .struct-tab-btn,
   .submit-btn.pill {border-radius: var(--r-m);}
-  #income-saved-hint{ color:var(--color-primary-hover); font-weight:600; }
   /* Rev 2.0.2 — борги по картках: керований список банків (додати/перейменувати/
      видалити), природний ключ запису — банк+місяць, той самий upsert-підхід,
      що й для доходів. */
@@ -318,7 +317,6 @@
   .empty-state-actions{ align-self:stretch; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .add-trigger-btn:hover{ background:var(--surface-2); border-color:var(--accent); color:var(--color-primary-hover); } }
-  #banks-saved-hint{ color:var(--color-primary-hover); font-weight:600; }
   /* Rev 2.1.17 — підпис початкової суми ОЧ (потрібна для прогрес-бару на
      Аналітиці); якщо ще не вказана — приглушене попередження замість числа. */
   .bdr-init-amount{ display:block; font-size:var(--fs-caption1); color:var(--text-2); margin:var(--sp-1) 0 var(--sp-2); }
