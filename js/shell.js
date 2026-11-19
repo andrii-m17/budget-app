@@ -608,7 +608,7 @@ const BUTTON_VARIANT_MAP = {
   danger: ['danger-outline'],
   icon: ['mb', 'och-delete-btn', 'drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del', 'notif-row-trash'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
-  chip: ['trash-chip', 'mono-inst-label', 'mono-refund-label', 'mono-cat-btn'],
+  chip: ['trash-chip', 'mono-inst-label', 'mono-refund-label', 'mono-chip-refund', 'mono-cat-btn'],
   row: ['bal-sum', 'bal-tile-btn', 'bal-crow', 'bal-suc', 'rs-rw', 'mono-row', 'mono-auto-row', 'mono-auto-ok', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'chk-row', 'chk-hd', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
   reference: ['mini-head', 'tab-vytraty', 'scroll-top-btn', 'side-tab', 'side-collapse-btn', 'och-cond-row']
 };

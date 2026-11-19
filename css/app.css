@@ -1361,6 +1361,12 @@
   /* Rev 2.32.330 (MONO-REFUND), макет docs/ui/mockups/mono-refund-mockup.html: мітка повернення — форма .mono-inst-label, тло --color-info-bg, текст --color-info; стара сума закреслена 12 px secondary */
   .mono-refund-label{ display:inline-flex; align-items:center; max-width:100%; margin-top:var(--sp-2); padding:var(--sp-1) var(--sp-3); border:0; border-radius:var(--r-l); background:var(--color-info-bg); color:var(--color-info); font:inherit; font-size:var(--fs-caption1); font-weight:600; -webkit-tap-highlight-color:transparent; }
   button.mono-refund-label{ cursor:pointer; text-align:left; }
+  /* Rev 2.32.414 (FIX-1119 п.9): компактна позначка підказки повернення в рядку назви (форма й токени як .mono-refund-label, caption2); детальний текст — за дотиком (повна мітка під рядком) */
+  .mono-name-row{ display:flex; align-items:center; gap:var(--sp-2); }
+  .mono-name-txt{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mono-chip-refund{ position:relative; flex:none; display:inline-flex; align-items:center; margin:0; padding:2px var(--sp-2); border:0; border-radius:var(--r-s); background:var(--color-info-bg); color:var(--color-info); font:inherit; font-size:var(--fs-caption2); font-weight:600; line-height:14px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .mono-chip-refund::before{ content:''; position:absolute; inset:-14px -6px; } /* зона дотику ≥ 44 pt */
+  .mono-chip-refund[aria-expanded="true"]{ background:var(--color-info); color:var(--surface); }
   .mono-refund-label > span{ min-width:0; white-space:normal; text-align:left; line-height:1.3; } /* як у макеті: текст переноситься, а не обрізається (сума списання в підказці має бути видна на 390 пт) */
   .mono-old-amount{ display:block; margin-top:var(--sp-1); font-size:var(--fs-caption1); font-weight:400; color:var(--text-2); text-decoration:line-through; }
   .mono-inst-label > span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
