@@ -1,4 +1,7 @@
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  /* Rev 2.32.407 (UI-SELECT, B; повернення Rev 2.32.312, відкоченого в 2.32.320): довгий дотик по картках (список ОЧ, рядки, таббар) виділяв текст і показував системне меню iOS «Скопіювати / Переклад». Текст інтерфейсу не виділяється; поля введення лишають виділення й вставку (input, textarea, [contenteditable]). Код звіту «MT-…» копіюється кнопкою (#rec-report-copy), не виділенням. Підозра, що це ламало Face ID (2.32.320), не підтвердилась (запис на дошці), вхід відтоді переробили (LOGIN-FORM-3, 2.32.329). Проксі-поле клавіатури — input, тож лишається з user-select:text (user-select:none на iOS ламає фокус input). */
+  body{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  input, textarea, [contenteditable]{ -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
   /* Rev 2.22.87 (6D.160) BugFix — живий тест (Web Inspector, числове
      підтвердження): getComputedStyle(.submit-btn).fontSize сам звітував
      "22px" при задекларованих 15px, одразу після повороту в landscape, і
@@ -1544,7 +1547,7 @@
   .rec-state-icon{ display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:var(--r-m); margin-bottom:var(--sp-3); background:var(--color-primary-bg); color:var(--color-primary-hover); }
   .rec-state.is-off .rec-state-icon{ background:var(--color-warning-bg); color:var(--color-warning); }
   .rec-state-title{ font-size:var(--fs-subhead); font-weight:600; color:var(--text); }
-  .rec-state-code{ margin-top:var(--sp-3); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:var(--fs-body); font-weight:500; letter-spacing:.04em; font-variant-numeric:tabular-nums; color:var(--text); user-select:all; -webkit-user-select:all; }
+  .rec-state-code{ margin-top:var(--sp-3); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:var(--fs-body); font-weight:500; letter-spacing:.04em; font-variant-numeric:tabular-nums; color:var(--text); }
   .rec-state-hint{ margin-top:var(--sp-2); font-size:var(--fs-subhead); color:var(--text-2); }
   .rec-state.is-sending .rec-state-icon{ background:var(--color-info-bg); color:var(--color-info); }
   .chk-sent{ text-align:center; font-size:var(--fs-footnote); color:var(--color-success); margin-top:var(--sp-3); opacity:0; transition:opacity var(--t-m); height:16px; }
