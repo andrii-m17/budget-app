@@ -8,7 +8,7 @@ async function open(page){
   await page.evaluate(() => switchTab('analytics'));
   await page.waitForTimeout(3000);
 }
-test('FLIP 1. розгортання: 4 копії (2 значення + 2 підписи), лише transform/opacity, 380 мс; після кінця копій немає, значення на місці', async ({ page }) => {
+test('FLIP 1. розгортання: 4 копії (2 значення + 2 підписи), лише transform/opacity, 320 мс; після кінця копій немає, значення на місці', async ({ page }) => {
   await open(page);
   const info = await page.evaluate(async () => {
     toggleBalanceCard();

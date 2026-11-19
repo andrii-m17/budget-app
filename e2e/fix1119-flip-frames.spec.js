@@ -33,7 +33,7 @@ test('fix1119-flip-frames', async ({ browser }) => {
       await page.evaluate(() => { toggleBalanceCard(); });
       await page.evaluate(() => { document.getAnimations().forEach(a => a.pause()); });
       for (const pr of STEPS) {
-        await page.evaluate(p => { document.getAnimations().forEach(a => { const t = a.effect && a.effect.getComputedTiming ? 380 * p / 100 : 0; a.currentTime = t; }); }, pr);
+        await page.evaluate(p => { document.getAnimations().forEach(a => { const t = a.effect && a.effect.getComputedTiming ? 320 * p / 100 : 0; a.currentTime = t; }); }, pr);
         await page.waitForTimeout(60);
         await page.screenshot({ path: path.join(DIR, 'flip-' + dir + '-' + theme + '-' + String(pr).padStart(3, '0') + '.png'), clip, fullPage: true });
       }

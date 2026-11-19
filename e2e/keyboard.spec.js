@@ -2047,3 +2047,44 @@ test('137b. LOGIN-FORM-4: заповнилось лише одне поле — 
     expect(r.lock, JSON.stringify(r)).toEqual(['true:', 'false:timeout']);
   } finally { await ctx.close(); }
 });
+test('150. FIX-1119 п.12: «Структура»: «Видалити» стоїть над рядом дій і без клавіатури, і з нею; після закриття клавіатури не перескакує вниз під кнопки', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showCategoryModal('Редагувати', 'Кава', CATEGORY_TYPES[0], function(){}, { label: 'Видалити категорію', note: 'Нотатка', onDelete: function(){} }); });
+    await page.waitForTimeout(900);
+    const geo = () => page.evaluate(() => { const d = document.getElementById('struct-drawer'); d.scrollTop = d.scrollHeight; const a = d.querySelector('.sf-actions').getBoundingClientRect(), del = document.getElementById('sf-delete-wrap').getBoundingClientRect(), dr = d.getBoundingClientRect(); return { delBottom: del.bottom, actTop: a.top, actBottom: a.bottom, drBottom: dr.bottom }; });
+    const closed = await geo();
+    expect(closed.delBottom, 'без клавіатури «Видалити» над рядом: ' + JSON.stringify(closed)).toBeLessThanOrEqual(closed.actTop + 0.5);
+    await page.evaluate(() => { document.getElementById('fldstr3').focus(); });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1100);
+    const open1 = await geo();
+    expect(open1.delBottom, 'з клавіатурою «Видалити» над рядом: ' + JSON.stringify(open1)).toBeLessThanOrEqual(open1.actTop + 0.5);
+    await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1100);
+    const after = await geo();
+    expect(after.delBottom, 'після закриття клавіатури «Видалити» лишається над рядом: ' + JSON.stringify(after)).toBeLessThanOrEqual(after.actTop + 0.5);
+    expect(Math.abs((after.actTop - after.delBottom) - (closed.actTop - closed.delBottom)), 'відстань «Видалити» → ряд дій до й після клавіатури однакова').toBeLessThanOrEqual(1);
+  } finally { await ctx.close(); }
+});
+test('151. FIX-1119 п.13: «Застосувати» в ОЧ: pointerdown не забирає фокус із поля «Залишок за банком», click підставляє значення', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { ochToggleCond(); const b = document.getElementById('idd-balance'); b.dataset.expected = '5000'; b.value = '1 000'; checkInstallmentDivergence(); b.focus(); });
+    await page.waitForTimeout(300);
+    const btn = page.locator('.bdr-diff-apply');
+    await expect(btn).toBeVisible();
+    const box = await btn.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    const mid = await page.evaluate(() => ({ active: document.activeElement && document.activeElement.id, value: document.getElementById('idd-balance').value }));
+    expect(mid.active, 'на pointerdown фокус лишається в полі (клавіатура не ховається): ' + JSON.stringify(mid)).toBe('idd-balance');
+    await page.mouse.up();
+    await page.waitForTimeout(150);
+    const end = await page.evaluate(() => ({ active: document.activeElement && document.activeElement.id, value: document.getElementById('idd-balance').value }));
+    expect(end.value.replace(/\s| /g, ''), 'після click значення підставлено: ' + JSON.stringify(end)).toBe('5000');
+  } finally { await ctx.close(); }
+});
