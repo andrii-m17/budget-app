@@ -356,3 +356,29 @@ test('13. DS-PAYLIST Rev 2: А вносить платіж ОЧ витратою
   expect((await liveOf('expenses', 'id')).length).toBe(1);
   expect(a.errors.concat(b.errors)).toEqual([]);
 });
+
+test('14. ERR-2: обрив мережі під час відправки після повної звірки — позначка needFull лишається; наступна перевірка знову повна й відправляє запис; на сервері одна витрата', async ({ browser }) => {
+  const a = await openDevice(browser, 'A');
+  const t = now();
+  // «Брудний» запис, який повна звірка знаходить на справжньому сервері, відтворюється тут прямо: прапорець syncFullDirty ставимо після пулів (як fx.dirty) і маємо локальний запис без позначки «синхронізовано»; сама відправка йде на справжній тестовий сервер, але запис на нього обривається
+  await a.page.route('**/rest/v1/expenses*', route => route.request().method() === 'GET' ? route.continue() : route.abort());
+  const id = await a.page.evaluate(async t0 => {
+    const rec = { id: generateUUID(), name: 'Обрив', amount: 55, date: t0.slice(0, 10), category: '', subcategory: '', createdAt: t0, updatedAt: t0 };
+    expenses.push(rec); await saveExpenses();
+    const f = runSyncPulls; window.__markDirty = true;
+    runSyncPulls = async (tables, results, o) => { const r = await f(tables, results, o); if(window.__markDirty && o && o.full) syncFullDirty = true; return r; };
+    return rec.id;
+  }, t);
+  expect((await liveOf('expenses', 'id')).filter(r => r.id === id).length).toBe(0);
+  const r1 = await a.page.evaluate(async () => { const res = await syncCheck('focus', { force: true, fullReason: 'test-err2' }); return { full: !!(res && res.plan && res.plan.full), needFull: syncSeenState.needFull }; });
+  expect(r1.full).toBe(true); expect(r1.needFull, 'збій відправки лишає позначку повної звірки').toBe('dirty-push');
+  expect((await liveOf('expenses', 'id')).filter(r => r.id === id).length).toBe(0);
+  // мережа повернулась: наступна звичайна перевірка знову повна й відправляє запис
+  await a.page.unroute('**/rest/v1/expenses*');
+  const r2 = await a.page.evaluate(async () => { const res = await syncCheck('focus', { force: true }); return { full: !!(res && res.plan && res.plan.full) }; });
+  expect(r2.full, 'наступна перевірка знову повна, не чекає 24 години').toBe(true);
+  await expect.poll(async () => (await liveOf('expenses', 'id')).filter(r => r.id === id).length, { timeout: 30000 }).toBe(1);
+  await expect.poll(() => a.page.evaluate(() => syncSeenState.needFull), { timeout: 20000 }).toBe(null);
+  expect((await liveOf('expenses', 'id')).length, 'на сервері одна витрата').toBe(1);
+  expect(a.errors).toEqual([]);
+});

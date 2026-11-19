@@ -163,7 +163,7 @@ test('охоронні: режим повної звірки передаєть�
   assert.match(SRC, /const result = await step\(\{ full: true \}\);/);
   assert.equal((SRC.match(/await fetchDeltaRows\(client, '[a-z_]+', '[^']*', '[A-Za-z]+', opts\)/g) || []).length, 8);
   assert.match(SRC, /if\(opts && opts\.full && marker\) return fetchFullReconcileRows\(client, table, columns\);/);
-  assert.match(SRC, /if\(syncFullDirty\)\{ syncFullDirty = false; try\{ await autoSyncStale\('full-reconcile'\); \}catch\(e\)\{ recErr\('sync-full', e\); \} \}/);
+  assert.match(SRC, /if\(syncFullDirty\)\{\s*syncFullDirty = false; dirtyPushRan = true;\s*try\{ const r = await autoSyncStale\('full-reconcile'\); if\(r && r\.failed > 0\) dirtyPushFailed = true; \}catch\(e\)\{ dirtyPushFailed = true; recErr\('sync-full', e\); \}\s*\}/);
 });
 
 test('вікно між індексом і ефектами: записи, змінені після початку читання індексу, не вважаються зниклими з сервера (ні надгробок прибрати, ні живий перепушити)', async function(){
