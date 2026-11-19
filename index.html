@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.425"><link rel="stylesheet" href="./css/app.css?v=2.32.425"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.426"><link rel="stylesheet" href="./css/app.css?v=2.32.426"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -875,7 +875,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.425</div>
+  <div class="version-footer">Money Tree · Rev 2.32.426</div>
 </div>
   </div>
 </div>
@@ -1661,16 +1661,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.425"></script>
-<script src="./js/util-date.js?v=2.32.425"></script>
-<script src="./js/util-safe.js?v=2.32.425"></script>
-<script src="./js/util-misc.js?v=2.32.425"></script>
-<script src="./js/diag.js?v=2.32.425"></script>
-<script src="./js/shell.js?v=2.32.425"></script>
-<script src="./js/structure.js?v=2.32.425"></script>
-<script src="./js/analytics.js?v=2.32.425"></script>
-<script src="./js/payments.js?v=2.32.425"></script>
-<script src="./js/sheets.js?v=2.32.425"></script>
+<script src="./js/util-format.js?v=2.32.426"></script>
+<script src="./js/util-date.js?v=2.32.426"></script>
+<script src="./js/util-safe.js?v=2.32.426"></script>
+<script src="./js/util-misc.js?v=2.32.426"></script>
+<script src="./js/diag.js?v=2.32.426"></script>
+<script src="./js/shell.js?v=2.32.426"></script>
+<script src="./js/structure.js?v=2.32.426"></script>
+<script src="./js/analytics.js?v=2.32.426"></script>
+<script src="./js/payments.js?v=2.32.426"></script>
+<script src="./js/sheets.js?v=2.32.426"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -4513,6 +4513,8 @@ async function pushExpenseCas(rec, linkedInstallmentId, opts, depth){ return awa
 const SELF_ECHO_TTL_MS = 15000;
 const SELF_ECHO = { recent: new Map(), held: new Map(), inflight: new Map() };
 // UTC із мікросекундами: «Z» і «+00:00», 3 чи 6 знаків дробової частини дають однаковий рядок; не розібралось або без зони → null (не гасимо).
+// Rev 2.32.426 (NET-2ab): те саме для інших таблиць (доходи, борги): повний рядок у відповіді на запис; без select (фейковий клієнт) відповідь лишається як є й pull працює за старою схемою
+function rowRetFull(q, cols){ return (q && typeof q.select === 'function') ? q.select(cols) : q; }
 function expRetFull(q){ return (q && typeof q.select === 'function') ? q.select(EXP_ROW_COLS) : q; } // повний рядок у відповіді; без select (фейковий клієнт) відповідь лишається як є
 function selfEchoEvent(type, table, id, kind, ms){
   try{ if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: type, table: table, idShort: String(id || '').slice(0, 8), kind: kind || undefined, ms: ms === undefined ? undefined : Math.round(ms) }); }catch(e){}
@@ -4521,14 +4523,14 @@ function selfPullSkip(table){
   try{ if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'pull-skip', table: table, source: 'push' }); }catch(e){}
 }
 function selfEchoBegin(id){ if(id) SELF_ECHO.inflight.set(id, (SELF_ECHO.inflight.get(id) || 0) + 1); }
-function selfEchoFinish(id, updatedAt){
+function selfEchoFinish(id, updatedAt, table){
   if(!id) return;
   const n = (SELF_ECHO.inflight.get(id) || 1) - 1;
   if(n > 0) SELF_ECHO.inflight.set(id, n); else SELF_ECHO.inflight.delete(id);
   const ts = utcMicros(updatedAt), now = Date.now();
   if(ts){
     SELF_ECHO.recent.forEach(function(v, k){ if(now - v.at > SELF_ECHO_TTL_MS) SELF_ECHO.recent.delete(k); });
-    SELF_ECHO.recent.set(id, { ts: ts, at: now });
+    SELF_ECHO.recent.set(id, { ts: ts, at: now, table: table || 'expenses' });
   }
   if(n > 0) return; // ще є запис того самого id у польоті: затримані події розв'яже останній
   const held = SELF_ECHO.held.get(id);
@@ -4537,7 +4539,7 @@ function selfEchoFinish(id, updatedAt){
   let pass = false;
   held.forEach(function(h){
     const r = SELF_ECHO.recent.get(id);
-    if(ts && h.ts === ts && r && r.ts === ts){ SELF_ECHO.recent.delete(id); selfEchoEvent('echo-skip', 'expenses', id, h.kind, now - h.at); }
+    if(ts && h.ts === ts && r && r.ts === ts){ SELF_ECHO.recent.delete(id); selfEchoEvent('echo-skip', r.table || 'expenses', id, h.kind, now - h.at); }
     else pass = true;
   });
   if(pass && typeof scheduleRealtimeSyncCheck === 'function') scheduleRealtimeSyncCheck();
@@ -4553,7 +4555,7 @@ function selfEchoCheck(payload){
     const ts = utcMicros(row.updated_at);
     if(!ts) return 'pass';
     const now = Date.now(), r = SELF_ECHO.recent.get(row.id);
-    if(r && now - r.at <= SELF_ECHO_TTL_MS && r.ts === ts){ SELF_ECHO.recent.delete(row.id); selfEchoEvent('echo-skip', 'expenses', row.id, payload.eventType, now - r.at); return 'skip'; }
+    if(r && now - r.at <= SELF_ECHO_TTL_MS && r.ts === ts){ SELF_ECHO.recent.delete(row.id); selfEchoEvent('echo-skip', r.table || payload.table || 'expenses', row.id, payload.eventType, now - r.at); return 'skip'; }
     if((SELF_ECHO.inflight.get(row.id) || 0) > 0){ const h = SELF_ECHO.held.get(row.id) || []; h.push({ ts: ts, at: now, kind: payload.eventType }); SELF_ECHO.held.set(row.id, h); return 'held'; }
   }catch(e){}
   return 'pass';
@@ -4586,6 +4588,49 @@ function expApplyPushedRow(rec, row, sentAt){
     return { visible: visible };
   }catch(e){ return null; }
 }
+// Rev 2.32.426 (NET-2ab): повний рядок із відповіді на запис доходу застосовується так, як pull прийняв би власне відлуння; null — застосувати не можна (неповна відповідь, правка під час запиту, «брудний» запис, сервер змінив значення): лишається звичайний pull
+function incApplyPushedRow(rec, row, sentAt){
+  try{
+    if(!rec || !row || row.id !== rec.id || typeof row.updated_at !== 'string' || !utcMicros(row.updated_at)) return null;
+    if(INC_ROW_COLS.split(',').some(function(c){ return !Object.prototype.hasOwnProperty.call(row, c); })) return null;
+    if(rec.updatedAt !== sentAt) return null;
+    if(rec.amount !== row.amount || rec.date !== row.income_date || !sameIncomeSource(rec.source, row.note || '')) return null; // сервер нічого не переписує, але якщо так — звичайний pull
+    shadowNormalize(rec);
+    if(shadowDirtyNew(rec)) return null;
+    if(row.created_at) rec.createdAt = row.created_at;
+    if(row.created_by) rec.createdBy = row.created_by;
+    rec.updatedBy = row.updated_by;
+    if(row.deleted_at) rec.deletedAt = row.deleted_at; else delete rec.deletedAt;
+    rec.updatedAt = row.updated_at; rec.syncedUpdatedAt = row.updated_at; rec.serverUpdatedAt = row.updated_at;
+    rec.serverBase = MERGE_DOMAINS.incomes.snapFromRow(row);
+    return { visible: false };
+  }catch(e){ return null; }
+}
+// Те саме для боргів: додатково рахунок/ОЧ за cloudId (назву й місяць веде сервер: якщо відрізняються від локальних — звичайний pull)
+function debApplyPushedRow(rec, row, sentAt){
+  try{
+    if(!rec || !row || row.id !== rec.id || typeof row.updated_at !== 'string' || !utcMicros(row.updated_at)) return null;
+    if(DEBT_ROW_COLS.split(',').some(function(c){ return !Object.prototype.hasOwnProperty.call(row, c); })) return null;
+    if(rec.updatedAt !== sentAt) return null;
+    let acc;
+    if(row.kind === 'card') acc = bankAccounts.find(function(b){ return b.cloudId === row.bank_account_id; });
+    else acc = installmentAccounts.find(function(a){ return a.cloudId === row.installment_account_id; });
+    if(!acc) return null;
+    const accountId = row.kind === 'card' ? row.bank_account_id : row.installment_account_id;
+    if(rec.name !== acc.name || rec.kind !== row.kind || rec.month !== dateToMonth(row.month) || rec.balance !== row.balance
+      || (rec.minPayment ?? null) !== (row.min_payment ?? null) || (rec.minPaymentDone ?? null) !== (row.min_payment_done ?? null) || (rec.monthlyPayment ?? null) !== (row.monthly_payment ?? null)) return null;
+    shadowNormalize(rec);
+    if(shadowDirtyNew(rec)) return null;
+    if(accountId) rec.accountId = accountId;
+    if(row.created_at) rec.createdAt = row.created_at;
+    if(row.created_by) rec.createdBy = row.created_by;
+    rec.updatedBy = row.updated_by;
+    if(row.deleted_at) rec.deletedAt = row.deleted_at; else delete rec.deletedAt;
+    rec.updatedAt = row.updated_at; rec.syncedUpdatedAt = row.updated_at; rec.serverUpdatedAt = row.updated_at;
+    rec.serverBase = MERGE_DOMAINS.debts.snapFromRow(row);
+    return { visible: false };
+  }catch(e){ return null; }
+}
 // Опис доменів: поля, зв'язок «рядок сервера ↔ запис», поля запиту, побічні дії.
 const MERGE_DOMAINS = {
   expenses: {
@@ -4616,7 +4661,7 @@ const MERGE_DOMAINS = {
     pulledMark: function(id){ expPulledMark(id); },
   },
   incomes: {
-    key: 'incomes', table: 'incomes', rowKind: 'income', fields: INC_MERGE_FIELDS, optional: ['deletedAt'], cols: INC_ROW_COLS,
+    key: 'incomes', table: 'incomes', rowKind: 'income', fields: INC_MERGE_FIELDS, optional: ['deletedAt'], cols: INC_ROW_COLS, retCols: INC_ROW_COLS.replace(',deleted_at', ''), applyPushRow: function(rec, row, sentAt){ return incApplyPushedRow(rec, row, sentAt); },
     list: function(){ return incomes; }, save: function(){ return saveIncomes(); }, push: function(rec, opts){ return pushIncomeRecordPilot(rec, opts); }, pull: function(){ return pullIncomesCore(); },
     snapFromRow: function(row){ return { amount: row.amount, date: row.income_date, source: row.note || '', deletedAt: row.deleted_at || '' }; }, // source порівнюється через sameIncomeSource (mdFieldEq): старий ключ і id — те саме джерело
     rowCtx: function(){ return {}; }, pushCtx: function(){ return {}; },
@@ -4634,7 +4679,7 @@ const MERGE_DOMAINS = {
     pulledMark: function(id){ expPulledMark(id, recentlyPulledIncomeState); },
   },
   debts: {
-    key: 'debts', table: 'debts', rowKind: 'debt', fields: DEBT_MERGE_FIELDS, optional: ['monthlyPayment', 'minPayment', 'minPaymentDone', 'deletedAt'], cols: DEBT_ROW_COLS,
+    key: 'debts', table: 'debts', rowKind: 'debt', fields: DEBT_MERGE_FIELDS, optional: ['monthlyPayment', 'minPayment', 'minPaymentDone', 'deletedAt'], cols: DEBT_ROW_COLS, retCols: DEBT_ROW_COLS.replace(',deleted_at', ''), applyPushRow: function(rec, row, sentAt){ return debApplyPushedRow(rec, row, sentAt); },
     list: function(){ return debts; }, save: function(){ return saveDebts(); }, push: function(rec, opts){ return pushDebtRecordPilot(rec, opts); }, pull: function(){ return pullDebtsCore(); },
     snapFromRow: function(row){ return { balance: row.balance, monthlyPayment: row.monthly_payment == null ? '' : row.monthly_payment, minPayment: row.min_payment == null ? '' : row.min_payment, minPaymentDone: row.min_payment_done == null ? '' : row.min_payment_done, month: dateToMonth(row.month), deletedAt: row.deleted_at || '' }; },
     rowCtx: function(row){
@@ -5317,9 +5362,11 @@ async function pushExpensesBatched(records, chunkSize){
 async function pushIncomeRecordPilot(rec, opts){
   const id = rec && rec.id;
   expSyncBegin(id);
+  selfEchoBegin(id); // Rev 2.32.426 (NET-2ab): Realtime-луна власного запису не запускає перевірку
   let res;
   try{ res = await pushIncomeRecordPilotCore(rec, opts); }
-  catch(e){ expSyncEnd(id, false); throw e; }
+  catch(e){ selfEchoFinish(id, null, 'incomes'); expSyncEnd(id, false); throw e; }
+  selfEchoFinish(id, res && res.serverAt ? res.serverAt : null, 'incomes');
   expSyncEnd(id, !!(res && res.success && !res.unresolved));
   return res;
 }
@@ -5334,7 +5381,8 @@ async function pushIncomeRecordPilotCore(rec, opts){
   try{
     const shSnap = shadowSnap(rec); // Rev 2.32.192 (SHADOW-REV)
     const sentSnap = mdSnap(MERGE_DOMAINS.incomes, rec), sentAt = rec.updatedAt; // Rev 2.32.201
-    const { data, error } = await shadowRet(client.from('incomes').upsert({
+    let applied = null; // Rev 2.32.426 (NET-2ab): відповідь на запис містить повний рядок (INC_ROW_COLS): негайний pull не потрібен
+    const { data, error } = await rowRetFull(client.from('incomes').upsert({
       id: rec.id,
       family_id: cloudFamilyId,
       amount: rec.amount,
@@ -5346,18 +5394,22 @@ async function pushIncomeRecordPilotCore(rec, opts){
       updated_at: rec.updatedAt,
       // Rev #30 (6D.64) — created_by прибрано, той самий принцип, що pushExpenseRecordPilot().
       updated_by: userId,
-    }, { onConflict: 'id' }));
+    }, { onConflict: 'id' }), INC_ROW_COLS);
     // Rev #30 (6D.57) — syncedUpdatedAt, той самий принцип, що pushExpenseRecordPilot().
     if(!error){
       rec.syncedUpdatedAt = sentAt;
       shadowSetServer(rec, data && data[0] && data[0].updated_at); shadowAfterPush(rec, shSnap); // Rev 2.32.192 (SHADOW-REV)
       rec.serverBase = sentSnap; // Rev 2.32.201
       shadowAdoptDeleted(rec, data && data[0] && data[0].deleted_at); // Rev 2.32.230 (SERVER-DEL)
+      applied = incApplyPushedRow(rec, data && data[0], sentAt); // Rev 2.32.426 (NET-2ab)
       await saveIncomes();
     }
     // Rev #30 (6D.49/6D.58) — той самий принцип, що pushExpenseRecordPilot().
-    if(!error && !(opts && opts.suppressPull)) await pullIncomesCore();
-    return { success: !error, error: error ? (error.message || String(error)) : undefined };
+    if(!error && !(opts && opts.suppressPull)){
+      if(applied) selfPullSkip('incomes'); // Rev 2.32.426 (NET-2ab): рядок уже застосовано з відповіді
+      else await pullIncomesCore();
+    }
+    return { success: !error, error: error ? (error.message || String(error)) : undefined, serverAt: applied && data && data[0] ? data[0].updated_at : undefined };
   }catch(e){
     // мережа/CORS/офлайн — тихий пропуск.
     return { success: false, error: e && e.message ? e.message : String(e) };
@@ -5412,9 +5464,11 @@ async function pushIncomesBatched(records, chunkSize){
 async function pushDebtRecordPilot(rec, opts){
   const id = rec && rec.id;
   expSyncBegin(id);
+  selfEchoBegin(id); // Rev 2.32.426 (NET-2ab)
   let res;
   try{ res = await pushDebtRecordPilotCore(rec, opts); }
-  catch(e){ expSyncEnd(id, false); throw e; }
+  catch(e){ selfEchoFinish(id, null, 'debts'); expSyncEnd(id, false); throw e; }
+  selfEchoFinish(id, res && res.serverAt ? res.serverAt : null, 'debts');
   expSyncEnd(id, !!(res && res.success && !res.unresolved));
   return res;
 }
@@ -5440,7 +5494,8 @@ async function pushDebtRecordPilotCore(rec, opts){
   try{
     const shSnap = shadowSnap(rec); // Rev 2.32.192 (SHADOW-REV)
     const sentSnap = mdSnap(MERGE_DOMAINS.debts, rec), sentAt = rec.updatedAt; // Rev 2.32.201
-    const { data, error } = await shadowRet(client.from('debts').upsert({
+    let applied = null; // Rev 2.32.426 (NET-2ab): повний рядок у відповіді (DEBT_ROW_COLS): негайний pull не потрібен
+    const { data, error } = await rowRetFull(client.from('debts').upsert({
       id: rec.id,
       family_id: cloudFamilyId,
       bank_account_id: bankAccountId,
@@ -5458,13 +5513,14 @@ async function pushDebtRecordPilotCore(rec, opts){
       updated_at: rec.updatedAt,
       // Rev #30 (6D.64) — created_by прибрано, той самий принцип, що pushExpenseRecordPilot().
       updated_by: userId,
-    }, { onConflict: 'id' }));
+    }, { onConflict: 'id' }), DEBT_ROW_COLS);
     // Rev #30 (6D.57) — syncedUpdatedAt, той самий принцип, що pushExpenseRecordPilot().
     if(!error){
       rec.syncedUpdatedAt = sentAt;
       shadowSetServer(rec, data && data[0] && data[0].updated_at); shadowAfterPush(rec, shSnap); // Rev 2.32.192 (SHADOW-REV)
       rec.serverBase = sentSnap; // Rev 2.32.201
       shadowAdoptDeleted(rec, data && data[0] && data[0].deleted_at); // Rev 2.32.230 (SERVER-DEL)
+      applied = debApplyPushedRow(rec, data && data[0], sentAt); // Rev 2.32.426 (NET-2ab)
       await saveDebts();
     }
     // Rev #30 (6D.76) — КРИТИЧНИЙ фікс: реальний інцидент користувача
@@ -5497,8 +5553,11 @@ async function pushDebtRecordPilotCore(rec, opts){
       }
     }
     // Rev #30 (6D.49/6D.58) — той самий принцип, що pushExpenseRecordPilot().
-    if(!error && !(opts && opts.suppressPull)) await pullDebtsCore();
-    return { success: !error, error: error ? (error.message || String(error)) : undefined, code: error ? error.code : undefined }; // Rev 2.23.31 (6D.200): code (напр. 23505) — для відновлення з корзини
+    if(!error && !(opts && opts.suppressPull)){
+      if(applied) selfPullSkip('debts'); // Rev 2.32.426 (NET-2ab): рядок уже застосовано з відповіді
+      else await pullDebtsCore();
+    }
+    return { success: !error, error: error ? (error.message || String(error)) : undefined, code: error ? error.code : undefined, serverAt: applied && data && data[0] ? data[0].updated_at : undefined }; // Rev 2.23.31 (6D.200): code (напр. 23505) — для відновлення з корзини
   }catch(e){
     // мережа/CORS/офлайн — тихий пропуск.
     return { success: false, error: e && e.message ? e.message : String(e) };
@@ -6770,7 +6829,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.425';
+const APP_VERSION = '2.32.426';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9013,7 +9072,7 @@ function setupRealtimeSync(){
     // Rev 2.32.74 (U): подія Realtime більше не тягне свою таблицю напряму — серія подій згортається (1,5 с) в одну перевірку «голів»,
     // яка завантажує лише реально змінені таблиці (раніше: по запиту на подію; власний запис давав подію на кожну таблицю).
     channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: domain.table, filter: 'family_id=eq.' + cloudFamilyId }, function(payload){
-      if(domain.table === 'expenses' && selfEchoCheck(payload) !== 'pass') return; // Rev 2.32.300 (NET-1): власне відлуння гаситься, затримане розв'яже відповідь запису
+      if((domain.table === 'expenses' || domain.table === 'incomes' || domain.table === 'debts') && selfEchoCheck(payload) !== 'pass') return; // Rev 2.32.300 (NET-1): власне відлуння гаситься, затримане розв'яже відповідь запису; Rev 2.32.426 (NET-2ab): так само для доходів і боргів (id записів UUID: ключ спільний, збіг лише за id + updated_at + updated_by = я)
       scheduleRealtimeSyncCheck();
     });
   });

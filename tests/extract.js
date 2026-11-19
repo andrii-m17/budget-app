@@ -100,7 +100,7 @@ function buildSandbox(globals, names){
     + "if(typeof recErr === 'undefined') var recErr = function(){};" // ERR-1a: слід помилок у самописці; у тестах за замовчуванням порожня (тест може передати власну)
     + "if(typeof isCloudWriteReady === 'undefined') var isCloudWriteReady = function(){ return !isWriteBlocked() && (typeof isCloudSessionReady === 'function' ? isCloudSessionReady() : false); };", context);
   // Rev 2.32.192 (SHADOW-REV): тіньові помічники обліку версій викликаються з push/save-функцій; додаємо їх у кожен sandbox автоматично (тести не мусять перелічувати їх у NAMES).
-  const SHADOW = ['SELF_ECHO_TTL_MS', 'SELF_ECHO', 'utcMicros', 'selfEchoEvent', 'selfPullSkip', 'selfEchoBegin', 'expRetFull', 'selfEchoFinish', 'selfEchoCheck', 'expApplyPushedRow', 'expSnapFromRow', // Rev 2.32.300 (NET-1)
+  const SHADOW = ['SELF_ECHO_TTL_MS', 'SELF_ECHO', 'utcMicros', 'selfEchoEvent', 'selfPullSkip', 'selfEchoBegin', 'expRetFull', 'rowRetFull', 'incApplyPushedRow', 'debApplyPushedRow', 'selfEchoFinish', 'selfEchoCheck', 'expApplyPushedRow', 'expSnapFromRow', // Rev 2.32.300 (NET-1)
     'shadowNormalize', 'shadowNormalizeLazy', 'shadowNormalizeList', 'shadowNormalizeMap', 'shadowNormalizeAll', 'shadowSnap', 'shadowSetServer', 'shadowAfterPush', 'shadowRet', 'shadowServerAt', 'shadowServerDeleted', 'shadowAdoptDeleted', 'shadowDirtyNew', 'shadowDirtyOld', 'shadowDiffCounts', 'shadowDiffReport',
     // Rev 2.32.193 (MERGE-EXP): злиття витрат і журнал конфліктів; push/pull витрат викликають їх завжди
     'recordKey', 'EXP_MERGE_FIELDS', 'EXP_ROW_COLS', 'CONFLICT_TTL_MS', 'LS_KEY_CONFLICTS', 'CONFLICT_FIELD_ACC',

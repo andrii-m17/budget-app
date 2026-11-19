@@ -382,3 +382,54 @@ test('14. ERR-2: обрив мережі під час відправки піс
   expect((await liveOf('expenses', 'id')).length, 'на сервері одна витрата').toBe(1);
   expect(a.errors).toEqual([]);
 });
+
+// NET-2ab (Rev 2.32.426): дохід і борг — один запит на дію; чужий запис із іншого пристрою не гаситься як власна луна; офлайн-шлях старий
+const addIncome = (d, amount, note) => d.page.evaluate(async ([a, n]) => { const t = new Date().toISOString(); const rec = { id: generateUUID(), date: kyivTodayISO(), source: incomeSourceStore(n), amount: a, createdAt: t, updatedAt: t }; incomes.push(rec); await saveIncomes(); await pushIncomeRecordPilot(rec); return rec.id; }, [amount, note]);
+const editIncome = (d, id, amount) => d.page.evaluate(async ([i, a]) => { const r = incomes.find(x => x.id === i); r.amount = a; r.updatedAt = new Date().toISOString(); await saveIncomes(); await pushIncomeRecordPilot(r); }, [id, amount]);
+const incAmounts = d => d.page.evaluate(() => incomes.filter(r => !r.deletedAt).map(r => r.amount).sort((x, y) => x - y));
+test('17. NET-2ab: дохід з А видно в Б; зміна з Б доходить до А (чужий запис не гаситься); на сервері один рядок', async ({ browser }) => {
+  const a = await openDevice(browser, 'A'), b = await openDevice(browser, 'B');
+  await addIncome(a, 1000, 'Тест А');
+  await expect.poll(async () => (await liveOf('incomes', 'id,amount')).length, { timeout: 30000 }).toBe(1);
+  await expect.poll(async () => { await b.page.evaluate(() => pullIncomesCore()); return incAmounts(b); }, { timeout: 30000 }).toEqual([1000]);
+  const id = await b.page.evaluate(() => incomes.find(r => !r.deletedAt).id);
+  await editIncome(b, id, 1200);
+  await expect.poll(async () => (await liveOf('incomes', 'id,amount')).map(r => r.amount), { timeout: 30000 }).toEqual([1200]);
+  await expect.poll(async () => { await a.page.evaluate(async () => { await syncCheck('resume', { force: true }); }); return incAmounts(a); }, { timeout: 40000 }).toEqual([1200]);
+  expect((await liveOf('incomes', 'id')).length).toBe(1);
+  expect(a.errors.concat(b.errors)).toEqual([]);
+});
+test('18. NET-2ab: борг з А (картка) видно в Б; на сервері один рядок', async ({ browser }) => {
+  const a = await openDevice(browser, 'A'), b = await openDevice(browser, 'B');
+  await a.page.evaluate(async () => { await addBankAccount('Картка Н', 5000); });
+  await expect.poll(async () => (await liveOf('bank_accounts', 'id')).length, { timeout: 30000 }).toBe(1);
+  await a.page.evaluate(async () => { const t = new Date().toISOString(); const rec = { id: generateUUID(), name: 'Картка Н', kind: 'card', month: kyivTodayISO().slice(0, 7), balance: 700, createdAt: t, updatedAt: t }; debts.push(rec); await saveDebts(); await pushDebtRecordPilot(rec); });
+  await expect.poll(async () => (await liveOf('debts', 'id,balance')).map(r => r.balance), { timeout: 30000 }).toEqual([700]);
+  await expect.poll(async () => { await b.page.evaluate(async () => { await syncCheck('resume', { force: true }); }); return b.page.evaluate(() => debts.filter(r => !r.deletedAt).map(r => r.balance)); }, { timeout: 40000 }).toEqual([700]);
+  expect((await liveOf('debts', 'id')).length).toBe(1);
+  expect(a.errors.concat(b.errors)).toEqual([]);
+});
+test('19. NET-2ab: одночасна правка одного доходу на двох пристроях — переможець за LWW (пізніший), обидва збігаються з сервером', async ({ browser }) => {
+  const a = await openDevice(browser, 'A'), b = await openDevice(browser, 'B');
+  const id = await addIncome(a, 500, 'Тест А');
+  await expect.poll(async () => (await liveOf('incomes', 'id')).length, { timeout: 30000 }).toBe(1);
+  await expect.poll(async () => { await b.page.evaluate(() => pullIncomesCore()); return incAmounts(b); }, { timeout: 30000 }).toEqual([500]);
+  await Promise.all([editIncome(a, id, 600), editIncome(b, id, 700)]);
+  await new Promise(r => setTimeout(r, 2500));
+  const srv = (await liveOf('incomes', 'id,amount')).map(r => r.amount);
+  expect(srv.length).toBe(1);
+  for (const d of [a, b]) await expect.poll(async () => { await d.page.evaluate(async () => { await syncCheck('resume', { force: true }); }); return incAmounts(d); }, { timeout: 40000 }).toEqual(srv);
+  expect([600, 700]).toContain(srv[0]);
+  expect(a.errors.concat(b.errors)).toEqual([]);
+});
+test('20. NET-2ab: дохід записано без мережі — після повернення мережі відправляється старим шляхом; на сервері один рядок', async ({ browser }) => {
+  const a = await openDevice(browser, 'A');
+  await a.context.setOffline(true);
+  await addIncome(a, 333, 'Тест А').catch(() => {});
+  expect((await liveOf('incomes', 'id')).length).toBe(0);
+  await a.context.setOffline(false);
+  await online(a);
+  await a.page.evaluate(async () => { await syncCheck('online', { force: true }); }).catch(() => {});
+  await expect.poll(async () => (await liveOf('incomes', 'id,amount')).map(r => r.amount), { timeout: 40000 }).toEqual([333]);
+  expect((await liveOf('incomes', 'id')).length).toBe(1);
+});

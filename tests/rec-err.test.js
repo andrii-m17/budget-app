@@ -67,12 +67,12 @@ test('білі списки: err у REC_ALLOWED_TYPES, at у REC_ALLOWED_KEYS і
 });
 test('місця виклику: кожен код `at` стоїть у catch потрібної функції; catch лише додає запис (return/потік не змінено)', function(){
   const sites = [['idmig-cat', 'pullCategoriesCore'], ['idmig-sub', 'pullSubcategoriesCore'], ['idmig-dict', 'pullDictionaryCore'], ['idmig-bank', 'pullBankAccountsCore'], ['idmig-inst', 'pullInstallmentAccountsCore'],
-    ['exp-casc-cat', 'expApplyPushedRow'], ['exp-render-cat', 'expApplyPushedRow'], ['exp-casc-sub', 'expApplyPushedRow'], ['exp-render-sub', 'expApplyPushedRow'],
+    ['exp-casc-cat', 'MERGE_DOMAINS'], ['exp-render-cat', 'MERGE_DOMAINS'], ['exp-casc-sub', 'MERGE_DOMAINS'], ['exp-render-sub', 'MERGE_DOMAINS'],
     ['push-batch-exp', 'pushExpensesBatch'], ['push-batch-inc', 'pushIncomesBatch'], ['push-batch-debt', 'pushDebtsBatch'], ['heads-fetch', 'fetchSyncHeadsShared'], ['sync-names', 'runSyncCheck'], ['sync-full', 'runSyncCheck'], ['import-bank-push', 'handleImportFile']];
   sites.forEach(([at, fn]) => {
     const needle = "recErr('" + at + "', e)";
     assert.equal(SRC.split(needle).length - 1, 1, at + ' рівно один раз');
-    const pos = SRC.indexOf(needle), fi = Math.max(SRC.lastIndexOf('function ' + fn + '(', pos), -1);
+    const pos = SRC.indexOf(needle), fi = Math.max(fn === 'MERGE_DOMAINS' ? SRC.lastIndexOf('const MERGE_DOMAINS = {', pos) : SRC.lastIndexOf('function ' + fn + '(', pos), -1); // Rev 2.32.426: ці каскади живуть усередині об'єкта MERGE_DOMAINS (applyPushRow витрат), а не в окремій функції
     assert.ok(fi >= 0, at + ' у функції ' + fn + '?');
     const between = SRC.slice(fi, pos);
     assert.ok(!/\n(?:async )?function [A-Za-z0-9_]+\(/.test(between.slice(between.indexOf('\n'))), at + ': між оголошенням ' + fn + ' і місцем немає іншої функції верхнього рівня');

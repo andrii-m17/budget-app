@@ -223,10 +223,11 @@ test('пакетні шляхи не змінені: pushExpensesBatch бере 
   assert.ok(SRC.includes("if(applied) selfPullSkip('expenses'); // Rev 2.32.300 (NET-1): рядок уже застосовано з відповіді\n      else await pullExpensesCore();"), 'pull лише якщо рядок не застосовано');
 });
 
-test('охоронні: подія самописця в білих списках; Realtime гасить лише витрати; доходи й борги не чіпались', function () {
+test('охоронні: подія самописця в білих списках; Realtime гасить луну витрат, доходів і боргів (NET-2ab)', function () {
   assert.match(SRC, /const REC_ALLOWED_TYPES = \[[^\]]*'echo-skip', 'pull-skip', 'suggest-tap', 'push-toast'\]/);
   assert.match(SRC, /const REC_ALLOWED_KEYS = \['sinceClose', 'idShort',/);
-  assert.match(SRC, /if\(domain\.table === 'expenses' && selfEchoCheck\(payload\) !== 'pass'\) return;/);
-  assert.ok(/if\(!error && !\(opts && opts\.suppressPull\)\) await pullIncomesCore\(\);/.test(SRC) && /if\(!error && !\(opts && opts\.suppressPull\)\) await pullDebtsCore\(\);/.test(SRC), 'NET-2: доходи й борги без змін');
+  assert.match(SRC, /if\(\(domain\.table === 'expenses' \|\| domain\.table === 'incomes' \|\| domain\.table === 'debts'\) && selfEchoCheck\(payload\) !== 'pass'\) return;/); // Rev 2.32.426 (NET-2ab): гасимо луну доходів і боргів теж
+  assert.ok(/if\(applied\) selfPullSkip\('incomes'\);[^\n]*\n\s*else await pullIncomesCore\(\);/.test(SRC) && /if\(applied\) selfPullSkip\('debts'\);[^\n]*\n\s*else await pullDebtsCore\(\);/.test(SRC), 'NET-2ab: доходи й борги пропускають pull, коли рядок застосовано з відповіді');
   assert.match(SRC, /selfEchoFinish\(id, res && res\.serverAt \? res\.serverAt : null\);/);
+  assert.match(SRC, /selfEchoFinish\(id, res && res\.serverAt \? res\.serverAt : null, 'incomes'\);/); assert.match(SRC, /selfEchoFinish\(id, res && res\.serverAt \? res\.serverAt : null, 'debts'\);/);
 });
