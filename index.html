@@ -4597,9 +4597,8 @@ function incApplyPushedRow(rec, row, sentAt){
     if(rec.amount !== row.amount || rec.date !== row.income_date || !sameIncomeSource(rec.source, row.note || '')) return null; // сервер нічого не переписує, але якщо так — звичайний pull
     shadowNormalize(rec);
     if(shadowDirtyNew(rec)) return null;
-    if(row.created_at) rec.createdAt = row.created_at;
-    if(row.created_by) rec.createdBy = row.created_by;
-    rec.updatedBy = row.updated_by;
+    if((rec.deletedAt || null) === (row.deleted_at || null) && rec.updatedAt === row.updated_at) return { visible: false }; // як pull: збігається — нічого не чіпає (сервер не змінив рядок)
+    rec.createdAt = row.created_at; rec.createdBy = row.created_by; rec.updatedBy = row.updated_by; // рівно як pull (без умов «якщо є»): стан збігається зі станом після запису + pull
     if(row.deleted_at) rec.deletedAt = row.deleted_at; else delete rec.deletedAt;
     rec.updatedAt = row.updated_at; rec.syncedUpdatedAt = row.updated_at; rec.serverUpdatedAt = row.updated_at;
     rec.serverBase = MERGE_DOMAINS.incomes.snapFromRow(row);
@@ -4622,9 +4621,8 @@ function debApplyPushedRow(rec, row, sentAt){
     shadowNormalize(rec);
     if(shadowDirtyNew(rec)) return null;
     if(accountId) rec.accountId = accountId;
-    if(row.created_at) rec.createdAt = row.created_at;
-    if(row.created_by) rec.createdBy = row.created_by;
-    rec.updatedBy = row.updated_by;
+    if((rec.deletedAt || null) === (row.deleted_at || null) && rec.updatedAt === row.updated_at) return { visible: false }; // як pull: збігається — нічого не чіпає (сервер не змінив рядок)
+    rec.createdAt = row.created_at; rec.createdBy = row.created_by; rec.updatedBy = row.updated_by; // рівно як pull (без умов «якщо є»): стан збігається зі станом після запису + pull
     if(row.deleted_at) rec.deletedAt = row.deleted_at; else delete rec.deletedAt;
     rec.updatedAt = row.updated_at; rec.syncedUpdatedAt = row.updated_at; rec.serverUpdatedAt = row.updated_at;
     rec.serverBase = MERGE_DOMAINS.debts.snapFromRow(row);
