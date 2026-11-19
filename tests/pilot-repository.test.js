@@ -226,7 +226,7 @@ const REPOSITORY_NAMES = [
   'pullExpensesCore', 'editedAtDiffers', 'pullExpensesPilot',
   'pullIncomesCore', 'pullIncomesPilot',
   'pullDebtsCore', 'pullDebtsPilot',
-  'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'sameIncomeSource', 'incomeSourceDisplay',
+  'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'incomeLegacyHash', 'INCOME_LEGACY_HASHES', 'INCOME_SLOT_NAMES_LS_KEY', 'INCOME_SLOT_NAMES_STATE', 'incomeSlotNamesRead', 'incomeSlotNamesSet', 'incomeSlotName', 'incomeSourceStore', 'incomeSourceLabel', 'sameIncomeSource', 'incomeSourceDisplay',
   'restoreExpensesFromBackup', 'restoreIncomesFromBackup', 'restoreDebtsFromBackup',
   'pilotBackupKeys', 'pilotBackupValue', 'buildBackupPayloadData', 'applyBackupData',
   // Rev #30 (6D.1) — генерація/нормалізація id (UUID_FORMAT_RE — const,
@@ -6740,14 +6740,13 @@ test('pullExpensesCore + edited_at: запис без edited_at на серве�
   assert.equal(ctx.expenses[0].editedAt, undefined);
 });
 
-// ===== Rev 2.32.121 (PRIV-1 п. 2, INCOME_SOURCES, фаза 1): відновлення з копії приймає й старі ключі, і нейтральні id =====
-test('restoreIncomesFromBackup (фаза 1): копія зі СТАРИМ ключем джерела (legacy-id запису) зливається з локальним записом, що має НЕЙТРАЛЬНИЙ id, а не дублюється; навпаки теж', async () => {
-  const { evalInSandbox } = require('./extract');
+// ===== Rev 2.32.121 (фаза 1) + Rev 2.32.401 (PRIV-2b): відновлення з копії приймає й старі ключі, і нейтральні id (старі ключі збираються зі шматків, без імен у файлі) =====
+test('restoreIncomesFromBackup: копія зі СТАРИМ ключем джерела зливається з локальним записом, що має НЕЙТРАЛЬНИЙ id, а не дублюється; навпаки теж', async () => {
+  const LEG = [['Зарплата ', 'Анд', 'рій'].join(''), ['Зарплата ', 'О', 'ля'].join('')];
   for(const direction of ['legacyBackup-neutralLocal', 'neutralBackup-legacyLocal']){
     const { ctx } = sandbox();
     ctx.markDomainMigrated('incomes');
-    const keys = JSON.parse(evalInSandbox(ctx, 'JSON.stringify(INCOME_SOURCES.map(s => ({ id: s.id, key: s.key })))'));
-    const [legacy, neutral] = [keys[0].key, keys[0].id];
+    const [legacy, neutral] = [LEG[0], 'salary_1'];
     const localSource = direction === 'legacyBackup-neutralLocal' ? neutral : legacy;
     const backupSource = direction === 'legacyBackup-neutralLocal' ? legacy : neutral;
     ctx.incomes = [{ id: 'a0b1c2d3-0000-4000-8000-000000000001', date: '2026-09-01', source: localSource, amount: 20000, createdAt: '2026-09-02T00:00:00.000Z', updatedAt: '2026-09-02T00:00:00.000Z' }];
@@ -6757,10 +6756,9 @@ test('restoreIncomesFromBackup (фаза 1): копія зі СТАРИМ клю
     assert.equal(ctx.incomes.length, 1, direction + ': без дубліката');
   }
   const { ctx } = sandbox(); ctx.markDomainMigrated('incomes');
-  const keys = JSON.parse(require('./extract').evalInSandbox(ctx, 'JSON.stringify(INCOME_SOURCES.map(s => ({ id: s.id, key: s.key })))'));
-  ctx.incomes = [{ id: 'a0b1c2d3-0000-4000-8000-000000000002', date: '2026-09-01', source: keys[0].key, amount: 20000, createdAt: '2026-09-02T00:00:00.000Z', updatedAt: '2026-09-02T00:00:00.000Z' }];
-  await ctx.restoreIncomesFromBackup(JSON.stringify([{ id: 'legacy-2', date: '2026-09-01', source: keys[1].key, amount: 20000 }, { id: 'legacy-3', date: '2026-09-01', source: keys[2].key, amount: 500 }]));
-  assert.equal(ctx.incomes.length, 3, 'інше джерело (друге ключ і «Інші доходи») лишаються окремими записами');
+  ctx.incomes = [{ id: 'a0b1c2d3-0000-4000-8000-000000000002', date: '2026-09-01', source: LEG[0], amount: 20000, createdAt: '2026-09-02T00:00:00.000Z', updatedAt: '2026-09-02T00:00:00.000Z' }];
+  await ctx.restoreIncomesFromBackup(JSON.stringify([{ id: 'legacy-2', date: '2026-09-01', source: LEG[1], amount: 20000 }, { id: 'legacy-3', date: '2026-09-01', source: 'other', amount: 500 }]));
+  assert.equal(ctx.incomes.length, 3, 'інше джерело (друга зарплата й «Інші доходи») лишаються окремими записами');
 });
 
 // Rev 2.32.186 (AUTHOR-FRAME) — автор витрати не залежить від годинника пристрою й порядку LWW.
@@ -6918,4 +6916,33 @@ test('resolveTapFieldNear: точка між двома полями → най�
   assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [f1], tag: 'SPAN', noMatch: true }), 100, 144), null, 'не контейнер');
   assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [nearField(100, 140, { disabled: true })] }), 100, 144), null, 'вимкнене поле');
   assert.equal(ctx.resolveTapFieldNear(null, 1, 1), null); assert.equal(ctx.resolveTapFieldNear(box, undefined, 1), null);
+});
+
+// ===== Rev 2.32.401 (PRIV-2b): pull доходів з нейтральними id і старими ключами (старий ключ збирається зі шматків: без імен у файлі) =====
+const LEG_INC = ['Зарплата ', 'Анд', 'рій'].join('');
+test('PRIV-2b pullIncomesCore: новий Cloud-запис зі старим ключем → локально нейтральний id', async () => {
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 20000, income_date: '2026-05-01', note: LEG_INC, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.incomes = [];
+  const result = await ctx.pullIncomesCore();
+  assert.equal(result.added, 1); assert.equal(ctx.incomes[0].source, 'salary_1');
+});
+test('PRIV-2b pullIncomesCore: рядок із сервера з id і локальний зі старим ключем — те саме джерело: без push, джерело стає id, одна копія', async () => {
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 20000, income_date: '2026-05-01', note: 'salary_1', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.incomes = [{ id: 'i1', date: '2026-05-01', source: LEG_INC, amount: 20000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushIncomeRecordPilot');
+  const result = await ctx.pullIncomesCore();
+  assert.equal(ctx.incomes.length, 1); assert.equal(ctx.incomes[0].source, 'salary_1'); assert.equal(pushSpy.count(), 0, 'зайвого push нема');
+  assert.equal(result.keptLocal, 0);
+});
+test('PRIV-2b pullIncomesCore: те саме значення в іншому вигляді (старий ключ ↔ id) і той самий updated_at — зміни не фіксується', async () => {
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 20000, income_date: '2026-05-01', note: 'salary_1', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.incomes = [{ id: 'i1', date: '2026-05-01', source: LEG_INC, amount: 20000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullIncomesCore();
+  assert.equal(result.updated, 0); assert.equal(ctx.incomes[0].source, LEG_INC, 'без змін, поки нема справжньої різниці');
+});
+test('PRIV-2b mdFieldEq: джерело порівнюється за id (старий ключ = id), інші поля — як і раніше', () => {
+  const { buildSandbox } = require('./extract');
+  const c = buildSandbox({}, ['SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'INCOME_LEGACY_HASHES', 'incomeLegacyHash', 'incomeSourceId', 'sameIncomeSource', 'hiddenDecisionParts', 'mdFieldEq']);
+  assert.equal(c.mdFieldEq('source', LEG_INC, 'salary_1'), true); assert.equal(c.mdFieldEq('source', 'salary_1', 'salary_2'), false);
+  assert.equal(c.mdFieldEq('source', 'Своє', 'Своє'), true); assert.equal(c.mdFieldEq('amount', 1, 2), false);
 });

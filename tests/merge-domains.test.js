@@ -37,7 +37,7 @@ function makeServer(){
   } };
   return srv;
 }
-const NAMES = ['recordKey', 'isCloudWriteReady', 'isWriteBlocked', 'pushIncomeRecordPilot', 'pushIncomesBatch', 'pullIncomesCore', 'pushDebtRecordPilot', 'pushDebtsBatch', 'pullDebtsCore', 'debtOwnerAccount', 'dateToMonth', 'incomeSourceDisplay', 'conflictResolve', 'conflictModel', 'conflictValueText', 'CONFLICT_FIELD_ACC'];
+const NAMES = ['recordKey', 'isCloudWriteReady', 'isWriteBlocked', 'pushIncomeRecordPilot', 'pushIncomesBatch', 'pullIncomesCore', 'pushDebtRecordPilot', 'pushDebtsBatch', 'pullDebtsCore', 'debtOwnerAccount', 'dateToMonth', 'incomeSourceDisplay', 'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'INCOME_LEGACY_HASHES', 'incomeLegacyHash', 'incomeSourceId', 'sameIncomeSource', 'incomeSourceStore', 'incomeSlotName', 'INCOME_SLOT_NAMES_LS_KEY', 'INCOME_SLOT_NAMES_STATE', 'incomeSlotNamesRead', 'incomeSlotNamesSet', 'conflictResolve', 'conflictModel', 'conflictValueText', 'CONFLICT_FIELD_ACC'];
 function device(server, userId, skewMs){
   const SkewDate = class extends Date { constructor(...a){ if(a.length) super(...a); else super(Date.now() + skewMs); } static now(){ return Date.now() + skewMs; } };
   const g = { CLOUD_ENV: { env: 'mock' }, Date: SkewDate, isCloudSessionReady: () => true, getSupabaseClient: () => server.client, cloudSession: { user: { id: userId } }, cloudFamilyId: 'fam',
@@ -46,7 +46,7 @@ function device(server, userId, skewMs){
     pushOtherActorEvent: function(){}, recentlyPulledExpenseState: new Map(), recentlyPulledIncomeState: new Map(), RECORD_SYNC_PULSE_MS: 1, RECORD_SYNC_PULSE_COUNT: 1, RECORD_SYNC_DONE_MS: 1, populateMonths: function(){}, renderAll: function(){}, editingRecordKey: null,
     authorInfoFor: id => id === 'u2' ? { name: 'Учасниця-2', gender: 'f' } : null, showToast: function(){}, updateNotifBell: function(){}, openNotifArchive: function(){}, isNotifArchiveOpen: false, renderNotifArchive: function(){},
     fmt: n => n + ' ₴', isoToUaDateText: s => s.split('-').reverse().join('.'), document: { querySelectorAll: () => [], querySelector: () => null, activeElement: null }, localStorage: { getItem: () => null, setItem: function(){} },
-    pluralUa: () => '', pushDebtRecordPilotX: 0, incomeSourceDisplay: s => s };
+    pluralUa: () => '', pushDebtRecordPilotX: 0 };
   const c = buildSandbox(g, NAMES); return c;
 }
 const edit = (dev, list, id, patch) => { const r = dev[list].find(e => e.id === id); Object.assign(r, patch); let at = new dev.Date().toISOString(); if(at <= r.updatedAt) at = new dev.Date(Date.parse(r.updatedAt) + 1).toISOString(); r.updatedAt = at; return r; };

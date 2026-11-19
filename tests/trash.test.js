@@ -8,7 +8,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 
 const ctx = buildSandbox({}, [
-  'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'incomeSourceDisplay', 'TRASH_HIDDEN_LEGACY_EPOCH', 'TRASH_MONTHS_SHORT',
+  'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'incomeLegacyHash', 'INCOME_LEGACY_HASHES', 'INCOME_SLOT_NAMES_LS_KEY', 'INCOME_SLOT_NAMES_STATE', 'incomeSlotNamesRead', 'incomeSlotNamesSet', 'incomeSlotName', 'incomeSourceStore', 'incomeSourceLabel', 'incomeSourceDisplay', 'TRASH_HIDDEN_LEGACY_EPOCH', 'TRASH_MONTHS_SHORT',
   'trashSortKey', 'trashTabOf', 'isMonthRecordType', 'restoreBlockedReasonForMonthRecord', 'buildTrashItems', 'trashCount', 'filterTrashItems', 'restoreBlockedReason',
   'TRASH_PURGEABLE_TYPES', 'isAccountTrashType', 'isTaxonomyTrashType', 'isMonthRecordType', 'purgeAccountConfirmText', 'purgeTaxonomyConfirmText', 'taxonomyPlural', 'canPurge', 'purgeBlockedReason', 'purgeConfirmText', 'trashTombstonesForReconcile', 'reconcilePlan', 'fmt',
   'pluralUa', 'pluralizeRecords', 'trashCascadeNote', 'formatTrashShortDate', 'formatTrashDeletedAt',

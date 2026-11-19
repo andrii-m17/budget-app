@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.400"><link rel="stylesheet" href="./css/app.css?v=2.32.400"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.401"><link rel="stylesheet" href="./css/app.css?v=2.32.401"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -876,7 +876,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.400</div>
+  <div class="version-footer">Money Tree · Rev 2.32.401</div>
 </div>
   </div>
 </div>
@@ -1661,16 +1661,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.400"></script>
-<script src="./js/util-date.js?v=2.32.400"></script>
-<script src="./js/util-safe.js?v=2.32.400"></script>
-<script src="./js/util-misc.js?v=2.32.400"></script>
-<script src="./js/diag.js?v=2.32.400"></script>
-<script src="./js/shell.js?v=2.32.400"></script>
-<script src="./js/structure.js?v=2.32.400"></script>
-<script src="./js/analytics.js?v=2.32.400"></script>
-<script src="./js/payments.js?v=2.32.400"></script>
-<script src="./js/sheets.js?v=2.32.400"></script>
+<script src="./js/util-format.js?v=2.32.401"></script>
+<script src="./js/util-date.js?v=2.32.401"></script>
+<script src="./js/util-safe.js?v=2.32.401"></script>
+<script src="./js/util-misc.js?v=2.32.401"></script>
+<script src="./js/diag.js?v=2.32.401"></script>
+<script src="./js/shell.js?v=2.32.401"></script>
+<script src="./js/structure.js?v=2.32.401"></script>
+<script src="./js/analytics.js?v=2.32.401"></script>
+<script src="./js/payments.js?v=2.32.401"></script>
+<script src="./js/sheets.js?v=2.32.401"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -4338,6 +4338,7 @@ function hiddenDecisionParts(v){ const t = String(v == null ? '' : v), i = t.ind
 function mdFieldEq(f, a, b){
   if(f === 'deletion'){ const x = String(a == null ? '' : a).split('|'), y = String(b == null ? '' : b).split('|'); return (!!x[0]) === (!!y[0]) && (x[0] ? (x[1] || '') === (y[1] || '') : true); } // Rev 2.32.225 (MERGE-WORDS): deletion = «мітка|deleted_via»: порівнюється наявність мітки й причина, не час
   if(f === 'decision'){ const x = hiddenDecisionParts(a), y = hiddenDecisionParts(b); return x.month === y.month && x.deleted === y.deleted; }
+  if(f === 'source') return sameIncomeSource(a, b); // Rev 2.32.401 (PRIV-2b): джерело доходу — за id (старий ключ = id)
   return f === 'deletedAt' ? (!!a) === (!!b) : a === b;
 }
 // Чиста функція: base/local/server — знімки полів. Без base усі розбіжності вважаються конфліктами (виграє сервер).
@@ -4614,7 +4615,7 @@ const MERGE_DOMAINS = {
   incomes: {
     key: 'incomes', table: 'incomes', rowKind: 'income', fields: INC_MERGE_FIELDS, optional: ['deletedAt'], cols: INC_ROW_COLS,
     list: function(){ return incomes; }, save: function(){ return saveIncomes(); }, push: function(rec, opts){ return pushIncomeRecordPilot(rec, opts); }, pull: function(){ return pullIncomesCore(); },
-    snapFromRow: function(row){ return { amount: row.amount, date: row.income_date, source: row.note || '', deletedAt: row.deleted_at || '' }; },
+    snapFromRow: function(row){ return { amount: row.amount, date: row.income_date, source: row.note || '', deletedAt: row.deleted_at || '' }; }, // source порівнюється через sameIncomeSource (mdFieldEq): старий ключ і id — те саме джерело
     rowCtx: function(){ return {}; }, pushCtx: function(){ return {}; },
     payloadField: function(rec, f){
       switch(f){
@@ -4626,7 +4627,7 @@ const MERGE_DOMAINS = {
       return {};
     },
     extraPayload: function(rec, userId){ return { updated_by: userId }; },
-    nameOf: function(rec){ return rec.source || ''; }, eventName: function(row){ return row.note || ''; }, eventAmount: function(row){ return row.amount; },
+    nameOf: function(rec){ return incomeSourceDisplay(rec.source) || ''; }, eventName: function(row){ return incomeSourceDisplay(row.note) || ''; }, eventAmount: function(row){ return row.amount; },
     pulledMark: function(id){ expPulledMark(id, recentlyPulledIncomeState); },
   },
   debts: {
@@ -5803,11 +5804,11 @@ async function pullIncomesCore(opts){
         }
         const cloudSource = row.note || '';
         // Rev #30 (6D.43) — deletedAt як звичайне синхронізоване поле (LWW), той самий принцип, що pullExpensesCore().
-        if(local.amount !== row.amount || local.date !== row.income_date || local.source !== cloudSource || (local.deletedAt||null) !== (row.deleted_at||null) || local.updatedAt !== row.updated_at){
+        if(local.amount !== row.amount || local.date !== row.income_date || !sameIncomeSource(local.source, cloudSource) || (local.deletedAt||null) !== (row.deleted_at||null) || local.updatedAt !== row.updated_at){
           const wasDeleted = !!local.deletedAt; // Rev #30 (6D.84) — до мутації, той самий принцип, що pullExpensesCore()
           local.amount = row.amount;
           local.date = row.income_date;
-          local.source = cloudSource;
+          local.source = incomeSourceStore(cloudSource); // Rev 2.32.401 (PRIV-2b): локально зберігаємо id
           if(row.deleted_at) local.deletedAt = row.deleted_at;
           else delete local.deletedAt;
           local.createdAt = row.created_at;
@@ -5826,7 +5827,7 @@ async function pullIncomesCore(opts){
         continue;
       }
       // Rev #30 (6D.43) — новий для цього пристрою запис, вже tombstoned у Cloud — "пристрій C" DoD-сценарій.
-      const rec = { id: row.id, date: row.income_date, source: row.note || '', amount: row.amount, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, createdBy: row.created_by, updatedBy: row.updated_by };
+      const rec = { id: row.id, date: row.income_date, source: incomeSourceStore(row.note || ''), amount: row.amount, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, createdBy: row.created_by, updatedBy: row.updated_by };
       if(row.deleted_at) rec.deletedAt = row.deleted_at;
       rec.serverBase = MERGE_DOMAINS.incomes.snapFromRow(row); rec.serverUpdatedAt = row.updated_at; // Rev 2.32.201
       incomes.push(rec);
@@ -6760,7 +6761,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.400';
+const APP_VERSION = '2.32.401';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8674,7 +8675,7 @@ function otherActorPlan(screen, ids, d){
     const month = found.length ? mk(found[0].date) : null;
     const rows = [];
     found.filter(function(e){ return mk(e.date) === month; }).forEach(function(e){
-      const i = INCOME_SOURCES.findIndex(function(s){ return sameIncomeSource(e.source, s.key); });
+      const i = INCOME_SOURCES.findIndex(function(s){ return sameIncomeSource(e.source, s.id); });
       if(i >= 0 && rows.indexOf('income-row-' + i) === -1) rows.push('income-row-' + i);
     });
     return { kind: 'accounting', tab: 'data', month: month, recIds: [], rowIds: rows, found: found.length };
@@ -9496,15 +9497,19 @@ function cachedAuthorGender(userId){
 }
 async function loadFamilyUsersDirectory(client){
   try{
-    const { data, error } = await client.from('users').select('id, display_name, email, gender');
+    let res = await client.from('users').select('id, display_name, email, gender, salary_slot');
+    if(res.error){ res = await client.from('users').select('id, display_name, email, gender'); } // Rev 2.32.401 (PRIV-2b): запасний запит без salary_slot (колонка ще не створена)
+    const data = res.data, error = res.error;
     if(error || !data) return;
-    const next = {}, genders = {};
+    const next = {}, genders = {}, slotNames = {};
     data.forEach(function(u){
       const g = normalizeAuthorGender(u.gender);
       next[u.id] = { name: (u.display_name || u.email || '?').trim(), gender: g };
       if(g) genders[u.id] = g;
+      const slot = Number(u.salary_slot); if(slot === 1 || slot === 2){ const nm = (u.display_name || '').trim(); if(nm) slotNames[slot] = nm; }
     });
     familyUsersById = next;
+    if(Object.keys(slotNames).length){ incomeSlotNamesSet(slotNames); try{ if(typeof populateIncomeTable === 'function') populateIncomeTable(); }catch(e){} } // підписи «ЗП …» з довідника
     try{ localStorage.setItem(AUTHOR_GENDERS_LS_KEY, JSON.stringify(genders)); }catch(e){}
   }catch(e){ /* тихий пропуск, той самий принцип, що loadCloudDisplayName() */ }
   finally{ familyUsersLoaded = true; }
@@ -10789,26 +10794,65 @@ async function addExpenseCore(){
 const SALARY_ICON = `<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 9h.01"/><path d="M18 15h.01"/>`;
 const COINS_ICON = `<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v5c0 1.66 3.13 3 7 3s7-1.34 7-3V6"/><path d="M5 11v5c0 1.66 3.13 3 7 3s7-1.34 7-3v-5"/>`;
 const INCOME_SOURCES = [
-  { id:'salary_1', key:'Зарплата Андрій', label:'ЗП Андрій', /* PRIV-2b-REMOVE */ svg:SALARY_ICON, bg:'var(--color-info-bg)', fg:'var(--color-info)' },
-  { id:'salary_2', key:'Зарплата Оля', label:'ЗП Оля', /* PRIV-2b-REMOVE */ svg:SALARY_ICON, bg:'var(--color-accent-purple-bg)', fg:'var(--color-accent-purple)' },
-  { id:'other', key:'Інші доходи', label:'Інше', svg:COINS_ICON, bg:'var(--color-warning-bg)', fg:'var(--color-warning)' },
+  { id:'salary_1', slot:1, svg:SALARY_ICON, bg:'var(--color-info-bg)', fg:'var(--color-info)' },
+  { id:'salary_2', slot:2, svg:SALARY_ICON, bg:'var(--color-accent-purple-bg)', fg:'var(--color-accent-purple)' },
+  { id:'other', slot:0, svg:COINS_ICON, bg:'var(--color-warning-bg)', fg:'var(--color-warning)' },
 ];
-// Rev 2.32.121 (PRIV-1 п. 2, INCOME_SOURCES, фаза 1): нормалізація джерела доходу на читанні. Кожне джерело має нейтральний стабільний id (salary_1, salary_2, other); у записах (incomes[].source локально, incomes.note в Cloud) і далі пишеться СТАРИЙ ключ (key): жодних змін даних, пристрій без оновлення працює. Читання (пошук запису джерела в місяці, дублі імпорту Excel, відновлення з копії, показ) йде через incomeSourceId/sameIncomeSource, тож приймає і старі ключі, і нейтральні id (фаза 2 перейде на запис id і оновить рядки на сервері, окремим рішенням). Невідоме джерело (довільний текст) порівнюється як є. incomeSourceDisplay повертає для відомого id той самий текст, що показувався раніше (старий ключ): вигляд не змінюється.
+// Rev 2.32.401 (PRIV-2b, клас C): INCOME_SOURCES без імен. Нейтральний id (salary_1, salary_2, other) пишеться в нові й змінені записи; підпис зарплати — «ЗП » + display_name учасника з users.salary_slot (довідник сім'ї, loadFamilyUsersDirectory), поки довідника немає — «ЗП 1» / «ЗП 2»; «Інше» / «Інші доходи» для other. Імена учасників кешуються на пристрої (INCOME_SLOT_NAMES_LS_KEY, не в коді й не в самописці).
+// Старі ключі джерела («Зарплата <ім'я>») ще є на сервері (incomes.note до Сервера 2), у локальних даних, копіях і Excel. Вони розпізнаються без імен у коді — за хешем рядка (cyrb53, синхронний, працює офлайн і без довідника; перейменування учасника не ламає розпізнавання). Невідомий текст лишається як є.
+const INCOME_SLOT_NAMES_LS_KEY = 'budget-income-slot-names-v1';
+const INCOME_LEGACY_HASHES = { 3070573155294569: 'salary_1', 3398664719583809: 'salary_2' };
+function incomeLegacyHash(str){
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for(let i = 0, ch; i < str.length; i++){ ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+const INCOME_SLOT_NAMES_STATE = { map: null }; // { 1: 'ім'я', 2: 'ім'я' } з довідника сім'ї; map === null — кеш ще не читали
+function incomeSlotNamesRead(){
+  if(INCOME_SLOT_NAMES_STATE.map === null){ try{ const m = JSON.parse(localStorage.getItem(INCOME_SLOT_NAMES_LS_KEY) || '{}'); INCOME_SLOT_NAMES_STATE.map = (m && typeof m === 'object') ? m : {}; }catch(e){ INCOME_SLOT_NAMES_STATE.map = {}; } }
+  return INCOME_SLOT_NAMES_STATE.map;
+}
+function incomeSlotNamesSet(map){
+  INCOME_SLOT_NAMES_STATE.map = map || {};
+  try{ localStorage.setItem(INCOME_SLOT_NAMES_LS_KEY, JSON.stringify(INCOME_SLOT_NAMES_STATE.map)); }catch(e){}
+}
 function incomeSourceId(value){
   const v = typeof value === 'string' ? value.trim() : '';
   if(!v) return null;
-  const hit = INCOME_SOURCES.find(function(x){ return x.key === v || x.id === v; });
-  return hit ? hit.id : null;
+  const hit = INCOME_SOURCES.find(function(x){ return x.id === v; });
+  if(hit) return hit.id;
+  return Object.prototype.hasOwnProperty.call(INCOME_LEGACY_HASHES, incomeLegacyHash(v)) ? INCOME_LEGACY_HASHES[incomeLegacyHash(v)] : null; // старий ключ → id
 }
 function sameIncomeSource(a, b){
   const x = incomeSourceId(a), y = incomeSourceId(b);
   if(x !== null || y !== null) return x === y;
   return (a || '') === (b || '');
 }
+// Те, що пишеться в нові записи й у локальні дані: id для відомого джерела (у тому числі зі старого ключа), невідомий текст — як є.
+function incomeSourceStore(value){
+  const id = incomeSourceId(value);
+  return id !== null ? id : (value == null ? '' : value);
+}
+function incomeSlotName(src){
+  if(!src || !src.slot) return '';
+  const n = incomeSlotNamesRead()[src.slot];
+  return typeof n === 'string' ? n.trim() : '';
+}
+// Підпис плитки/шапки шторки: «ЗП ім'я» або «ЗП 1/2»; «Інше».
+function incomeSourceLabel(src){
+  if(!src) return '';
+  if(!src.slot) return 'Інше';
+  return 'ЗП ' + (incomeSlotName(src) || src.slot);
+}
+// Назва джерела в Журналі, Кошику, діагностиці, сповіщеннях: «Зарплата ім'я» / «Зарплата 1/2» / «Інші доходи»; невідомий текст як є.
 function incomeSourceDisplay(value){
   const id = incomeSourceId(value);
   if(id === null) return value;
-  return INCOME_SOURCES.find(function(x){ return x.id === id; }).key;
+  const src = INCOME_SOURCES.find(function(x){ return x.id === id; });
+  if(!src.slot) return 'Інші доходи';
+  return 'Зарплата ' + (incomeSlotName(src) || src.slot);
 }
 function incomeIconHtml(source, size){
   const s = size || 22;
@@ -10843,12 +10887,12 @@ function populateIncomeTable(){
   const CHEVRON = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
   el.innerHTML = INCOME_SOURCES.map(function(s, i){
     // Rev #30 (6D.43) — activeIncomes(): видалене джерело доходу мало б показувати 0, не свою стару суму.
-    const existing = activeIncomes().find(function(inc){ return sameIncomeSource(inc.source, s.key) && monthKey(inc.date)===selectedMonth; });
+    const existing = activeIncomes().find(function(inc){ return sameIncomeSource(inc.source, s.id) && monthKey(inc.date)===selectedMonth; });
     const amount = existing ? existing.amount : 0;
-    return `<button type="button" class="card-debt-compact-row" id="income-row-${i}" onclick="openIncomeEditor(${i})" aria-label="${escapeAttr(s.label)}, редагувати">
+    return `<button type="button" class="card-debt-compact-row" id="income-row-${i}" onclick="openIncomeEditor(${i})" aria-label="${escapeAttr(incomeSourceLabel(s))}, редагувати">
       <span class="cdr-avatar">${incomeIconHtml(s, 38)}</span>
       <span class="cdr-main">
-        <span class="cdr-name">${escapeHtml(s.label)}</span>
+        <span class="cdr-name">${escapeHtml(incomeSourceLabel(s))}</span>
         <span class="cdr-sub">Дохід</span>
       </span>
       <span class="cdr-amounts">
@@ -10865,7 +10909,7 @@ function updateIncomeTotal(){
   let sum = 0;
   INCOME_SOURCES.forEach(function(s){
     // Rev #30 (6D.43) — activeIncomes(): видалене джерело не мало б рахуватись у сумі.
-    const existing = activeIncomes().find(function(inc){ return sameIncomeSource(inc.source, s.key) && monthKey(inc.date)===selectedMonth; });
+    const existing = activeIncomes().find(function(inc){ return sameIncomeSource(inc.source, s.id) && monthKey(inc.date)===selectedMonth; });
     if(existing) sum += existing.amount;
   });
   el.textContent = fmt(sum);
@@ -10878,9 +10922,9 @@ function openIncomeEditor(i){
   editingIncomeIdx = i;
   lastFocusedBeforeDialog = document.activeElement;
   // Rev #30 (6D.43) — activeIncomes(): видалене джерело має відкриватись порожнім, як ніколи не введене.
-  const existing = activeIncomes().find(function(inc){ return sameIncomeSource(inc.source, s.key) && monthKey(inc.date)===selectedMonth; });
+  const existing = activeIncomes().find(function(inc){ return sameIncomeSource(inc.source, s.id) && monthKey(inc.date)===selectedMonth; });
   document.getElementById('ind-icon').innerHTML = incomeIconHtml(s, 34);
-  document.getElementById('ind-heading').textContent = s.label;
+  document.getElementById('ind-heading').textContent = incomeSourceLabel(s);
   document.getElementById('ind-amount').value = existing ? formatThousands(existing.amount) : '';
   beginSaveGate('income', false); // Rev 2.32.144 (SAVE-DIRTY): початкове значення для «Зберегти»
   document.getElementById('income-backdrop').removeAttribute('inert');
@@ -10913,7 +10957,7 @@ async function saveIncomeDrawer(){
   // гілки мають його знайти — щоб і видалення вдруге не плодило дублів
   // (нижче), і повторне введення суми "воскрешало" ТОЙ САМИЙ id, а не
   // створювало новий (та сама identity, природний ключ не змінився).
-  const existingIdx = incomes.findIndex(function(inc){ return sameIncomeSource(inc.source, s.key) && monthKey(inc.date)===selectedMonth; });
+  const existingIdx = incomes.findIndex(function(inc){ return sameIncomeSource(inc.source, s.id) && monthKey(inc.date)===selectedMonth; });
   // Rev #30 (6D.5) — pushedRecord: посилання на запис, що щойно створений/
   // змінений цим викликом (не весь масив incomes) — push одного запису,
   // не всього масиву (той самий принцип, що addExpense() вище).
@@ -10946,7 +10990,7 @@ async function saveIncomeDrawer(){
     pushedRecord = incomes[existingIdx];
   }else{
     const nowISO = new Date().toISOString();
-    const rec = { id: generateUUID(), date: selectedMonth+'-01', source:s.key, amount, createdAt: nowISO, updatedAt: nowISO };
+    const rec = { id: generateUUID(), date: selectedMonth+'-01', source:s.id, amount, createdAt: nowISO, updatedAt: nowISO };
     incomes.push(rec);
     pushedRecord = rec;
   }
@@ -12582,7 +12626,7 @@ function exportToExcel(){
     };
   });
   const incData = activeIncomes().sort((a,b)=>a.date.localeCompare(b.date)).map(e=>({
-    'Дата': isoToUaDateText(e.date), 'Джерело': e.source, 'Сума': e.amount
+    'Дата': isoToUaDateText(e.date), 'Джерело': incomeSourceDisplay(e.source), 'Сума': e.amount
   }));
   const debtData = activeDebts().sort((a,b)=>a.month.localeCompare(b.month)).map(d=>({
     'Місяць': monthLabel(d.month), 'Назва': d.name,
@@ -12666,7 +12710,7 @@ function mapExcelExpenseRow(r){
 // масив кандидатів {source, amount, date} — лише для колонок зі значенням
 // > 0; порожня/нульова/невалідна колонка просто відсутня в результаті.
 function mapExcelIncomeRow(row, monthKeyVal){
-  const sources = [ [INCOME_SOURCES[0].key, row[1]], [INCOME_SOURCES[1].key, row[2]], [INCOME_SOURCES[2].key, row[3]] ]; // PRIV-2a: ключі беруться з INCOME_SOURCES (поведінка та сама: старі ключі пишуться до 2b)
+  const sources = [ [INCOME_SOURCES[0].id, row[1]], [INCOME_SOURCES[1].id, row[2]], [INCOME_SOURCES[2].id, row[3]] ]; // Rev 2.32.401 (PRIV-2b): імпорт пише нейтральні id (колонки B/C/D за позицією)
   const out = [];
   for(const [label, val] of sources){
     const n = val ? normalizeAmount(val) : null; // Rev 2.32.23 (N)

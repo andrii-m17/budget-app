@@ -27,7 +27,7 @@ const PREFIX = [
   [7, '0a2a43ae9e70748dd2a62929e713be045c81a906a8da6f943d57dcb9e8b478c4'],
   [6, 'd3b46337bbde24562b5219f54ea9c791d5022378bd1d5cfa778d336451632a17']
 ];
-const MARKERS = ['PRIV-2b-REMOVE', 'PRIV-2-HANDLE'];
+const MARKERS = ['PRIV-2-HANDLE'];
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'e2e-results', 'worktrees', 'test-results']);
 const SKIP_PATHS = []; // PRIV-2: логи симулятора (appium*.log, у .gitignore) видалено; знімки не скануються як бінарні
 const BIN = /\.(png|jpe?g|gif|webp|ico|icns|pdf|woff2?|ttf|zip|xlsx|mp4|mov)$/i;
@@ -54,7 +54,7 @@ function walk(dir, out){
   });
   return out;
 }
-test('PRIV-2a: у текстових файлах репозиторію немає справжніх імен (лише хеші в тесті; винятки за позначками PRIV-2b-REMOVE / PRIV-2-HANDLE)', function(){
+test('PRIV-2a: у текстових файлах репозиторію немає справжніх імен (лише хеші в тесті; єдиний виняток — позначка PRIV-2-HANDLE)', function(){
   const bad = [];
   walk(ROOT, []).forEach(([p, rel]) => {
     let t; try{ t = fs.readFileSync(p, 'utf8'); }catch(e){ return; }
@@ -70,6 +70,6 @@ test('PRIV-2a: охоронець ловить навмисно додане і�
   const n2 = ['о', 'ля'].join(''), n2gen = ['о', 'лі'].join('');
   [n1, n1gen, n1lat, n2, n2gen].forEach(w => assert.ok(scanText('текст ' + w + ' кінець', true).length > 0, 'має ловити: ' + w.length + ' літер'));
   assert.deepEqual(scanText('Андроїд олівець оливкова олія', true), [], 'звичайні слова не ловляться');
-  assert.deepEqual(scanText('x ' + n1 + ' /* PRIV-2b-REMOVE */', true), [], 'позначений рядок — виняток');
-  assert.ok(scanText('x ' + n1 + ' /* PRIV-2b-REMOVE */', false).length > 0, 'без дозволу позначки ловить');
+  assert.deepEqual(scanText('x ' + n1 + ' /* PRIV-2-HANDLE */', true), [], 'позначений рядок — виняток');
+  assert.ok(scanText('x ' + n1 + ' /* PRIV-2-HANDLE */', false).length > 0, 'без дозволу позначки ловить');
 });

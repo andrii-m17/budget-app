@@ -134,7 +134,7 @@ test('mapExcelExpenseRow: "Статус автоматизації" === "авт�
 test('mapExcelIncomeRow: усі три джерела з позитивними сумами → три кандидати', () => {
   const ctx = sandbox();
   const row = [null, '20000', '18000', '500'];
-  const K = i => evalInSandbox(ctx, 'INCOME_SOURCES[' + i + '].key'); // Rev 2.32.400 (PRIV-2a): очікування через INCOME_SOURCES, без імен у тесті
+  const K = i => evalInSandbox(ctx, 'INCOME_SOURCES[' + i + '].id'); // Rev 2.32.400 (PRIV-2a): очікування через INCOME_SOURCES, без імен у тесті
   assert.deepEqual(plain(ctx.mapExcelIncomeRow(row, '2026-03')), [
     { source: K(0), amount: 20000, date: '2026-03-01' },
     { source: K(1), amount: 18000, date: '2026-03-01' },
@@ -146,7 +146,7 @@ test('mapExcelIncomeRow: порожні/нульові/від\'ємні коло
   const ctx = sandbox();
   const row = [null, '20000', null, 0];
   assert.deepEqual(plain(ctx.mapExcelIncomeRow(row, '2026-03')), [
-    { source: evalInSandbox(ctx, 'INCOME_SOURCES[0].key'), amount: 20000, date: '2026-03-01' },
+    { source: evalInSandbox(ctx, 'INCOME_SOURCES[0].id'), amount: 20000, date: '2026-03-01' },
   ]);
 });
 

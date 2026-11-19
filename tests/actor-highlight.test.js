@@ -11,7 +11,7 @@ const SW = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
 
 const NAMES = ['routeForPushType', 'pushApplyDiag', 'closeOpenSheetsForPush', 'ACTOR_IDS_CAP', 'actorIdsNormalize', 'actorIdsFromParam', 'otherActorPlan', 'actorIdsForAction', 'ACTOR_WATCH_TICK_MS', 'ACTOR_WATCH_MAX_MS', 'ACTOR_FLASH_MS', 'actorNow', 'actorStopWatch', 'actorIdsCount', 'actorWatchTick', 'startActorWatch', 'routeOtherActorNotification', 'handlePushAction'];
-const SRCS = [{ key: 'salary', label: 'Зарплата' }, { key: 'other', label: 'Інше' }];
+const SRCS = [{ id: 'salary', label: 'Зарплата' }, { id: 'other', label: 'Інше' }];
 function env(data, opts){
   const o = opts || {}; const log = []; const classed = new Set();
   const mkEl = id => ({ id, classList: { add: c => { if(!classed.has(id)) log.push('hl:' + id); classed.add(id); }, remove: c => classed.delete(id), contains: c => classed.has(id) }, scrollIntoView: () => log.push('scroll:' + id), getAttribute: () => id });
