@@ -335,3 +335,24 @@ test('16. видалення назавжди витрати на А: рядка
   await expect.poll(async () => { await b.page.evaluate(async () => { await syncCheck('resume', { force: true }); }); return trashIds(b); }, { timeout: 40000 }).toEqual([]);
   expect(a.errors.concat(b.errors)).toEqual([]);
 });
+
+test('13. DS-PAYLIST Rev 2: А вносить платіж ОЧ витратою з прив’язкою — у Б відкритий екран «Платежі» після синхронізації більше не показує платіж; на сервері одна витрата', async ({ browser }) => {
+  const a = await openDevice(browser, 'A'), b = await openDevice(browser, 'B');
+  const T = now();
+  const day = await a.page.evaluate(() => +kyivTodayISO().slice(8, 10));
+  const ins = await rest(cfg, sessA, 'POST', 'installment_accounts', '', { family_id: famId, name: 'Предмет П', initial_amount: 5000, due_day: day, created_at: T, updated_at: T });
+  expect(ins.ok).toBe(true);
+  const rowsOf = d => d.page.evaluate(() => { const m = paymentsScreenModel(computeUpcomingNow(14, null), kyivTodayISO()); return m.wait.concat(m.window ? m.window.days.reduce((x, g) => x.concat(g.rows), []) : []).filter(r => r.name === 'Предмет П').length; });
+  for (const d of [a, b]) await d.page.evaluate(async () => { await syncCheck('resume', { force: true }); });
+  await expect.poll(() => rowsOf(b), { timeout: 40000 }).toBeGreaterThan(0);
+  await b.page.evaluate(() => { switchTab('analytics'); openPaymentsScreen(null); });
+  const domRows = () => b.page.evaluate(() => Array.from(document.querySelectorAll('#payments-body .pay-line-name')).filter(e => e.textContent.indexOf('Предмет П') === 0).length);
+  await expect.poll(domRows).toBeGreaterThan(0);
+  // А вносить: витрата з прив'язкою (тим самим шляхом, що звичайна витрата)
+  await a.page.evaluate(async t => { const rec = { id: generateUUID(), name: 'Платіж Предмет П', amount: 100, date: kyivTodayISO(), category: '', subcategory: '', linkedInstallment: 'Предмет П', createdAt: t, updatedAt: t }; expenses.push(rec); await saveExpenses(); await pushExpenseRecordPilot(rec); }, now());
+  await expect.poll(async () => (await liveOf('expenses', 'id,linked_installment_id,deleted_at')).filter(r => r.linked_installment_id).length, { timeout: 30000 }).toBe(1);
+  await expect.poll(async () => { await b.page.evaluate(async () => { await syncCheck('resume', { force: true }); }); return domRows(); }, { timeout: 40000 }).toBe(0);
+  expect(await rowsOf(b)).toBe(0);
+  expect((await liveOf('expenses', 'id')).length).toBe(1);
+  expect(a.errors.concat(b.errors)).toEqual([]);
+});

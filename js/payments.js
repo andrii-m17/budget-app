@@ -220,11 +220,14 @@ function upcomingPayments(opts){
   const hiddenReader = typeof o.isHidden === 'function' ? o.isHidden : null;
   const hiddenFor = function(name, kind, month){ if(hiddenReader) return !!hiddenReader(name, kind, month); const e = hidden[kind + ':' + name]; if(!e) return false; if(typeof e === 'string') return month >= e; return !e.deletedAt && month >= e.month; };
   const m0 = today.slice(0, 7), m1 = ppNextMonth(m0);
+  // Rev 2.32.419 (DS-PAYLIST Rev 2): opts.month — вибраний у застосунку місяць. За замовчуванням (немає або не раніший за поточний) місяці [поточний, наступний], як було. Якщо вибрано МИНУЛИЙ місяць, до них додається він (ліворуч): невнесені платежі того місяця потрапляють у «Чекає внесення» (unconfirmed); решта логіки списку без змін. Ризик: «ОЧ без дати» (noDay) рахується лише за поточним місяцем, тож вибраний минулий не впливає на нього.
+  const selMonth = (o.month && /^\d{4}-\d{2}$/.test(o.month) && o.month < m0) ? o.month : null;
+  const monthsList = selMonth ? [selMonth, m0, m1] : [m0, m1];
   const windowEnd = ppAddDays(today, horizon - 1), laterEnd = ppClampDate(m1, 31);
   const result = { items: [], later: [], unconfirmed: [], undatedCards: { count: 0, total: 0 }, undatedList: [], noDay: [], load: { total: 0, count: 0, estimated: false, unknown: 0 } };
   const place = function(item){
     const past = item.kind === 'installment' ? installmentDuePassed(item.month, item.date, today) : item.date < today; // Rev 2.32.152: для ОЧ спільне з рядком визначення (пільга +1 день); картки без змін
-    if(past){ if(item.month === m0) result.unconfirmed.push(item); return; }
+    if(past){ if(item.month === m0 || (selMonth && item.month === selMonth)) result.unconfirmed.push(item); return; } // Rev 2.32.419: + вибраний минулий місяць
     if(item.kind === 'installment' && item.date < today) item = Object.assign({}, item, { overdue: true }); // Rev 2.32.396 (FIX-PAY): пільговий день (dueDate+1) лишається зі СПРАВЖНЬОЮ датою й позначкою «прострочено» (раніше переносився на сьогодні: «18-те» замість «до 17 лис» в «Обліку»). Смуга днів його не малює (дата поза вікном), «Наступний» і екран «Платежі» показують «Прострочено».
     if(item.date <= windowEnd) result.items.push(item);
     else if(item.date <= laterEnd) result.later.push(item);
@@ -233,7 +236,7 @@ function upcomingPayments(opts){
   (o.installments || []).forEach(function(inst){
     if(!inst || inst.deletedAt) return;
     let firstVisibleMonth = null;
-    [m0, m1].forEach(function(month){
+    monthsList.forEach(function(month){
       if(hiddenFor(inst.name, 'installment', month)) return;
       const startM = installmentStartMonth(inst, debts, expenses); // Rev 2.32.179 (OCH-START)
       if(startM && month < startM) return;
@@ -242,7 +245,7 @@ function upcomingPayments(opts){
       const chainSpec = { initial: inst.initialAmount, firstMonth: inst.firstMonth || null, std: installmentStandardPayment(inst), termMonths: inst.termMonths, startDate: inst.startDate, firstPayment: inst.firstPayment, payMode: inst.payMode, recs: debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name; }), linked: expenses.reduce(function(a, e){ if(e.linkedInstallment === inst.name){ const k = String(e.date).slice(0, 7); a[k] = (a[k] || 0) + (Number(e.amount) || 0); } return a; }, {}) };
       const chainBefore = installmentChainCalc(chainSpec, month).before;
       if(chainBefore === 0) return; // завершена: ні в «Потребує уваги», ні в «Найближчі», ні в «Пізніше»
-      if(firstVisibleMonth === null) firstVisibleMonth = month;
+      if(firstVisibleMonth === null && month !== selMonth) firstVisibleMonth = month; // Rev 2.32.419: вибраний минулий місяць не зсуває «перший видимий» (noDay лише за поточним)
       if(!inst.dueDay) return;
       const rec = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month === month && d.monthlyPayment != null; })[0];
       // Rev 2.32.151 (OCH-STATE): «сплачено» = сума прив'язаних витрат ≥ очікуваного (допуск max(2 ₴, 1%)), а не будь-яка витрата; часткові лишаються в списку (сума й оцінка без змін)
@@ -276,7 +279,7 @@ function upcomingPayments(opts){
   // ----- Картки: мінімальний платіж місяця (лише > 0 і не внесений) -----
   (o.cards || []).forEach(function(card){
     if(!card || card.deletedAt) return;
-    [m0, m1].forEach(function(month){
+    monthsList.forEach(function(month){
       if(hiddenFor(card.name, 'card', month)) return;
       const rec = findAccountMonthDebt(debts, card, month, 'card'); // Rev 2.32.237 (CARD-BY-ID): за id, запасний варіант — назва
       if(!rec || !(rec.minPayment > 0) || rec.minPaymentDone) return;
@@ -293,8 +296,8 @@ function upcomingPayments(opts){
   return result;
 }
 // Обгортка над реальними даними застосунку (для картки й екрана «Платежі»).
-function computeUpcomingNow(horizonDays){
-  return upcomingPayments({ today: kyivTodayISO(), horizonDays: horizonDays, installments: installmentAccounts, cards: bankAccounts, debtsByMonth: activeDebts().map(function(d){ return Object.assign({}, d, { month: monthKey2(d.month) }); }), expenses: activeExpenses(), hidden: hiddenFrom, isHidden: isHiddenForMonth });
+function computeUpcomingNow(horizonDays, month){
+  return upcomingPayments({ today: kyivTodayISO(), horizonDays: horizonDays, month: month, installments: installmentAccounts, cards: bankAccounts, debtsByMonth: activeDebts().map(function(d){ return Object.assign({}, d, { month: monthKey2(d.month) }); }), expenses: activeExpenses(), hidden: hiddenFrom, isHidden: isHiddenForMonth });
 }
 /* ============ Картка «Найближчі платежі» на «Аналітиці» (Rev 2.32.67, P3) ============ */
 const PAY_MONTHS_SHORT = ['січ', 'лют', 'бер', 'кві', 'тра', 'чер', 'лип', 'сер', 'вер', 'жов', 'лис', 'гру'];
@@ -598,7 +601,7 @@ function payRowBtn(r){
   const main = payEl('span', 'pay-line-main'); main.appendChild(payEl('span', 'pay-line-name', stripLeadingEmoji(r.name))); main.appendChild(payEl('span', 'pay-line-sub', r.sub)); b.appendChild(main);
   if(r.amountPlain) b.appendChild(payAmtEl('pay-line-amt', r));
   if(r.date === null){ const ch = payEl('span', 'pay-line-chev'); ch.innerHTML = PAY_CHEV_SVG; b.appendChild(ch); }
-  b.addEventListener('click', function(){ if(r.go === 'installments') openInstallmentFromPayments(r.name); else openPayAction(r); /* Rev 2.32.170: «ОЧ без дати» → «Облік» → ОЧ; рядок платежу — наявна шторка дії (Rev 2.32.418: без змін логіки, внесення — Rev 2) */ });
+  b.addEventListener('click', function(){ if(r.go === 'installments') openInstallmentFromPayments(r.name); else if(r.kind === 'installment') payInstallmentPrefill(r); else openPayAction(r); /* Rev 2.32.419 (DS-PAYLIST Rev 2): ОЧ — одразу форма витрати без проміжної шторки; картка — шторка «Позначити сплаченим» (не витрата) */ /* Rev 2.32.170: «ОЧ без дати» → «Облік» → ОЧ; рядок платежу — наявна шторка дії (Rev 2.32.418: без змін логіки, внесення — Rev 2) */ });
   return b;
 }
 function payDayGroupEl(g){
@@ -650,7 +653,7 @@ function renderPaymentsScreen(){
   const body = document.getElementById('payments-body');
   if(!body) return;
   const today = kyivTodayISO();
-  const m = paymentsScreenModel(computeUpcomingNow(14), today);
+  const m = paymentsScreenModel(computeUpcomingNow(14, typeof selectedMonth === 'string' ? selectedMonth : null), today); // Rev 2.32.419: вибраний минулий місяць додає його невнесені платежі в «Чекає внесення»
   body.textContent = '';
   if(m.empty){ body.appendChild(payEl('div', 'mono-note', 'Найближчих платежів немає')); body.appendChild(payEl('div', 'struct-caption', m.caption)); }
   else body.appendChild(payTilesEl(m.tiles));
@@ -708,23 +711,64 @@ function closePayAction(){
   payActionItem = null;
   unlockBackgroundScroll();
 }
-// «Внести платіж»: форма витрати з підставленими сумою (очікуваною), датою платежу, категорією ОЧ і назвою ОЧ (автозв'язок). Збереження — лише дотиком користувача (нічого не створюється автоматично).
-function payInstallmentPrefill(item){
-  const i = installmentAccounts.findIndex(function(a){ return a.name === item.name; });
-  if(i < 0) return;
+// ===== Rev 2.32.419 (DS-PAYLIST Rev 2, клас C): «Внести платіж» ОЧ через витрату. Нічого не зберігається, доки користувач сам не натисне «Зберегти витрату». Номера платежу в моделі прив'язки немає: до якого платежу належить витрата, визначає МІСЯЦЬ її дати, тож дата форми: платіж ПОТОЧНОГО місяця — сьогодні (київська дата); наступного або вибраного минулого — ДАТА ПЛАТЕЖУ (інакше витрата прив'яжеться до поточного місяця й «закриє» не той платіж). Сума — цілі гривні (Math.round). Ризики: два пристрої до синхронізації можуть дати дві прив'язані витрати («внесено більше», як раніше); схожа витрата без прив'язки лише показується підказкою й не блокує збереження. =====
+let payLinkInfo = null; // { name, k, n, date, similar } — лише для показу блоку «Прив'язано до ОЧ…»; скидається разом із прив'язкою
+function payFormDate(itemMonth, itemDate, today){ return itemMonth === today.slice(0, 7) ? today : itemDate; }
+function payPrefillAmount(a){ const n = Number(a); return (a == null || a === '' || isNaN(n)) ? null : Math.round(n); }
+function payFormDirty(name, amount){ return String(name == null ? '' : name).trim() !== '' || String(amount == null ? '' : amount).trim() !== ''; }
+// Схожа витрата в місяці платежу: без прив'язки до ОЧ, не видалена; сума збігається ±1 ₴ або назва містить назву ОЧ (без емодзі, ≥ 3 символи). Повертає найновішу { date, amount } або null.
+function payFindSimilar(list, q){
+  const label = String(q.label || '').toLowerCase().trim(), amt = payPrefillAmount(q.amount);
+  let best = null;
+  (list || []).forEach(function(e){
+    if(!e || e.deletedAt || e.linkedInstallment || !e.date || String(e.date).slice(0, 7) !== q.month) return;
+    const sumHit = amt != null && Math.abs(Math.round(Number(e.amount) || 0) - amt) <= 1;
+    const nm = String(e.name || '').toLowerCase();
+    const nameHit = label.length >= 3 && nm.indexOf(label) >= 0;
+    if(!(sumHit || nameHit)) return;
+    if(!best || String(e.date) > String(best.date)) best = { date: e.date, amount: Math.round(Number(e.amount) || 0) };
+  });
+  return best;
+}
+function payLinkText(info){ return 'Прив\'язано до ОЧ · ' + info.name + (info.k > 0 && info.n > 0 ? ' · Платіж ' + info.k + ' з ' + info.n : '') + ' · за ' + payDateShort(info.date); }
+function renderPayLinkBlock(){
+  const el = document.getElementById('pay-link-block'), sim = document.getElementById('pay-similar-hint');
+  if(!el || !sim) return;
+  const acc = confirmedInstallmentLinkIdx !== -1 ? installmentAccounts[confirmedInstallmentLinkIdx] : null;
+  if(!acc || !payLinkInfo || payLinkInfo.name !== stripLeadingEmoji(acc.name)) payLinkInfo = null;
+  const show = !!payLinkInfo;
+  el.classList.toggle('show', show); sim.classList.toggle('show', show && !!payLinkInfo.similar);
+  el.textContent = show ? payLinkText(payLinkInfo) : '';
+  sim.textContent = show && payLinkInfo.similar ? 'Схожа витрата вже є: ' + payDateShort(payLinkInfo.similar.date) + ' · ' + payFmt(payLinkInfo.similar.amount) : '';
+}
+// Підстановка в наявну вкладку «Витрати» (після підтвердження чернетки, якщо вона є)
+function payApplyPrefill(item, i){
+  const today = kyivTodayISO();
   closePaymentsScreen();
   switchTab('vytraty');
   document.getElementById('expfielda7').value = stripLeadingEmoji(item.name);
-  if(item.amount != null) document.getElementById('f-amount').value = formatThousands(item.amount);
-  if(item.date){ document.getElementById('f-date').value = item.date; rolloverState.dateManual = true; updateDateCaption(); }
+  const amt = payPrefillAmount(item.amount);
+  document.getElementById('f-amount').value = amt != null ? formatThousands(amt) : '';
+  const date = payFormDate(item.month || String(item.date || '').slice(0, 7), item.date || today, today);
+  document.getElementById('f-date').value = date; rolloverState.dateManual = date !== localDateISO(); updateDateCaption();
   const ochCat = CATEGORIES.find(function(c){ return c.active && c.name === '🏦 Оплати Частинами'; });
   if(ochCat){ setCategorySelect(ochCat.name, true); }
   confirmedInstallmentLinkIdx = i;
   pendingInstallmentMatchIndices = [];
+  payLinkInfo = { name: stripLeadingEmoji(item.name), k: item.k || null, n: item.n || null, date: item.date || date, similar: payFindSimilar(activeExpenses(), { month: String(item.date || date).slice(0, 7), amount: amt, label: stripLeadingEmoji(item.name) }) };
   renderInstallmentLinkHint();
   document.getElementById('auto-hint').classList.toggle('show', !!ochCat);
   if(ochCat) document.getElementById('auto-hint-text').textContent = ochCat.name;
   setTimeout(function(){ const el = document.getElementById('f-amount'); if(el){ el.focus(); el.select(); } }, 80);
+}
+function payInstallmentPrefill(item){
+  const i = installmentAccounts.findIndex(function(a){ return a.name === item.name; });
+  if(i < 0) return;
+  const dirty = payFormDirty((document.getElementById('expfielda7') || {}).value, (document.getElementById('f-amount') || {}).value);
+  if(!dirty){ payApplyPrefill(item, i); return; }
+  // незбережені дані у формі: наявне підтвердження застосунку (не нативний confirm); «Ні» лишає чернетку й екран без змін
+  showConfirmModal('Замінити чернетку?', function(){ payApplyPrefill(item, i); }, 'Так', 'primary');
+  const cancelBtn = document.getElementById('app-modal-cancel-btn'); if(cancelBtn) cancelBtn.textContent = 'Ні';
 }
 // «Позначити сплаченим» для картки: min_payment_done = true у записі місяця (витрата не створюється).
 async function markCardMinPaid(item){

@@ -577,6 +577,7 @@
   /* Rev 2.2.2 BugFix — коли декілька ОЧ дають частковий збіг (напр. 3 записи
      "ПУМБ ..."), показуємо всіх кандидатів чіпами замість мовчазного вибору
      першого-ліпшого в масиві. */
+  .field.installment-link-hint.pay-similar-hint.show{ background:var(--surface-2); color:var(--text-2); } /* Rev 2.32.419 (DS-PAYLIST Rev 2): підказка про схожу витрату — нейтральна, не блокує */
   .field.installment-link-hint.multi{ flex-direction:column; align-items:stretch; gap:var(--sp-2); }
   .installment-link-candidates{ display:flex; flex-wrap:wrap; gap:var(--sp-2); }
   .installment-link-candidates button{ text-decoration:none; background:var(--surface); border:1.5px solid var(--color-accent-purple); border-radius:var(--r-l); padding:var(--sp-1) var(--sp-3); font-size:var(--fs-caption2); font-weight:600; color:var(--color-accent-purple); cursor:pointer; white-space:nowrap; }

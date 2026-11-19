@@ -63,9 +63,9 @@ test('«Позначити сплаченим»: лише minPaymentDone + updat
   assert.deepEqual(calls, ['save', 'push:Приват Банк', 'close', 'render', 'toast']);
 });
 test('охоронні: «Внести платіж» не зберігає витрату сам; екран закривається при перемиканні вкладки; під таббаром; назви через textContent; перерахунок у renderAll', function(){
-  const fn = SRC.slice(SRC.indexOf('function payInstallmentPrefill'), SRC.indexOf('async function markCardMinPaid'));
+  const fn = SRC.slice(SRC.indexOf('let payLinkInfo'), SRC.indexOf('async function markCardMinPaid'));
   assert.ok(!/addExpense\(|saveExpenses\(|expenses\.push/.test(fn), 'автоматичного створення витрат немає');
-  assert.match(fn, /rolloverState\.dateManual = true;/); assert.match(fn, /confirmedInstallmentLinkIdx = i;/);
+  assert.match(fn, /rolloverState\.dateManual = date !== localDateISO\(\);/); assert.match(fn, /confirmedInstallmentLinkIdx = i;/);
   assert.match(SRC, /if\(isPaymentsOpen\) closePaymentsScreen\(\); \/\/ Rev 2\.32\.68 \(P4\)/);
   assert.match(SRC, /if\(isPaymentsOpen\) safeCall\(renderPaymentsScreen, 'renderPaymentsScreen'\);/);
   assert.match(SRC, /<div class="mono-screen hidden" id="payments-screen"/); assert.ok(!/id="payments-screen"[^>]*mono-inbox-screen/.test(SRC));

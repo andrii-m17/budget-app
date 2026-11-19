@@ -105,7 +105,7 @@ test('екран «Платежі» (розгорнутий вигляд): се�
   const only = run({ installments: [I('Без1', null)], debtsByMonth: [D('Без1', '2026-10')] });
   assert.equal(only.empty, true, 'без самих платежів порожній стан лишається'); assert.equal(only.noday.length, 1);
   assert.equal(run({ installments: [I('Ок', 20)], debtsByMonth: [D('Ок', '2026-10')] }).noday.length, 0, 'без ОЧ без дати секції нема');
-  assert.match(SRC, /if\(r\.go === 'installments'\) openInstallmentFromPayments\(r\.name\); else openPayAction\(r\);/);
+  assert.match(SRC, /if\(r\.go === 'installments'\) openInstallmentFromPayments\(r\.name\); else if\(r\.kind === 'installment'\) payInstallmentPrefill\(r\); else openPayAction\(r\);/);
 });
 
 // ---- Rev 2.32.170 (PAY-NODAY-TAP): тап по «ОЧ без дати» ----
