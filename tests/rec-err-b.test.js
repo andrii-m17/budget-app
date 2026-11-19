@@ -7,7 +7,7 @@ const SRC = require('./extract').readIndexWithCss();
 const j = v => JSON.parse(JSON.stringify(v));
 // код місця → функції верхнього рівня, де він стоїть (по одній на входження)
 const SITES = {
-  'bk-status': ['renderBackupStatus'], 'bk-restore-open': ['openRestoreSheet'], 'bk-undo-get': ['rsUndo'], 'bk-undo-parse': ['rsUndo'], 'bk-before-restore': ['performRestore'], 'idb-remove': ['clearLocalAccountData'],
+  'bk-status': ['renderBackupStatus'], 'bk-restore-open': ['openRestoreSheet'], 'bk-undo-get': ['rsUndo'], 'bk-undo-parse': ['rsUndo'], 'restore-no-backup': ['performRestore'], 'idb-remove': ['clearLocalAccountData'],
   'rcpt-delete': ['pushReceiptsDelete'], 'rcpt-add': ['pushReceiptAddIfAbsent'], 'rcpt-bump': ['pushReceiptsBump'], 'rcpt-fail': ['pushReceiptFail'], 'rcpt-tap': ['pushReceiptFromTap'], 'rcpt-flush': ['requestPushSubscription'],
   'push-sub-delete': ['revokeDevicePushSubscription'], 'push-sub-revoke': ['revokeDevicePushSubscription'], 'notif-queue-write': ['notifQueueWrite'], 'notif-unread': ['refreshNotifUnread'], 'notif-mark-read': ['markPushNotificationsRead'],
   'push-sub-refresh': ['refreshPushSubscription'], 'push-sub-request': ['refreshPushSubscription'], 'notif-rt-teardown': ['teardownNotifRealtime'],

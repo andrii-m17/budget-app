@@ -1236,6 +1236,26 @@ test('33. відновлення: без копії — одразу вибір 
   expect(errors).toEqual([]);
 });
 
+test('33b. ERR-3: страхова копія не вдалась (IndexedDB кидає) — відновлення з файлу скасовано: суми без змін, копії нема, тост «Не вдалося зробити страхову копію…», у самописці подія restore-no-backup', async ({ page }) => {
+  const errors = await boot(page, 'typical');
+  await page.evaluate(() => switchTab('service'));
+  const tile = page.locator('#view-service .service-tile', { hasText: 'Відновити' });
+  await page.waitForFunction(() => expenses.some(x => !x.deletedAt && x.serverBase && x.serverUpdatedAt), null, { timeout: 15000 });
+  const ex = await page.evaluate(() => { const e = expenses.find(x => !x.deletedAt && x.serverBase && x.serverUpdatedAt); return { id: e.id, amount: e.amount }; });
+  const file = await page.evaluate(() => JSON.stringify({ __budgetBackup: true, appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION, createdAt: new Date().toISOString(), data: buildBackupPayloadData() }));
+  await page.evaluate(async x => { const e = expenses.find(r => r.id === x.id); e.amount = x.amount + 123; e.updatedAt = new Date().toISOString(); await saveExpenses(); }, ex);
+  await page.evaluate(() => { window.__errEv = []; const o = recErr; recErr = function(at, e){ window.__errEv.push(at); return o.apply(this, arguments); }; abBeforeRestore = async function(){ throw new Error('IDB закрита'); }; });
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), tile.click()]);
+  await chooser.setFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(file) });
+  await page.locator('#rs-pane [data-rs="yes"]').click();
+  await expect(page.locator('.success-toast, #toast-stack')).toContainText('Не вдалося зробити страхову копію. Відновлення скасовано, дані не змінені.');
+  expect(await page.evaluate(i => expenses.find(r => r.id === i).amount, ex.id), 'дані без змін').toBe(ex.amount + 123);
+  expect(await abList(page), 'копії нема').toEqual([]);
+  expect(await page.evaluate(() => window.__errEv)).toEqual(['restore-no-backup']);
+  expect(await page.locator('#backup-status').textContent()).toBe('');
+  expect(errors).toEqual([]);
+});
+
 // Rev 2.32.236 (NO-CLOCK): рішення «чия версія новіша» не залежить від годинника пристрою. Годинник сервера мока й «майбутній» updatedAt на пристрої (±1 доба).
 test('34. без порівняння годинників: брудна витрата без зліпка з «майбутнім» updatedAt програє серверу; чистий запис приймає сервер; моє перейменування категорії переживає чужу зміну «активна»', async ({ page }) => {
   const errors = await boot(page, 'typical');
