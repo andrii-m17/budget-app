@@ -1098,12 +1098,78 @@ function drawBalCharts(){
     });
   });
 }
+// Rev 2.32.415 (FIX-1119 п.10): розгортання «Сімейного балансу» за ідеєю власника — картки «Доходи» і «Витрати» знизу ПЕРЕТІКАЮТЬ у дві верхні плитки розгорнутої частини (той самий текст і суми; FLIP: лише transform і opacity, 380 мс); «Обов'язкові» й «Після обов'язкових» з'являються слідом (затримка 200 мс); згортання — у зворотному порядку. «Зменшити рух» — без анімації (миттєво, як раніше). Висота картки як і раніше розкривається через grid-template-rows (свідомий виняток, DS-5a). Ризики: при швидкому повторному дотику попередня анімація скасовується (balFlipClear); вимірювання «останніх» позицій робить тимчасовий перемикач класу з вимкненими переходами в одному кадрі, без малювання.
+const BAL_FLIP_MS = 380, BAL_FLIP_EASE = 'cubic-bezier(.22, 1, .36, 1)', BAL_FLIP_LATE_MS = 200;
+let balFlipAnims = [];
+function balFlipPairs(){
+  const cols = document.querySelectorAll('#bal-card .bal-cols > div'), tiles = document.querySelectorAll('#bal-card .bal-kpi'), out = [];
+  for(let i = 0; i < 2; i++){
+    if(!cols[i] || !tiles[i]) continue;
+    out.push({ bottom: cols[i].querySelector('.bal-cv'), tile: tiles[i].querySelector('.bal-kv'), label: false });
+    out.push({ bottom: cols[i].querySelector('.bal-lab'), tile: tiles[i].querySelector('.bal-kl'), label: true });
+  }
+  return out.filter(function(p){ return p.bottom && p.tile; });
+}
+function balFlipText(el, isLabel){ return isLabel ? String((el.childNodes[0] && el.childNodes[0].textContent) || el.textContent).trim() : String(el.textContent).trim(); } // підпис «Витрати» без мітки «+36%»
+function balFlipClear(){
+  balFlipAnims.forEach(function(a){ try{ a.cancel(); }catch(e){} });
+  balFlipAnims = [];
+  Array.prototype.forEach.call(document.querySelectorAll('#bal-card .bal-ghost'), function(g){ g.remove(); });
+  balFlipPairs().forEach(function(p){ p.bottom.style.opacity = ''; p.tile.style.opacity = ''; });
+}
+// Вимірювання: «перші» позиції (до зміни), «останні» (після) — тимчасовим перемиканням класу .open без переходів; стан картки після виклику той самий, що був.
+function balFlipPlan(card, pairs, toOpen){
+  balFlipClear();
+  const rel = function(el, cr){ const r = el.getBoundingClientRect(); return { x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height }; };
+  const cr0 = card.getBoundingClientRect();
+  const first = pairs.map(function(p){ return rel(toOpen ? p.bottom : p.tile, cr0); });
+  const styles = pairs.map(function(p){ const cs = getComputedStyle(toOpen ? p.bottom : p.tile); return { fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight, letterSpacing: cs.letterSpacing, lineHeight: cs.lineHeight, color: cs.color, textTransform: cs.textTransform }; });
+  card.classList.add('bal-measure');
+  card.classList.toggle('open', toOpen);
+  const cr1 = card.getBoundingClientRect();
+  const last = pairs.map(function(p){ return rel(toOpen ? p.tile : p.bottom, cr1); });
+  const toFs = pairs.map(function(p){ return parseFloat(getComputedStyle(toOpen ? p.tile : p.bottom).fontSize) || 0; });
+  const texts = pairs.map(function(p){ return balFlipText(toOpen ? p.bottom : p.tile, p.label); });
+  card.classList.toggle('open', !toOpen);
+  void card.offsetHeight; // зафіксувати початковий стан до зняття .bal-measure
+  card.classList.remove('bal-measure');
+  return { first: first, last: last, styles: styles, toFs: toFs, texts: texts };
+}
+function balFlipRun(card, pairs, plan, toOpen){
+  const run = function(el, frames, opts){ const a = el.animate(frames, opts); balFlipAnims.push(a); return a; };
+  const base = { duration: BAL_FLIP_MS, easing: BAL_FLIP_EASE, fill: 'both' };
+  pairs.forEach(function(p, i){
+    const f = plan.first[i], l = plan.last[i], st = plan.styles[i];
+    const g = document.createElement('span'); g.className = 'bal-ghost'; g.setAttribute('aria-hidden', 'true'); g.textContent = plan.texts[i];
+    Object.keys(st).forEach(function(k){ g.style[k] = st[k]; });
+    g.style.left = f.x + 'px'; g.style.top = f.y + 'px';
+    card.appendChild(g);
+    const fs = parseFloat(st.fontSize) || 1, sc = plan.toFs[i] > 0 ? plan.toFs[i] / fs : 1, gh = g.getBoundingClientRect().height;
+    const dx = l.x - f.x, dy = (l.y + l.h / 2) - f.y - gh * sc / 2; // вирівнювання за центром рядка
+    run(g, [{ transform: 'translate(0, 0) scale(1)', opacity: 1 }, { transform: 'translate(' + dx + 'px, ' + dy + 'px) scale(' + sc + ')', opacity: 1, offset: .7 }, { transform: 'translate(' + dx + 'px, ' + dy + 'px) scale(' + sc + ')', opacity: 0 }], base);
+    const src = toOpen ? p.bottom : p.tile, dst = toOpen ? p.tile : p.bottom;
+    src.style.opacity = '0'; // справжній елемент прихований, поки летить копія
+    dst.style.opacity = '0';
+    run(dst, [{ opacity: 0 }, { opacity: 0, offset: .6 }, { opacity: 1 }], base);
+  });
+  const tiles = document.querySelectorAll('#bal-card .bal-kpi');
+  Array.prototype.forEach.call(tiles, function(t, i){
+    if(i < 2) return;
+    if(toOpen) run(t, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 240, delay: BAL_FLIP_LATE_MS, easing: BAL_FLIP_EASE, fill: 'backwards' });
+    else run(t, [{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: 'ease-out', fill: 'forwards' });
+  });
+  Promise.all(balFlipAnims.map(function(a){ return a.finished; })).then(balFlipClear, function(){ /* скасовано новим дотиком */ });
+}
 function toggleBalanceCard(){
   const card = document.getElementById('bal-card'), btn = document.getElementById('bal-toggle');
   if(!card) return;
   balOpen = !balOpen;
+  const pairs = (!motionReduced() && typeof card.animate === 'function') ? balFlipPairs() : [];
+  const plan = pairs.length === 4 ? balFlipPlan(card, pairs, balOpen) : null;
+  if(!plan) balFlipClear();
   card.classList.toggle('open', balOpen);
   if(btn) btn.setAttribute('aria-expanded', balOpen ? 'true' : 'false');
+  if(plan) balFlipRun(card, pairs, plan, balOpen);
   if(balOpen) requestAnimationFrame(drawBalCharts);
 }
 // Повторна поява (візит/зміна місяця): число котиться від нуля, смуга днів з'являється знову.
