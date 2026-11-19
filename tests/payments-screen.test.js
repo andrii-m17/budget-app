@@ -37,7 +37,7 @@ test('картки без дати — окремі рядки з підписо
   const m = model(DATA);
   assert.equal(m.undated[0].name, 'Приват Банк'); assert.match(m.undated[0].amountText, /^37\s775\s₴$/); assert.equal(m.undated[0].date, null); assert.equal(m.undated[0].approx, false);
   assert.match(m.undatedCaption, /Додайте день платежу в картці/);
-  assert.equal(m.caption, 'Суми з «≈» очікувані за попередніми місяцями. Торкніться платежу, щоб внести його й зафіксувати факт.');
+  assert.equal(m.caption, 'Суми з «≈» очікувані за попередніми місяцями.');
 });
 test('порожній екран', function(){ const e = model({}); assert.equal(e.empty, true); assert.equal(e.wait.length, 0); assert.equal(e.window, null); });
 test('дії: ОЧ — «Внести платіж» (форма витрати), картка — «Позначити сплаченим» (не витрата); тексти як у макеті', function(){
