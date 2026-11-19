@@ -38,7 +38,7 @@ test('основний скрипт починається з перевірки
   assert.match(guard, /prefers-color-scheme:dark/); assert.match(guard, /height:44px/); assert.match(guard, /border-radius:999px/); assert.match(guard, /safe-area-inset-top/);
   assert.ok(!/var\(--/.test(guard), 'без CSS-змінних: css/*.css міг не завантажитись');
   assert.ok(!/<input|createElement\('input'\)/.test(guard), 'полів вводу немає');
-  assert.match(FULL, /const REC_ALLOWED_TYPES = \[[^\]]*'load-fail'[^\]]*\]/); assert.match(FULL, /const REC_ALLOWED_KEYS = \[[^\]]*'files', 'ageMin', 'loadVer'\]/);
+  assert.match(FULL, /const REC_ALLOWED_TYPES = \[[^\]]*'load-fail'[^\]]*\]/); assert.match(FULL, /const REC_ALLOWED_KEYS = \[[^\]]*'files', 'ageMin', 'loadVer', 'inList', 'fieldFocus', 'picked'\]/);
   assert.match(FULL, /recBgListeners\(\);\n  loadFailReport\(\);/);
 });
 // sw.js: гілка css/js — мережа-спочатку; res.ok → кеш і відповідь; !res.ok → копія з кешу, немає копії → сама відповідь; збій мережі → кеш

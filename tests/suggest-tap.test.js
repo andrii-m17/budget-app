@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
 const SRC = require('./extract').readIndexWithCss();
-const NAMES = ['NAME_SUGGEST_MIN', 'NAME_SUGGEST_MAX', 'SUGGEST_TOUCH_WINDOW_MS', 'nameSuggestionsFor', 'updateNameSuggestions', 'SUGGEST_HIDE_DELAY_MS', 'SUGGEST_TOUCH_MAX_HOLD_MS', 'suggestClearList', 'scheduleHideNameSuggestions', 'suggestListTouchEnd', 'hideNameSuggestions', 'selectNameSuggestion', 'handleSuggestionPick', 'pickSuggestionNow',
+const NAMES = ['suggestTapNote', 'SUGGEST_TAP_STATE', 'NAME_SUGGEST_MIN', 'NAME_SUGGEST_MAX', 'SUGGEST_TOUCH_WINDOW_MS', 'nameSuggestionsFor', 'updateNameSuggestions', 'SUGGEST_HIDE_DELAY_MS', 'SUGGEST_TOUCH_MAX_HOLD_MS', 'suggestClearList', 'scheduleHideNameSuggestions', 'suggestListTouchEnd', 'hideNameSuggestions', 'selectNameSuggestion', 'handleSuggestionPick', 'pickSuggestionNow',
   'SUGGEST_TAP_HOLD_MS', 'SUGGEST_TAP_MOVE_PX', 'suggestTouchId', 'suggestCancelTapTimer', 'handleSuggestionTouchMove', 'handleSuggestionTouchCancel', 'handleSuggestionTouchStart', 'handleSuggestionTouchEnd', 'suggestTapAccepted', 'suggestMouseAllowed', 'suggestShouldClose', 'onNameInput', 'debugSuggestRender', 'debugSuggestPick'];
 
 function mk(){
@@ -102,4 +102,21 @@ test('охоронні: слухачі поза списком не гасять
   assert.match(SRC, /oninput="onNameInput\(event\)"/);
   const sugg = SRC.slice(SRC.indexOf('let lastSuggestionPickAt = 0;'), SRC.indexOf('function updateNameSuggestions('));
   assert.ok(!/kb-|kbSheet|focusCardFieldSafe/.test(sugg.split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n')), 'клавіатурна логіка не чіпалась');
+});
+
+// Rev 2.32.403 (BUG-SUGGEST, запис): suggest-tap — вибір пишеться як 'pick', відкинутий touchend як 'skip' з причиною; тексту назв у події немає.
+test('suggest-tap: pick і skip (reason) потрапляють у самописець без тексту назв', () => {
+  const { ctx, els, get } = mk();
+  const ev = [];
+  ctx.pushDebugEvent = e => ev.push(e); ctx.performance = ctx.performance || { now: () => 1000 };
+  els.expfielda7.value = 'Вел';
+  ctx.updateNameSuggestions('Вел');
+  ctx.handleSuggestionTouchStart(touchEv('touchstart', 50, 50), 0);
+  ctx.handleSuggestionTouchEnd(touchEv('touchend', 50, 50, item(0, 0, 100, 100)), 0);
+  const pick = ev.filter(e => e.type === 'suggest-tap' && e.ev === 'pick');
+  assert.equal(pick.length, 1); assert.equal(pick[0].picked, true);
+  ctx.handleSuggestionTouchStart(touchEv('touchstart', 50, 50), 0);
+  ctx.handleSuggestionTouchEnd(touchEv('touchend', 500, 500, item(0, 0, 100, 100)), 0);
+  assert.ok(ev.some(e => e.type === 'suggest-tap' && e.ev === 'skip' && e.reason === 'rejected'));
+  assert.ok(!JSON.stringify(ev).includes('Вел'), 'назв у події немає');
 });

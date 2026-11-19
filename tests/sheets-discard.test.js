@@ -32,7 +32,7 @@ test('діалог: app-modal, тексти ТЗ, без системного co
   assert.ok(!/requestCloseSheet/.test(HTML.slice(HTML.indexOf('async function saveCardDebtDrawer'), HTML.indexOf('async function saveCardDebtDrawer') + 6000)));
 });
 test('самописець: тип sheet-discard і ключ choice дозволені у REC_ALLOWED_TYPES/REC_ALLOWED_KEYS; кінцівки списків не зсунуті', () => {
-  assert.ok(/const REC_ALLOWED_TYPES = \[[^\]]*'sheet-discard'[^\]]*'echo-skip', 'pull-skip'\]/.test(DIAG));
+  assert.ok(/const REC_ALLOWED_TYPES = \[[^\]]*'sheet-discard'[^\]]*'echo-skip', 'pull-skip', 'suggest-tap'\]/.test(DIAG));
   const k = DIAG.indexOf('const REC_ALLOWED_KEYS = ['); const keys = DIAG.slice(k, DIAG.indexOf('];', k));
   assert.ok(keys.indexOf("'choice'") !== -1 && /^const REC_ALLOWED_KEYS = \['sinceClose', 'idShort',/.test(keys));
 });

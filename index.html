@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.402"><link rel="stylesheet" href="./css/app.css?v=2.32.402"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.403"><link rel="stylesheet" href="./css/app.css?v=2.32.403"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -876,7 +876,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.402</div>
+  <div class="version-footer">Money Tree · Rev 2.32.403</div>
 </div>
   </div>
 </div>
@@ -1661,16 +1661,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.402"></script>
-<script src="./js/util-date.js?v=2.32.402"></script>
-<script src="./js/util-safe.js?v=2.32.402"></script>
-<script src="./js/util-misc.js?v=2.32.402"></script>
-<script src="./js/diag.js?v=2.32.402"></script>
-<script src="./js/shell.js?v=2.32.402"></script>
-<script src="./js/structure.js?v=2.32.402"></script>
-<script src="./js/analytics.js?v=2.32.402"></script>
-<script src="./js/payments.js?v=2.32.402"></script>
-<script src="./js/sheets.js?v=2.32.402"></script>
+<script src="./js/util-format.js?v=2.32.403"></script>
+<script src="./js/util-date.js?v=2.32.403"></script>
+<script src="./js/util-safe.js?v=2.32.403"></script>
+<script src="./js/util-misc.js?v=2.32.403"></script>
+<script src="./js/diag.js?v=2.32.403"></script>
+<script src="./js/shell.js?v=2.32.403"></script>
+<script src="./js/structure.js?v=2.32.403"></script>
+<script src="./js/analytics.js?v=2.32.403"></script>
+<script src="./js/payments.js?v=2.32.403"></script>
+<script src="./js/sheets.js?v=2.32.403"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6761,7 +6761,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.402';
+const APP_VERSION = '2.32.403';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13263,8 +13263,9 @@ function handleSuggestionPick(e, i){
 }
 function pickSuggestionNow(i){
   const now = Date.now();
-  if(now - lastSuggestionPickAt < 400) return;
+  if(now - lastSuggestionPickAt < 400){ suggestTapNote('skip', { reason: 'pick-400ms' }); return; }
   lastSuggestionPickAt = now;
+  suggestTapNote('pick', { picked: true });
   selectNameSuggestion(i);
 }
 // Rev 2.32.212 (SUGGEST-TAP): iOS інколи не віддає touchend, доки не почнеться наступний дотик (журнал input-bug: touchend за 1 мс до наступного touchstart), тож вставка, що чекала лише touchend, «зависала». Тап розпізнаємо самі: дотик по підказці без руху понад SUGGEST_TAP_MOVE_PX упродовж SUGGEST_TAP_HOLD_MS (touchmove далі, touchcancel чи touchend скасовують/завершують) — це тап: вставляємо один раз і одразу. Пізні touchend цього дотику (за ідентифікатором), click і синтетичний mousedown ігноруються. Швидкий тап (touchend до таймера) працює як раніше; прокрутка пальцем не обирає підказку (Rev 2.32.132-3).
@@ -13284,8 +13285,8 @@ function handleSuggestionTouchStart(e, i){
   if(st && st.idx != null){
     suggestTapTimer = setTimeout(function(){
       suggestTapTimer = null;
-      if(suggestTouchStart !== st || st.moved || st.handled) return;
-      if(st.gen !== suggestGen || nameSuggestions[st.idx] !== st.name) return; // перелік змінився: не вгадуємо
+      if(suggestTouchStart !== st || st.moved || st.handled){ suggestTapNote('skip', { reason: st.moved ? 'moved' : 'timer-state' }); return; }
+      if(st.gen !== suggestGen || nameSuggestions[st.idx] !== st.name){ suggestTapNote('skip', { reason: 'list-changed' }); return; } // перелік змінився: не вгадуємо
       st.handled = true; suggestHandledTouchIds.push(st.id); if(suggestHandledTouchIds.length > 10) suggestHandledTouchIds.shift();
       suggestHandledRow = { idx: st.idx, at: Date.now() }; // Rev 2.32.213: придушення лише для ЦЬОГО рядка підказки (синтетичний mousedown того самого дотику), не глобально
       pickSuggestionNow(st.idx);
@@ -13308,7 +13309,7 @@ function handleSuggestionTouchEnd(e, i){
   const st = suggestTouchStart;
   suggestTouchStart = null;
   // Rev 2.32.213: пізній touchend дотику, який таймер уже обробив, лише ігноруємо (без preventDefault: він міг би зачепити наступний дотик по іншому елементу).
-  if(late || (st && st.handled)){ if(late) suggestHandledTouchIds.splice(suggestHandledTouchIds.indexOf(id), 1); return; }
+  if(late || (st && st.handled)){ suggestTapNote('skip', { reason: late ? 'late' : 'handled' }); if(late) suggestHandledTouchIds.splice(suggestHandledTouchIds.indexOf(id), 1); return; }
   const t = e.changedTouches && e.changedTouches[0];
   const el = e.currentTarget || (e.target && e.target.closest ? e.target.closest('.name-suggest-item') : null);
   const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
@@ -13317,12 +13318,37 @@ function handleSuggestionTouchEnd(e, i){
     dx: st && t ? t.clientX - st.x : 0, dy: st && t ? t.clientY - st.y : 0,
     point: t ? { x: t.clientX, y: t.clientY } : null, rect: r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null,
   });
-  if(!ok) return; // скрол/протяжка, перемальований список чи палець зійшов з елемента — не вибір
+  if(!ok){ suggestTapNote('skip', { reason: 'rejected' }); return; } // скрол/протяжка, перемальований список чи палець зійшов з елемента — не вибір
   e.preventDefault();
   pickSuggestionNow(i);
 }
 // Вікно дотику (для suggestMouseAllowed) і закриття списку дотиком поза ним. Слухачі пасивні/capture і НЕ гасять подію: клік по «Додати» доходить до кнопки.
 document.addEventListener('touchstart', function(){ suggestLastTouchAt = Date.now(); }, { passive: true, capture: true });
+// Rev 2.32.403 (BUG-SUGGEST, лише запис, без тексту назв): подія suggest-tap — дотик/клік у прямокутнику видимого списку підказок (touchstart 'ts', touchend 'te', touchcancel 'tc', click 'click'), чи влучив він у сам список (inList; якщо ні — targetTag/targetClasses того, що перехопило), чи поле назви у фокусі, затримка від touchstart (lagMs); далі 'pick' (вибір відбувся) або 'skip' (reason: pick-400ms | late | handled | rejected | moved | timer-state | list-changed). Іде в бортовий буфер (REC_ALLOWED_TYPES) і потрапляє в звіт «Повідомити про проблему».
+const SUGGEST_TAP_STATE = { startAt: 0 }; // час останнього touchstart по списку (performance.now)
+function suggestTapNote(ev, extra){
+  try{
+    if(typeof pushDebugEvent !== 'function') return;
+    const a = document.activeElement;
+    pushDebugEvent(Object.assign({ type: 'suggest-tap', ev: ev, fieldFocus: !!(a && a.id === 'expfielda7'), lagMs: SUGGEST_TAP_STATE.startAt ? Math.round(performance.now() - SUGGEST_TAP_STATE.startAt) : null }, extra || {}));
+  }catch(err){}
+}
+['touchstart', 'touchend', 'touchcancel', 'click'].forEach(function(evName){
+  document.addEventListener(evName, function(e){
+    try{
+      const l = document.getElementById('name-suggest-list');
+      if(!l || !l.classList.contains('show')) return;
+      const c = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]) || e;
+      const r = l.getBoundingClientRect();
+      const tg = e.target && e.target.closest ? e.target : null;
+      const inList = !!(tg && tg.closest('#name-suggest-list'));
+      if(!inList && !(c && c.clientX >= r.left && c.clientX <= r.right && c.clientY >= r.top && c.clientY <= r.bottom)) return;
+      const short = evName === 'touchstart' ? 'ts' : evName === 'touchend' ? 'te' : evName === 'touchcancel' ? 'tc' : 'click';
+      if(short === 'ts') SUGGEST_TAP_STATE.startAt = performance.now();
+      suggestTapNote(short, { inList: inList, shown: true, targetTag: tg ? tg.tagName : null, targetClasses: tg && typeof tg.className === 'string' ? tg.className.slice(0, 60) : null });
+    }catch(err){}
+  }, { passive: true, capture: true });
+});
 document.addEventListener('pointerdown', function(e){
   const listEl = document.getElementById('name-suggest-list');
   if(!listEl) return;

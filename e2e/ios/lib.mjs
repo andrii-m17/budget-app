@@ -159,7 +159,7 @@ export async function calibrate(d){
 }
 
 // Дотик по центру елемента (або у задану CSS-точку) справжнім дотиком у NATIVE_APP.
-export async function tapSelector(d, map, selector, at){
+export async function tapSelector(d, map, selector, at, hold){
   await toWeb(d);
   const r = await d.execute(sel => {
     const el = document.querySelector(sel); if(!el) return null;
@@ -171,7 +171,7 @@ export async function tapSelector(d, map, selector, at){
   if(at){ r.x = at.x != null ? at.x : r.x; r.y = at.y != null ? at.y : r.y; }
   const x = Math.round(map.ox + r.x * map.kx), y = Math.round(map.oy + r.y * map.ky);
   await toNative(d);
-  await d.execute('mobile: tap', { x, y });
+  if(hold) await d.execute('mobile: touchAndHold', { x, y, duration: hold }); else await d.execute('mobile: tap', { x, y }); // hold (с): довший дотик, як пальцем людини
   await toWeb(d);
   return { x, y };
 }
