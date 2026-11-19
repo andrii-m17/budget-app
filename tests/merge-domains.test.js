@@ -37,7 +37,7 @@ function makeServer(){
   } };
   return srv;
 }
-const NAMES = ['recordKey', 'isCloudWriteReady', 'isWriteBlocked', 'pushIncomeRecordPilot', 'pushIncomesBatch', 'pullIncomesCore', 'pushDebtRecordPilot', 'pushDebtsBatch', 'pullDebtsCore', 'debtOwnerAccount', 'dateToMonth', 'incomeSourceDisplay', 'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'INCOME_LEGACY_HASHES', 'incomeLegacyHash', 'incomeSourceId', 'sameIncomeSource', 'incomeSourceStore', 'incomeSlotName', 'INCOME_SLOT_NAMES_LS_KEY', 'INCOME_SLOT_NAMES_STATE', 'incomeSlotNamesRead', 'incomeSlotNamesSet', 'conflictResolve', 'conflictModel', 'conflictValueText', 'CONFLICT_FIELD_ACC'];
+const NAMES = ['recordKey', 'isCloudWriteReady', 'isWriteBlocked', 'pushIncomeRecordPilot', 'pushIncomesBatch', 'pullIncomesCore', 'pushDebtRecordPilot', 'pushDebtsBatch', 'pullDebtsCore', 'debtOwnerAccount', 'dateToMonth', 'incomeSourceDisplay', 'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'INCOME_LEGACY_HASHES', 'INCOME_OTHER_LEGACY_KEY', 'incomeLegacyHash', 'incomeSourceId', 'sameIncomeSource', 'incomeSourceStore', 'incomeSlotName', 'INCOME_SLOT_NAMES_LS_KEY', 'INCOME_SLOT_NAMES_STATE', 'incomeSlotNamesRead', 'incomeSlotNamesSet', 'conflictResolve', 'conflictModel', 'conflictValueText', 'CONFLICT_FIELD_ACC'];
 function device(server, userId, skewMs){
   const SkewDate = class extends Date { constructor(...a){ if(a.length) super(...a); else super(Date.now() + skewMs); } static now(){ return Date.now() + skewMs; } };
   const g = { CLOUD_ENV: { env: 'mock' }, Date: SkewDate, isCloudSessionReady: () => true, getSupabaseClient: () => server.client, cloudSession: { user: { id: userId } }, cloudFamilyId: 'fam',

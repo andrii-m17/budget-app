@@ -226,7 +226,7 @@ const REPOSITORY_NAMES = [
   'pullExpensesCore', 'editedAtDiffers', 'pullExpensesPilot',
   'pullIncomesCore', 'pullIncomesPilot',
   'pullDebtsCore', 'pullDebtsPilot',
-  'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'incomeLegacyHash', 'INCOME_LEGACY_HASHES', 'INCOME_SLOT_NAMES_LS_KEY', 'INCOME_SLOT_NAMES_STATE', 'incomeSlotNamesRead', 'incomeSlotNamesSet', 'incomeSlotName', 'incomeSourceStore', 'incomeSourceLabel', 'sameIncomeSource', 'incomeSourceDisplay',
+  'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'incomeLegacyHash', 'INCOME_LEGACY_HASHES', 'INCOME_OTHER_LEGACY_KEY', 'INCOME_SLOT_NAMES_LS_KEY', 'INCOME_SLOT_NAMES_STATE', 'incomeSlotNamesRead', 'incomeSlotNamesSet', 'incomeSlotName', 'incomeSourceStore', 'incomeSourceLabel', 'sameIncomeSource', 'incomeSourceDisplay',
   'restoreExpensesFromBackup', 'restoreIncomesFromBackup', 'restoreDebtsFromBackup',
   'pilotBackupKeys', 'pilotBackupValue', 'buildBackupPayloadData', 'applyBackupData',
   // Rev #30 (6D.1) — генерація/нормалізація id (UUID_FORMAT_RE — const,
@@ -6942,7 +6942,7 @@ test('PRIV-2b pullIncomesCore: те саме значення в іншому в
 });
 test('PRIV-2b mdFieldEq: джерело порівнюється за id (старий ключ = id), інші поля — як і раніше', () => {
   const { buildSandbox } = require('./extract');
-  const c = buildSandbox({}, ['SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'INCOME_LEGACY_HASHES', 'incomeLegacyHash', 'incomeSourceId', 'sameIncomeSource', 'hiddenDecisionParts', 'mdFieldEq']);
+  const c = buildSandbox({}, ['SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'INCOME_LEGACY_HASHES', 'INCOME_OTHER_LEGACY_KEY', 'incomeLegacyHash', 'incomeSourceId', 'sameIncomeSource', 'hiddenDecisionParts', 'mdFieldEq']);
   assert.equal(c.mdFieldEq('source', LEG_INC, 'salary_1'), true); assert.equal(c.mdFieldEq('source', 'salary_1', 'salary_2'), false);
   assert.equal(c.mdFieldEq('source', 'Своє', 'Своє'), true); assert.equal(c.mdFieldEq('amount', 1, 2), false);
 });

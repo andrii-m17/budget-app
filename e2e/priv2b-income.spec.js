@@ -60,3 +60,25 @@ test('PRIV-2b 3. «two-devices»: Realtime-зміна суми доходу зі
   expect(n).toBe(1);
   expect(errors).toEqual([]);
 });
+// Rev 2.32.402 (PRIV-2b2): у 2.32.401 дохід «Інші доходи» зникав з плитки «Інше» (старе значення other не розпізнавалось).
+test('PRIV-2b2 4. «Інші доходи» (локальний і з сервера) показується в плитці «Інше» поточного й минулого місяця', async ({ page }) => {
+  test.setTimeout(90000);
+  const errors = await boot(page, 'empty');
+  const OTHER = 'Інші доходи';
+  const r = await page.evaluate(async (k) => {
+    const cur = selectedMonth; const d = new Date(cur + '-01T00:00:00'); d.setMonth(d.getMonth() - 1);
+    const prev = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    MockCloud.otherDevice({ table: 'incomes', op: 'insert', row: { id: '0b1c2d3e-0000-4000-8000-0000000000c1', amount: 3000, income_date: cur + '-02', note: k, created_by: MockCloud.state.users[0].id, updated_by: MockCloud.state.users[0].id } });
+    return { cur, prev };
+  }, OTHER);
+  await page.waitForFunction(() => incomes.some(x => x.id === '0b1c2d3e-0000-4000-8000-0000000000c1'), null, { timeout: 15000 });
+  await page.evaluate(({ prev }) => { incomes.push({ id: '0b1c2d3e-0000-4000-8000-0000000000c2', date: prev + '-03', source: 'Інші доходи', amount: 1500 }); populateIncomeTable(); }, r);
+  await page.waitForTimeout(600);
+  const cur = await page.evaluate(() => document.querySelector('#income-row-2 .cdr-balance').textContent);
+  expect(cur).toMatch(/3\s?000/);
+  await page.evaluate(({ prev }) => { selectedMonth = prev; populateIncomeTable(); }, r);
+  await page.waitForTimeout(400);
+  const prevTxt = await page.evaluate(() => document.querySelector('#income-row-2 .cdr-balance').textContent);
+  expect(prevTxt).toMatch(/1\s?500/);
+  expect(errors).toEqual([]);
+});

@@ -8,7 +8,7 @@ const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
 const SRC = require('./extract').readIndexWithCss();
 const j = v => JSON.parse(JSON.stringify(v));
-const NAMES = ['SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'incomeLegacyHash', 'INCOME_LEGACY_HASHES', 'INCOME_SLOT_NAMES_LS_KEY', 'INCOME_SLOT_NAMES_STATE', 'incomeSlotNamesRead', 'incomeSlotNamesSet', 'incomeSlotName', 'incomeSourceStore', 'incomeSourceLabel', 'sameIncomeSource', 'incomeSourceDisplay', 'AMOUNT_MAX', 'AMOUNT_ERRORS', 'normalizeAmount', 'noteAmountRejected', 'mapExcelIncomeRow'];
+const NAMES = ['SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'incomeLegacyHash', 'INCOME_LEGACY_HASHES', 'INCOME_OTHER_LEGACY_KEY', 'INCOME_SLOT_NAMES_LS_KEY', 'INCOME_SLOT_NAMES_STATE', 'incomeSlotNamesRead', 'incomeSlotNamesSet', 'incomeSlotName', 'incomeSourceStore', 'incomeSourceLabel', 'sameIncomeSource', 'incomeSourceDisplay', 'AMOUNT_MAX', 'AMOUNT_ERRORS', 'normalizeAmount', 'noteAmountRejected', 'mapExcelIncomeRow'];
 function ctx(){ return buildSandbox({ localStorage: { _m: {}, getItem(k){ return this._m[k] === undefined ? null : this._m[k]; }, setItem(k, v){ this._m[k] = String(v); } } }, NAMES); }
 const LEG = [['Зарплата ', 'Анд', 'рій'].join(''), ['Зарплата ', 'О', 'ля'].join('')]; // старі ключі джерел (як у даних на сервері, копіях і Excel)
 const ids = c => j(evalInSandbox(c, 'INCOME_SOURCES.map(s => s.id)'));
@@ -22,7 +22,7 @@ test('incomeSourceId: старі ключі (за хешем) й нейтрал�
   const c = ctx();
   LEG.forEach((k, i) => { assert.equal(c.incomeSourceId(k), 'salary_' + (i + 1)); assert.equal(c.incomeSourceId('  ' + k + ' '), 'salary_' + (i + 1)); });
   ['salary_1', 'salary_2', 'other'].forEach(x => assert.equal(c.incomeSourceId(x), x));
-  ['', '   ', null, undefined, 42, {}, 'Довільне джерело', 'SALARY_1', 'Інші доходи'].forEach(v => assert.equal(c.incomeSourceId(v), null, String(v)));
+  ['', '   ', null, undefined, 42, {}, 'Довільне джерело', 'SALARY_1', 'Інше'].forEach(v => assert.equal(c.incomeSourceId(v), null, String(v)));
 });
 test('sameIncomeSource: старий ключ і id того самого слота збігаються, різні слоти ні; невідомі порівнюються як рядки; порожні однакові', () => {
   const c = ctx();
@@ -82,4 +82,20 @@ test('довідник: users.salary_slot читається разом з displ
   assert.ok(SRC.includes("select('id, display_name, email, gender, salary_slot')"));
   assert.ok(SRC.includes("select('id, display_name, email, gender')"), 'запасний запит, якщо колонки ще нема');
   assert.ok(SRC.includes('incomeSlotNamesSet(slotNames)') && SRC.includes('populateIncomeTable()'));
+});
+
+// Rev 2.32.402 (PRIV-2b2): у 2.32.401 старе значення «Інші доходи» (other) не розпізнавалось — плитка «Інше» зникла.
+test('PRIV-2b2: «Інші доходи» (старе значення other) розпізнається як other: id, порівняння, збереження, підпис; усі старі значення INCOME_SOURCES розпізнані', () => {
+  const c = ctx();
+  assert.equal(c.incomeSourceId('Інші доходи'), 'other'); assert.equal(c.incomeSourceId('  Інші доходи '), 'other');
+  assert.equal(c.sameIncomeSource('Інші доходи', 'other'), true); assert.equal(c.sameIncomeSource('other', 'Інші доходи'), true);
+  assert.equal(c.sameIncomeSource('Інші доходи', LEG[0]), false);
+  assert.equal(c.incomeSourceStore('Інші доходи'), 'other');
+  assert.equal(c.incomeSourceDisplay('Інші доходи'), 'Інші доходи');
+  const all = LEG.concat(['Інші доходи']);
+  assert.deepEqual(all.map(k => c.incomeSourceId(k)), ['salary_1', 'salary_2', 'other']);
+});
+test('PRIV-2b2: loadFamilyUsersDirectory бере для підпису слота push_name, а без нього display_name', () => {
+  assert.match(SRC, /select\('id, display_name, email, gender, salary_slot, push_name'\)/);
+  assert.match(SRC, /\(u\.push_name \|\| ''\)\.trim\(\) \|\| \(u\.display_name \|\| ''\)\.trim\(\)/);
 });
