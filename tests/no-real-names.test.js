@@ -29,7 +29,7 @@ const PREFIX = [
 ];
 const MARKERS = ['PRIV-2b-REMOVE', 'PRIV-2-HANDLE'];
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'e2e-results', 'worktrees', 'test-results']);
-const SKIP_PATHS = ['docs/ui/sim/']; // PRIV-2d: знімки й журнали симулятора з іменами — окрема ревізія
+const SKIP_PATHS = []; // PRIV-2: логи симулятора (appium*.log, у .gitignore) видалено; знімки не скануються як бінарні
 const BIN = /\.(png|jpe?g|gif|webp|ico|icns|pdf|woff2?|ttf|zip|xlsx|mp4|mov)$/i;
 const ROOT = path.join(__dirname, '..');
 function hit(word){
