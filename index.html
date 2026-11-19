@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.421"><link rel="stylesheet" href="./css/app.css?v=2.32.421"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.422"><link rel="stylesheet" href="./css/app.css?v=2.32.422"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -875,7 +875,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.421</div>
+  <div class="version-footer">Money Tree · Rev 2.32.422</div>
 </div>
   </div>
 </div>
@@ -1661,16 +1661,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.421"></script>
-<script src="./js/util-date.js?v=2.32.421"></script>
-<script src="./js/util-safe.js?v=2.32.421"></script>
-<script src="./js/util-misc.js?v=2.32.421"></script>
-<script src="./js/diag.js?v=2.32.421"></script>
-<script src="./js/shell.js?v=2.32.421"></script>
-<script src="./js/structure.js?v=2.32.421"></script>
-<script src="./js/analytics.js?v=2.32.421"></script>
-<script src="./js/payments.js?v=2.32.421"></script>
-<script src="./js/sheets.js?v=2.32.421"></script>
+<script src="./js/util-format.js?v=2.32.422"></script>
+<script src="./js/util-date.js?v=2.32.422"></script>
+<script src="./js/util-safe.js?v=2.32.422"></script>
+<script src="./js/util-misc.js?v=2.32.422"></script>
+<script src="./js/diag.js?v=2.32.422"></script>
+<script src="./js/shell.js?v=2.32.422"></script>
+<script src="./js/structure.js?v=2.32.422"></script>
+<script src="./js/analytics.js?v=2.32.422"></script>
+<script src="./js/payments.js?v=2.32.422"></script>
+<script src="./js/sheets.js?v=2.32.422"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -2166,7 +2166,7 @@ async function pullCategoriesCore(opts){
   let updated = 0, linked = 0, added = 0;
   let keptLocal = 0;
   try{
-    try{ await idMigrateUnlinked(client, categoryIdSpec()); }catch(e){} // Rev 2.32.244 (ID-ALL): категорії без id зіставляються ДО приймання рядків; збій міграції pull не зупиняє
+    try{ await idMigrateUnlinked(client, categoryIdSpec()); }catch(e){ recErr('idmig-cat', e); } // Rev 2.32.244 (ID-ALL): категорії без id зіставляються ДО приймання рядків; збій міграції pull не зупиняє
     // Rev #30 (6D.38) — інкрементальний pull: applySyncMarker() додає
     // .gte('updated_at', marker) лише якщо маркер уже є для цього домену.
     const { data, error } = await fetchDeltaRows(client, 'categories', 'id,name,active,type,created_at,updated_at,deleted_at', 'categories', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
@@ -3069,7 +3069,7 @@ async function pullSubcategoriesCore(opts){
   let updated = 0, linked = 0, added = 0, keptLocal = 0, skippedFk = 0;
   let maxSeen = null; // Rev #30 (6D.38) — max(updated_at) ЛИШЕ серед рядків, що пройшли FK-резолюцію (нижче)
   try{
-    try{ await idMigrateUnlinked(client, subcategoryIdSpec(null)); }catch(e){} // Rev 2.32.244 (ID-ALL): підкатегорії без id зіставляються ДО приймання рядків; збій міграції pull не зупиняє
+    try{ await idMigrateUnlinked(client, subcategoryIdSpec(null)); }catch(e){ recErr('idmig-sub', e); } // Rev 2.32.244 (ID-ALL): підкатегорії без id зіставляються ДО приймання рядків; збій міграції pull не зупиняє
     // Rev 2.22.89 (6D.162, Ревізія C) — deactivated_via додано до select().
     const { data, error } = await fetchDeltaRows(client, 'subcategories', 'id,name,category_id,active,deactivated_via,created_at,updated_at,deleted_at', 'subcategories', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
@@ -3155,7 +3155,7 @@ async function pullDictionaryCore(opts){
   let updated = 0, linked = 0, added = 0, keptLocal = 0, skippedFk = 0;
   let maxSeen = null; // Rev #30 (6D.38) — той самий принцип, що pullSubcategoriesCore()
   try{
-    try{ await idMigrateUnlinked(client, dictionaryIdSpec(null, null)); }catch(e){} // Rev 2.32.244 (ID-ALL): слова без id зіставляються ДО приймання рядків; збій міграції pull не зупиняє
+    try{ await idMigrateUnlinked(client, dictionaryIdSpec(null, null)); }catch(e){ recErr('idmig-dict', e); } // Rev 2.32.244 (ID-ALL): слова без id зіставляються ДО приймання рядків; збій міграції pull не зупиняє
     // Rev 2.22.80 (6D.153, Крок A2) — deleted_at додано до select.
     // Rev 2.22.89 (6D.162, Ревізія C) — deleted_via додано до select.
     const { data, error } = await fetchDeltaRows(client, 'dictionary', 'id,keyword,category_id,subcategory_id,deleted_at,deleted_via,created_at,updated_at', 'dictionary', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
@@ -4766,7 +4766,7 @@ const MERGE_DOMAINS = {
     gone: function(row){ return pullTaxonomyTombstone('category', row); },
     beforeMerge: function(rec){ return rec.name; },
     afterMerge: function(rec, oldName){ // Rev 2.32.228 (B2): назву змінив сервер (злиття) — локальний каскад без push
-      try{ if(oldName && oldName !== rec.name) saveTaxonomyCascade(cascadeTaxonomyRename('category', oldName, rec.name)).catch(function(){}); renderStructure(); populateCategorySelect(); }catch(e){}
+      try{ if(oldName && oldName !== rec.name) saveTaxonomyCascade(cascadeTaxonomyRename('category', oldName, rec.name)).catch(function(e){ recErr('exp-casc-cat', e); }); renderStructure(); populateCategorySelect(); }catch(e){ recErr('exp-render-cat', e); }
     },
     nameOf: function(rec){ return rec.name || ''; }, eventName: function(row){ return row.name || ''; }, eventAmount: function(){ return null; },
   },
@@ -4791,7 +4791,7 @@ const MERGE_DOMAINS = {
     gone: function(row){ return pullTaxonomyTombstone('subcategory', row); },
     beforeMerge: function(rec){ return rec.name; },
     afterMerge: function(rec, oldName){
-      try{ if(oldName && oldName !== rec.name) saveTaxonomyCascade(cascadeTaxonomyRename('subcategory', oldName, rec.name)).catch(function(){}); renderStructure(); }catch(e){}
+      try{ if(oldName && oldName !== rec.name) saveTaxonomyCascade(cascadeTaxonomyRename('subcategory', oldName, rec.name)).catch(function(e){ recErr('exp-casc-sub', e); }); renderStructure(); }catch(e){ recErr('exp-render-sub', e); }
     },
     nameOf: function(rec){ return rec.name || ''; }, eventName: function(row){ return row.name || ''; }, eventAmount: function(){ return null; },
   },
@@ -5284,7 +5284,7 @@ async function pushExpensesBatch(records){
       resolvable.forEach(function(r){ expSyncEnd(r.rec.id, true); });
       return { pushed: resolvable.length, failed: 0 };
     }
-  }catch(e){ /* провал пакету (мережа чи Cloud-помилка) — падаємо у fallback нижче */ }
+  }catch(e){ recErr('push-batch-exp', e); /* провал пакету (мережа чи Cloud-помилка) — падаємо у fallback нижче */ }
   resolvable.forEach(function(r){ expSyncEnd(r.rec.id, false); }); // Rev 2.32.195: далі кожен запис пушиться окремо (свій begin/end)
   // Пакет провалився — відкат на по-одному, ЛИШЕ для цього пакету.
   let pushed = 0, failed = 0, firstError = null;
@@ -5386,7 +5386,7 @@ async function pushIncomesBatch(records){
       records.forEach(function(rec){ expSyncEnd(rec.id, true); });
       return { pushed: records.length, failed: 0 };
     }
-  }catch(e){ /* fallback нижче */ }
+  }catch(e){ recErr('push-batch-inc', e); /* fallback нижче */ }
   records.forEach(function(rec){ expSyncEnd(rec.id, false); }); // далі кожен запис пушиться окремо (свій begin/end)
   let pushed = 0, failed = 0, firstError = null;
   for(const rec of records){
@@ -5546,7 +5546,7 @@ async function pushDebtsBatch(records){
       resolvable.forEach(function(r){ expSyncEnd(r.rec.id, true); });
       return { pushed: resolvable.length, failed: 0 };
     }
-  }catch(e){ /* fallback нижче */ }
+  }catch(e){ recErr('push-batch-debt', e); /* fallback нижче */ }
   resolvable.forEach(function(r){ expSyncEnd(r.rec.id, false); }); // далі кожен запис пушиться окремо
   let pushed = 0, failed = 0, firstError = null;
   for(const r of resolvable){
@@ -6139,7 +6139,7 @@ async function pullBankAccountsCore(opts){
   const relinkedNames = [], relinkedOldIds = []; // Rev 2.23.28 (6D.197, G3): cloudId змінено зв'язуванням за назвою
   const cardCascade = { debts: 0, hidden: false, ignored: false }; // Rev 2.32.237
   try{
-    try{ await idMigrateUnlinked(client, bankIdSpec()); }catch(e){} // Rev 2.32.244 (ID-ALL): картки без id зіставляються ДО приймання рядків, інакше pull додав би їх окремо; збій міграції pull не зупиняє
+    try{ await idMigrateUnlinked(client, bankIdSpec()); }catch(e){ recErr('idmig-bank', e); } // Rev 2.32.244 (ID-ALL): картки без id зіставляються ДО приймання рядків, інакше pull додав би їх окремо; збій міграції pull не зупиняє
     const { data, error } = await fetchDeltaRows(client, 'bank_accounts', 'id,name,credit_limit,payment_day,created_at,updated_at,deleted_at', 'bankAccounts', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of data){
@@ -6340,7 +6340,7 @@ async function pullInstallmentAccountsCore(opts){
   const relinkedNames = [], relinkedOldIds = []; // Rev 2.23.28 (6D.197, G3): cloudId змінено зв'язуванням за назвою
   const renameCascade = { debts: 0, expenses: 0, hidden: false, ignored: false }, renameCollisions = []; // Rev 2.32.184 (ID-BIND-2)
   try{
-    try{ await idMigrateUnlinked(client, installmentIdSpec()); }catch(e){} // Rev 2.32.242 (ID-ONLY): записи без id зіставляються ДО приймання рядків, інакше pull додав би їх як окремі; збій міграції pull не зупиняє
+    try{ await idMigrateUnlinked(client, installmentIdSpec()); }catch(e){ recErr('idmig-inst', e); } // Rev 2.32.242 (ID-ONLY): записи без id зіставляються ДО приймання рядків, інакше pull додав би їх як окремі; збій міграції pull не зупиняє
     const { data, error } = await fetchDeltaRows(client, 'installment_accounts', 'id,name,initial_amount,due_day,term_months,start_date,first_payment,pay_mode,payment,created_at,updated_at,deleted_at', 'installmentAccounts', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of data){
@@ -6761,7 +6761,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.421';
+const APP_VERSION = '2.32.422';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9050,7 +9050,7 @@ function fetchSyncHeadsShared(){
     try{
       const r = await getSupabaseClient().rpc('sync_heads');
       return (r && !r.error && r.data && typeof r.data === 'object') ? r.data : null;
-    }catch(e){ return null; }
+    }catch(e){ recErr('heads-fetch', e); return null; }
   })();
   headsInFlight = run;
   run.then(function(){ if(headsInFlight === run) headsInFlight = null; });
@@ -9160,9 +9160,9 @@ async function runSyncCheck(reason, o){
   if(reason !== 'realtime' && (plan.full || nameDomainsHaveDirty())){
     // Rev 2.32.188 (CENSUS-GATE): перепис id (5 таблиць, SELECT id постранично) лише у повній звірці; поза нею «брудні» записи просто надсилаються, а застарілий cloudId ловить сам push (UPDATE → 0 рядків → самозцілення). Раніше перепис ішов на кожну перевірку, поки хоч один запис «брудний» (стійко через осиротілих), хоча голови не змінились. Ризик: застарілий id «чистого» запису дочекається повної звірки (≤ 24 год або purged_at).
     if(!plan.full) syncDiag('name-dirty', nameDomainDirtyBreakdown());
-    try{ await syncNameDomainsOnConnect({ census: !!plan.full }); }catch(e){}
+    try{ await syncNameDomainsOnConnect({ census: !!plan.full }); }catch(e){ recErr('sync-names', e); }
   }
-  if(syncFullDirty){ syncFullDirty = false; try{ await autoSyncStale('full-reconcile'); }catch(e){} } // Rev 2.32.99: живі записи без рядка на сервері відправляються повторно
+  if(syncFullDirty){ syncFullDirty = false; try{ await autoSyncStale('full-reconcile'); }catch(e){ recErr('sync-full', e); } } // Rev 2.32.99: живі записи без рядка на сервері відправляються повторно
   syncSeenState = applySyncResult(syncSeenState, heads, plan, results, now);
   saveSyncSeen(syncSeenState);
   if(o.refreshAll && changedTables.length) refreshAfterSyncAtStart(changedTables);
@@ -13186,7 +13186,7 @@ function handleImportFile(event){
       await ensureInstallmentFirstMonth();
       reportSaveResult(await saveBankAccounts());
       reportSaveResult(await saveInstallmentAccounts());
-      if(ensured.addedCards > 0){ try{ await pushBankAccountsPilot(); }catch(e){} } // Rev 2.32.136: нові картки з імпорту одразу йдуть у Cloud (дані місячних боргів пушаться окремо, як раніше)
+      if(ensured.addedCards > 0){ try{ await pushBankAccountsPilot(); }catch(e){ recErr('import-bank-push', e); } } // Rev 2.32.136: нові картки з імпорту одразу йдуть у Cloud (дані місячних боргів пушаться окремо, як раніше)
       populateMonths();
 
       let renderWarning = '';

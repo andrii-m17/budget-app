@@ -20,7 +20,7 @@ function ringBufferPush(buffer, event, maxSize){
 
 function safeCall(fn, label){
   try{ fn(); }
-  catch(err){ console.error(`[Money Tree] Помилка в ${label}:`, err); }
+  catch(err){ console.error(`[Money Tree] Помилка в ${label}:`, err); try{ if(typeof recErr === 'function') recErr('safe-' + label, err); }catch(e2){} } // Rev 2.32.422 (ERR-1a): слід у самописці (подія err), поведінка та сама
 }
 
 // Колір: 'rgb(r,g,b)' / 'rgba(r,g,b,a)' / '#rgb' / '#rrggbb' / [r,g,b(,a)] → [r,g,b,a].

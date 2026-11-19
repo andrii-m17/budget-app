@@ -39,7 +39,7 @@ test('importEnsureAccounts: створює відсутні картки з crea
 });
 test('імпорт: нові картки зберігаються й пушаться (pushBankAccountsPilot), виклик після збереження', function(){
   assert.match(SRC, /const ensured = importEnsureAccounts\(debts, bankAccounts, installmentAccounts, new Date\(\)\.toISOString\(\)\);/);
-  assert.match(SRC, /if\(ensured\.addedCards > 0\)\{ try\{ await pushBankAccountsPilot\(\); \}catch\(e\)\{\} \}/);
+  assert.match(SRC, /if\(ensured\.addedCards > 0\)\{ try\{ await pushBankAccountsPilot\(\); \}catch\(e\)\{ recErr\('import-bank-push', e\); \} \}/);
 });
 test('у коді немає імен членів родини в стандартних назвах банків/ОЧ (охорона імен — tests/no-real-names.test.js)', function(){
   assert.ok(!/(Приват|Моно) Банк [А-ЯІЇЄҐ][а-яіїєґ']+(?! ?\()/.test(SRC.replace(/(Приват|Моно) Банк (Україна|Дебет|Кредит)/g, '')) || true);
