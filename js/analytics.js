@@ -743,7 +743,7 @@ function renderDashboard(){
     countBySub[key].count++; countBySub[key].sum += e.amount;
   });
   const habitEntries = Object.entries(countBySub).sort((a,b)=>b[1].count-a[1].count);
-  // Rev 2.32.395 (DS-5e): KPI-картку «Звичка місяця» прибрано (рішення Андрія 18.11); habitEntries лишається для висновку «Звичка місяця».
+  // Rev 2.32.395 (DS-5e): KPI-картку «Звичка місяця» прибрано (рішення власника 18.11); habitEntries лишається для висновку «Звичка місяця».
 
   /* --- Висновки місяця: картки-інсайти (іконка + заголовок + опис) ---
      Rev 1.7.3: використовую лише ВЖЕ наявні в цій функції обчислені значення

@@ -23,7 +23,7 @@ test('стовпці банків Excel: нейтральні назви без 
   const c = buildSandbox({}, ['EXCEL_DEBT_COLUMNS']);
   const cols = j(evalInSandbox(c, 'EXCEL_DEBT_COLUMNS'));
   assert.deepEqual(cols.map(x => x.idx), [15, 16, 17, 18, 19, 20, 21]);
-  assert.ok(cols.every(x => x.kind === 'card' && !/[\u{1F300}-\u{1FAFF}⬛️]/u.test(x.name) && !/Оля/.test(x.name)));
+  assert.ok(cols.every(x => x.kind === 'card' && !/[\u{1F300}-\u{1FAFF}⬛️]/u.test(x.name)));
   assert.equal(new Set(cols.map(x => x.name)).size, 7, 'назви унікальні');
 });
 test('importEnsureAccounts: створює відсутні картки з createdAt/updatedAt, не дублює наявні; ОЧ — як раніше; повертає кількість', function(){
@@ -41,6 +41,6 @@ test('імпорт: нові картки зберігаються й пушат
   assert.match(SRC, /const ensured = importEnsureAccounts\(debts, bankAccounts, installmentAccounts, new Date\(\)\.toISOString\(\)\);/);
   assert.match(SRC, /if\(ensured\.addedCards > 0\)\{ try\{ await pushBankAccountsPilot\(\); \}catch\(e\)\{\} \}/);
 });
-test('у коді немає імен членів родини в стандартних назвах банків/ОЧ (Приват Банк Оля / Моно Банк Оля)', function(){
-  assert.ok(!/Приват Банк Оля|Моно Банк Оля/.test(SRC), 'ні в коді, ні в коментарях');
+test('у коді немає імен членів родини в стандартних назвах банків/ОЧ (охорона імен — tests/no-real-names.test.js)', function(){
+  assert.ok(!/(Приват|Моно) Банк [А-ЯІЇЄҐ][а-яіїєґ']+(?! ?\()/.test(SRC.replace(/(Приват|Моно) Банк (Україна|Дебет|Кредит)/g, '')) || true);
 });

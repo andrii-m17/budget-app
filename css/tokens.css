@@ -17,7 +17,7 @@
     --color-accent-purple:#9333EA; --color-accent-purple-bg:#F5E9FE;
     /* Rev #30 (6D.62) — Cloud Sync UI: автор-маркер (Користувач А=--color-info,
        уже використаний для іконки "ЗП <ім'я 1>"; Користувач Б потребує ОКРЕМОГО
-       рожевого — --color-accent-purple вже зайнятий іконкою "ЗП Оля" в
+       рожевого — --color-accent-purple вже зайнятий іконкою «ЗП 2» в
        іншому, непов'язаному контексті, свідомо новий токен, не перевикористання). */
     --color-accent-pink:#EC4899; --color-accent-pink-bg:#FCE7F3;
 

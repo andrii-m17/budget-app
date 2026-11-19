@@ -4175,7 +4175,7 @@ test('acceptance D1: старий бекап без installmentAccounts + міг
 function d2Fixture(){
   return {
     expenses: [{ id: 'e1', date: '2026-09-01', name: 'Кава', amount: 65, category: '🍔 Харчування', subcategory: '', manual: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }],
-    incomes: [{ id: 'i1', date: '2026-09-01', source: 'salary_andrii', amount: 20000 }],
+    incomes: [{ id: 'i1', date: '2026-09-01', source: 'salary_1', amount: 20000 }],
     debts: [{ id: 'd1', name: '🟩 Приват Банк', kind: 'card', month: '2026-09', balance: 5000 }],
   };
 }

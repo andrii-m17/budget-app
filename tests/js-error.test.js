@@ -15,7 +15,7 @@ function env(extra){
 test('scrubJsErrorText: обрізає до 160, прибирає email і довгі числа', function(){
   const c = env().c;
   assert.equal(c.scrubJsErrorText('a'.repeat(300)).length, 160);
-  assert.equal(c.scrubJsErrorText('помилка для olya@example.com тел 380501234567'), 'помилка для <email> тел <num>');
+  assert.equal(c.scrubJsErrorText('помилка для user@example.com тел 380501234567'), 'помилка для <email> тел <num>');
   assert.equal(c.scrubJsErrorText('kbMode is not defined'), 'kbMode is not defined');
 });
 test('jsErrorSource: файл і рядок без параметрів запиту й хешу', function(){

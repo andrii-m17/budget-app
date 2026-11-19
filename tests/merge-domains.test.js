@@ -44,7 +44,7 @@ function device(server, userId, skewMs){
     incomes: [], debts: [], expenses: [], bankAccounts: [{ name: 'Картка-1', cloudId: 'bank1' }], installmentAccounts: [{ name: 'ОЧ-1', cloudId: 'inst1' }],
     saveIncomes: async function(){}, saveDebts: async function(){}, saveExpenses: async function(){}, getSyncMarker: () => null, setSyncMarker: function(){}, updateSyncMarkerFromAllRows: function(){}, applySyncMarker: q => q,
     pushOtherActorEvent: function(){}, recentlyPulledExpenseState: new Map(), recentlyPulledIncomeState: new Map(), RECORD_SYNC_PULSE_MS: 1, RECORD_SYNC_PULSE_COUNT: 1, RECORD_SYNC_DONE_MS: 1, populateMonths: function(){}, renderAll: function(){}, editingRecordKey: null,
-    authorInfoFor: id => id === 'u2' ? { name: 'Оля', gender: 'f' } : null, showToast: function(){}, updateNotifBell: function(){}, openNotifArchive: function(){}, isNotifArchiveOpen: false, renderNotifArchive: function(){},
+    authorInfoFor: id => id === 'u2' ? { name: 'Учасниця-2', gender: 'f' } : null, showToast: function(){}, updateNotifBell: function(){}, openNotifArchive: function(){}, isNotifArchiveOpen: false, renderNotifArchive: function(){},
     fmt: n => n + ' ₴', isoToUaDateText: s => s.split('-').reverse().join('.'), document: { querySelectorAll: () => [], querySelector: () => null, activeElement: null }, localStorage: { getItem: () => null, setItem: function(){} },
     pluralUa: () => '', pushDebtRecordPilotX: 0, incomeSourceDisplay: s => s };
   const c = buildSandbox(g, NAMES); return c;
@@ -75,8 +75,8 @@ for(const skew of [86400000, -86400000]){
     edit(A, 'incomes', 'i1', { amount: 1200 }); edit(B, 'incomes', 'i1', { amount: 1500 }); await B.pushIncomeRecordPilot(B.incomes[0], { suppressPull: true });
     s.log.length = 0; await A.pullIncomesCore();
     assert.equal(A.incomes[0].amount, 1500); assert.ok(!s.log.some(x => x.startsWith('update') || x.startsWith('upsert')), 'нічого не перезаписано');
-    const e = A.conflictLog[0]; assert.deepEqual([e.dom, e.kind, e.field, e.mine, e.theirs, e.actor, e.name], ['incomes', 'field', 'amount', 1200, 1500, 'Оля', 'Джерело-А']);
-    assert.equal(A.conflictModel(e).title, 'Джерело-А: Оля вже змінила суму');
+    const e = A.conflictLog[0]; assert.deepEqual([e.dom, e.kind, e.field, e.mine, e.theirs, e.actor, e.name], ['incomes', 'field', 'amount', 1200, 1500, 'Учасниця-2', 'Джерело-А']);
+    assert.equal(A.conflictModel(e).title, 'Джерело-А: Учасниця-2 вже змінила суму');
     await A.conflictResolve(e.id, 'mine'); await new Promise(r => setTimeout(r, 5));
     assert.equal(e.status, 'mine'); assert.equal(A.incomes[0].amount, 1200); assert.equal(s.tables.incomes.i1.amount, 1200);
   });
@@ -114,7 +114,7 @@ async function seedDebt(server, devs){
   const [a, ...rest] = devs; const r = debt(); a.debts.push(r); await a.pushDebtRecordPilot(r, { suppressPull: true });
   for(const d of rest) await d.pullDebtsCore();
 }
-test('борги: різні поля зливаються мовчки (мій залишок, чужий мінімальний платіж); те саме поле — картка «<Назва>: Оля вже змінила залишок», «Повернути моє»', async () => {
+test('борги: різні поля зливаються мовчки (мій залишок, чужий мінімальний платіж); те саме поле — картка «<Назва>: Учасниця-2 вже змінила залишок», «Повернути моє»', async () => {
   const s = makeServer(); const A = device(s, 'u1', 86400000), B = device(s, 'u2', -86400000); await seedDebt(s, [A, B]);
   assert.equal(A.debts[0].serverBase.balance, 5000); assert.ok(/\.\d{6}\+00:00$/.test(A.debts[0].serverUpdatedAt));
   edit(A, 'debts', 'd1', { balance: 4500 }); edit(B, 'debts', 'd1', { minPayment: 350 }); await B.pushDebtRecordPilot(B.debts[0], { suppressPull: true });
@@ -124,7 +124,7 @@ test('борги: різні поля зливаються мовчки (мій 
   // те саме поле
   await new Promise(r => setTimeout(r, 10)); await B.pullDebtsCore(); edit(A, 'debts', 'd1', { balance: 4000 }); edit(B, 'debts', 'd1', { balance: 4200 }); await B.pushDebtRecordPilot(B.debts[0], { suppressPull: true });
   await A.pullDebtsCore(); assert.equal(A.debts[0].balance, 4200);
-  const e = A.conflictLog[0]; assert.deepEqual([e.dom, e.field, e.mine, e.theirs], ['debts', 'balance', 4000, 4200]); assert.equal(A.conflictModel(e).title, 'Картка-1: Оля вже змінила залишок');
+  const e = A.conflictLog[0]; assert.deepEqual([e.dom, e.field, e.mine, e.theirs], ['debts', 'balance', 4000, 4200]); assert.equal(A.conflictModel(e).title, 'Картка-1: Учасниця-2 вже змінила залишок');
   await A.conflictResolve(e.id, 'mine'); await new Promise(r => setTimeout(r, 5)); assert.equal(s.tables.debts.d1.balance, 4000);
 });
 test('борги: видалення іншою людиною проти правки; правка під час push не губиться; звичайна правка — один update', async () => {

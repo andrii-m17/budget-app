@@ -7,9 +7,9 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 
 const NAMES = ['WORK_ORIGINS', 'SS_KEY_PREVIEW_REALDB', 'SUPABASE_PROJECT_URL', 'TESTCLOUD_ORIGIN', 'readTestCloudConfig', 'isTestCloudConfigValid', 'detectCloudEnv'];
-const PROD = 'https://andrii-m17.github.io';
 const TC = { url: 'https://abcdefghij0123456789.supabase.co', key: 'k'.repeat(40) };
 const c = buildSandbox({ window: {} }, NAMES);
+const PROD = require('./extract').evalInSandbox(c, 'WORK_ORIGINS[0]'); // PRIV-2a: робочий origin беремо з коду, не пишемо в тесті
 const env = (origin, flag, cfg) => JSON.parse(JSON.stringify(c.detectCloudEnv(origin, flag, cfg)));
 
 test('testcloud лише на 127.0.0.1:8936 з коректною конфігурацією', function(){

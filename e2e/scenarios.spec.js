@@ -86,7 +86,8 @@ test('3. відредагувати витрату: сума змінюєтьс�
 
 test('4. «Перевірки»: «Працює» і «Не працює» з причиною @smoke', async ({ page }) => {
   await boot(page, 'empty');
-  await page.evaluate(() => { switchTab('service'); openChecksDrawer(); });
+  // PRIV-2a: кроки реєстру живуть 7 днів від addedOn і скінчились (19.11), тож тест додає власні два кроки на сьогодні (синтетичні), а не залежить від дати запуску
+  await page.evaluate(() => { const d = new Date(), iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); [1, 2].forEach(n => CHECKS.unshift({ id: 'e2e-' + n, rev: '0', addedOn: iso, title: 'Крок ' + n, steps: ['Дія ' + n], expect: 'Результат ' + n, reasons: ['Причина А', 'Причина Б'] })); switchTab('service'); openChecksDrawer(); });
   const pendingCount = () => page.evaluate(() => checksPending(checksReadState()).length);
   const total = await pendingCount();
   expect(total).toBeGreaterThan(1);

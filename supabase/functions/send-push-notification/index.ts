@@ -30,7 +30,7 @@ webpush.setVapidDetails(
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
 // Адреса застосунку для notification.navigate (той самий документ, що start_url: index.html → hashchange без перезавантаження).
-const APP_URL = "https://andrii-m17.github.io/budget-app/index.html";
+const APP_URL = "https://andrii-m17.github.io/budget-app/index.html"; // PRIV-2-HANDLE: робоча адреса (рішення власника 18.11)
 
 const DECLARATIVE_USERS = new Set(
   (Deno.env.get("DECLARATIVE_PUSH_USERS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),

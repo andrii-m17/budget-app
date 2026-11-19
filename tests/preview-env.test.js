@@ -6,7 +6,7 @@ const { buildSandbox } = require('./extract');
 
 const NAMES = ['WORK_ORIGINS', 'SS_KEY_PREVIEW_REALDB', 'TESTCLOUD_ORIGIN', 'SUPABASE_PROJECT_URL', 'readTestCloudConfig', 'isTestCloudConfigValid', 'WRITE_BLOCKED_MESSAGE', 'SESSION_EXPIRED_HINT', 'detectCloudEnv', 'classifyBlockedRequest', 'noteWriteBlocked', 'noteSessionExpiredHint',
   'isWriteBlocked', 'isCloudWriteReady', 'countingFetch', 'classifyNetRequest', 'countNetRequest', 'NET_STATS', 'LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'clearSyncMarkers'];
-const PROD = 'https://andrii-m17.github.io';
+const PROD = require('./extract').evalInSandbox(buildSandbox({}, ['WORK_ORIGINS']), 'WORK_ORIGINS[0]'); // PRIV-2a: робочий origin беремо з коду, не пишемо в тесті
 const BASE = 'https://x.supabase.co';
 
 function make(env, over){
@@ -32,7 +32,7 @@ test('K3 середовище: робочий origin = prod; усе інше (lo
   const c = make({ env: 'prod' });
   assert.equal(c.detectCloudEnv(PROD, null).env, 'prod');
   assert.equal(c.detectCloudEnv(PROD, '1').env, 'prod');            // на робочому origin перемикач нічого не змінює
-  ['http://localhost:8934', 'http://127.0.0.1:8934', 'https://other.github.io', 'https://andrii-m17.github.io.evil.test', 'null', ''].forEach(function(o){
+  ['http://localhost:8934', 'http://127.0.0.1:8934', 'https://other.github.io', PROD + '.evil.test', 'null', ''].forEach(function(o){
     assert.equal(c.detectCloudEnv(o, null).env, 'mock', o);
   });
   assert.equal(c.detectCloudEnv('http://localhost:8934', '1').env, 'readonly');

@@ -44,7 +44,7 @@ function device(server, userId, skewMs, extra){
   const g = { CLOUD_ENV: { env: 'mock' }, Date: SkewDate, isCloudSessionReady: () => true, getSupabaseClient: () => server.client, cloudSession: { user: { id: userId } }, cloudFamilyId: 'fam',
     expenses: [], installmentAccounts: [], saveExpenses: async function(){}, getSyncMarker: () => null, setSyncMarker: function(){}, applySyncMarker: q => q, pushOtherActorEvent: function(){}, recentlyPulledExpenseState: new Map(),
     RECORD_SYNC_PULSE_MS: 1, RECORD_SYNC_PULSE_COUNT: 1, RECORD_SYNC_DONE_MS: 1, populateMonths: function(){}, renderAll: function(){}, editingRecordKey: null,
-    authorInfoFor: id => id === 'u2' ? { name: 'Оля', gender: 'f' } : (id === 'u1' ? { name: 'Андрій', gender: 'm' } : null), showToast: o => toasts.push(o), updateNotifBell: function(){}, openNotifArchive: function(){}, isNotifArchiveOpen: false,
+    authorInfoFor: id => id === 'u2' ? { name: 'Учасниця-2', gender: 'f' } : (id === 'u1' ? { name: 'Учасник-1', gender: 'm' } : null), showToast: o => toasts.push(o), updateNotifBell: function(){}, openNotifArchive: function(){}, isNotifArchiveOpen: false,
     renderNotifArchive: function(){}, pluralUa: (n, f) => (n % 10 === 1 && n % 100 !== 11) ? f[0] : ((n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? f[1] : f[2]), fmt: n => n + ' ₴', isoToUaDateText: s => s.split('-').reverse().join('.'),
     document: { activeElement: null, querySelector: () => null }, localStorage: { getItem: () => null, setItem: function(){} }, authorFilled: false, NOTIF_ICON_SVG: { journal: ['ic-blue', '<svg></svg>'] }, escapeHtml: s => String(s), escapeAttr: s => String(s), safeId: s => String(s) };
   Object.assign(g, extra || {});
@@ -86,9 +86,9 @@ for(const skew of [86400000, -86400000]){
     assert.equal(s.rows.e1.amount, 150); assert.ok(!s.log.includes('update') && !s.log.includes('upsert'), 'нічого не перезаписано');
     assert.equal(A.conflictLog.length, 1);
     const e = A.conflictLog[0];
-    assert.deepEqual([e.kind, e.field, e.mine, e.theirs, e.status, e.actor], ['field', 'amount', 120, 150, 'open', 'Оля']);
+    assert.deepEqual([e.kind, e.field, e.mine, e.theirs, e.status, e.actor], ['field', 'amount', 120, 150, 'open', 'Учасниця-2']);
     const m = A.conflictModel(e);
-    assert.equal(m.title, 'Футбол: Оля вже змінила суму');
+    assert.equal(m.title, 'Футбол: Учасниця-2 вже змінила суму');
     assert.deepEqual(j(m.rows), [['Зараз у записі', '150 ₴'], ['Ваше значення', '120 ₴']]); assert.equal(m.body, '');
     assert.deepEqual([m.primary, m.secondary], ['Повернути моє', 'Лишити 150 ₴']);
     await A.conflictResolve(e.id, 'mine');
@@ -121,7 +121,7 @@ test('видалення іншою людиною проти моєї прав�
   assert.ok(A.expenses[0].deletedAt, 'видалення застосовано локально');
   const e = A.conflictLog[0]; assert.equal(e.kind, 'deleted');
   const m = A.conflictModel(e);
-  assert.deepEqual([m.title, m.body, m.primary, m.secondary], ['Оля видалила запис «Футбол»', 'Ви змінювали його без мережі. Можна відновити запис із вашою правкою.', 'Відновити', 'Лишити видаленим']);
+  assert.deepEqual([m.title, m.body, m.primary, m.secondary], ['Учасниця-2 видалила запис «Футбол»', 'Ви змінювали його без мережі. Можна відновити запис із вашою правкою.', 'Відновити', 'Лишити видаленим']);
   await A.conflictResolve(e.id, 'mine'); await new Promise(r => setTimeout(r, 5));
   assert.equal(A.expenses[0].deletedAt, undefined); assert.equal(A.expenses[0].amount, 120);
   assert.equal(s.rows.e1.deleted_at, null); assert.equal(s.rows.e1.amount, 120);
@@ -157,7 +157,7 @@ test('правка під час push не губиться: зліпок = що
   s.log.length = 0; await A.pushExpenseRecordPilot(r, { suppressPull: true });
   assert.deepEqual(s.log, ['update']); assert.equal(s.rows.e1.note, 'Нова назва'); assert.equal(s.rows.e1.amount, 130); assert.equal(A.shadowDirtyNew(r), false);
 });
-test('три пристрої: Андрій і Оля правлять різне, третій приєднується; сервер у кінці має всі зміни, конфліктів нема', async () => {
+test('три пристрої: учасник 1 і учасниця 2 правлять різне, третій приєднується; сервер у кінці має всі зміни, конфліктів нема', async () => {
   const s = makeServer(); const A = device(s, 'u1', 86400000), B = device(s, 'u2', -86400000), C = device(s, 'u1', 0);
   await seedSynced(s, [A, B, C], 'e1');
   edit(A, 'e1', { amount: 111 }); edit(B, 'e1', { category: 'Освіта' }); edit(C, 'e1', { date: '2026-10-12' });
@@ -192,11 +192,11 @@ test('журнал конфліктів: 14 днів, чиста міграці�
   A.expenses.push(clean); A.expMigrateBase(); assert.equal(clean.serverBase.amount, 1); assert.equal(clean.serverUpdatedAt, T0);
   // групова картка
   A.conflictLog.length = 0; A.conflictAnnounce.length = 0;
-  A.conflictLog.push({ id: 'k1', rid: 'a', kind: 'field', field: 'amount', mine: 1, theirs: 2, name: 'П', actor: 'Оля', gender: 'f', at: now, status: 'open' }, { id: 'k2', rid: 'b', kind: 'field', field: 'name', mine: 'а', theirs: 'б', name: 'Р', actor: 'Оля', gender: 'f', at: now, status: 'open' });
+  A.conflictLog.push({ id: 'k1', rid: 'a', kind: 'field', field: 'amount', mine: 1, theirs: 2, name: 'П', actor: 'Учасниця-2', gender: 'f', at: now, status: 'open' }, { id: 'k2', rid: 'b', kind: 'field', field: 'name', mine: 'а', theirs: 'б', name: 'Р', actor: 'Учасниця-2', gender: 'f', at: now, status: 'open' });
   A.conflictAnnounce.push('k1', 'k2');
   A.editingRecordKey = 'x'; A.conflictFlushCards(); assert.equal(A.__toasts.length, 0, 'відкрите редагування не перебиваємо');
   A.editingRecordKey = null; A.conflictFlushCards();
-  assert.equal(A.__toasts.length, 1); assert.equal(A.__toasts[0].title, 'Оля змінила 2 записи, які ви теж правили'); assert.equal(A.__toasts[0].subtitle, 'Ваші значення не збережено, їх можна повернути в сповіщеннях.');
+  assert.equal(A.__toasts.length, 1); assert.equal(A.__toasts[0].title, 'Учасниця-2 змінила 2 записи, які ви теж правили'); assert.equal(A.__toasts[0].subtitle, 'Ваші значення не збережено, їх можна повернути в сповіщеннях.');
   assert.deepEqual(j(A.__toasts[0].actions.map(a => a.label)), ['Переглянути']); assert.equal(A.__toasts[0].sticky, true);
   assert.equal(A.conflictOpenCount(), 2);
   // кнопки журналу лише поки не оброблено
