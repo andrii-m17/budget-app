@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { buildSandbox } = require('./extract');
 const j = v => JSON.parse(JSON.stringify(v));
 
-const NAMES = ['SYNC_TABLE_ORDER', 'SYNC_DEPENDENTS', 'SYNC_FULL_INTERVAL_MS', 'emptySyncSeen', 'purgedAtValue', 'purgedAtChanged', 'normalizeSyncSeen', 'syncHeadsComplete', 'planSync', 'applySyncResult',
+const NAMES = ['SYNC_TABLE_ORDER', 'SYNC_DEPENDENTS', 'SYNC_FULL_INTERVAL_MS', 'SYNC_DIRTY_RETRY_MAX', 'emptySyncSeen', 'purgedAtValue', 'purgedAtChanged', 'normalizeSyncSeen', 'syncHeadsComplete', 'planSync', 'applySyncResult',
   'PULL_DOMAINS', 'pullOnce', 'pullTableForSync', 'runSyncPulls', 'nameDomainsHaveDirty', 'runSyncCheck'];
 function make(over){
   const calls = [];
@@ -15,7 +15,7 @@ function make(over){
   ['bank_accounts', 'categories', 'debts', 'dictionary', 'expenses', 'hidden_entities', 'incomes', 'installment_accounts', 'subcategories'].forEach(t => heads.tables[t] = '2026-10-01T00:00:00+00:00');
   const g = Object.assign({
     calls, stubState, heads, autoSyncCalls: [], saved: [], syncDirtySetBy: null,
-    cloudFamilyId: 'fam', pullInFlightByDomain: {}, syncSeenState: null, syncLastCheckAt: 0, syncCheckInFlight: null,
+    cloudFamilyId: 'fam', pullInFlightByDomain: {}, syncDirtyPending: false, syncDirtyFails: 0, syncSeenState: null, syncLastCheckAt: 0, syncCheckInFlight: null,
     pullCategoriesCore: stub('categories'), pullSubcategoriesCore: stub('subcategories'), pullDictionaryCore: stub('dictionary'), pullBankAccountsCore: stub('bank_accounts'),
     pullInstallmentAccountsCore: stub('installment_accounts'), pullHiddenEntitiesCore: stub('hidden_entities'), pullExpensesCore: stub('expenses'), pullIncomesCore: stub('incomes'), pullDebtsCore: stub('debts'),
     fetchSyncHeadsShared: async () => JSON.parse(JSON.stringify(heads)), loadSyncSeen: () => g.emptySeen(), saveSyncSeen: s => g.saved.push(JSON.parse(JSON.stringify(s))),

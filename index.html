@@ -2230,6 +2230,7 @@ async function pullCategoriesCore(opts){
     }
     updateSyncMarkerFromAllRows('categories', data); // Rev #30 (6D.38) — усередині try: `data` block-scoped
   }catch(e){
+    recErr('pull-cat', e); // Rev 2.32.424 (ERR-2): причина збою завантаження лишає слід (результат skipped → повна звірка не завершена → needFull)
     return { skipped: true };
   }
   if(updated || linked || added) await saveCategoriesLocal();
@@ -3129,6 +3130,7 @@ async function pullSubcategoriesCore(opts){
     }
     if(maxSeen) setSyncMarker('subcategories', maxSeen);
   }catch(e){
+    recErr('pull-sub', e); // Rev 2.32.424 (ERR-2): причина збою завантаження лишає слід (результат skipped → повна звірка не завершена → needFull)
     return { skipped: true };
   }
   if(updated || linked || added) await saveSubcategoriesLocal();
@@ -3208,6 +3210,7 @@ async function pullDictionaryCore(opts){
     }
     if(maxSeen) setSyncMarker('dictionary', maxSeen);
   }catch(e){
+    recErr('pull-dict', e); // Rev 2.32.424 (ERR-2): причина збою завантаження лишає слід (результат skipped → повна звірка не завершена → needFull)
     return { skipped: true };
   }
   if(updated || linked || added) await saveDictionaryLocal();
@@ -5732,6 +5735,7 @@ async function pullExpensesCore(opts){
     }
     if(maxSeen && !holdMarker) setSyncMarker('expenses', maxSeen);
   }catch(e){
+    recErr('pull-exp', e); // Rev 2.32.424 (ERR-2): причина збою завантаження лишає слід (результат skipped → повна звірка не завершена → needFull)
     return { skipped: true };
   }
   if(updated || added || authorFilled || echoed) await saveExpenses();
@@ -5839,6 +5843,7 @@ async function pullIncomesCore(opts){
     }
     if(!holdMarker) updateSyncMarkerFromAllRows('incomes', data); // Rev 2.32.201: рядок відкритого запису прийде знову
   }catch(e){
+    recErr('pull-inc', e); // Rev 2.32.424 (ERR-2): причина збою завантаження лишає слід (результат skipped → повна звірка не завершена → needFull)
     return { skipped: true };
   }
   if(updated || added || authorFilled || echoed) await saveIncomes();
@@ -5959,6 +5964,7 @@ async function pullDebtsCore(opts){
     }
     if(maxSeen) setSyncMarker('debts', maxSeen);
   }catch(e){
+    recErr('pull-debt', e); // Rev 2.32.424 (ERR-2): причина збою завантаження лишає слід (результат skipped → повна звірка не завершена → needFull)
     return { skipped: true };
   }
   if(updated || added || authorFilled || echoed) await saveDebts();
@@ -6175,6 +6181,7 @@ async function pullBankAccountsCore(opts){
     }
     updateSyncMarkerFromAllRows('bankAccounts', data);
   }catch(e){
+    recErr('pull-bank', e); // Rev 2.32.424 (ERR-2): причина збою завантаження лишає слід (результат skipped → повна звірка не завершена → needFull)
     return { skipped: true };
   }
   if(updated || linked || added) await saveBankAccountsLocal();
@@ -6386,6 +6393,7 @@ async function pullInstallmentAccountsCore(opts){
     }
     updateSyncMarkerFromAllRows('installmentAccounts', data);
   }catch(e){
+    recErr('pull-inst', e); // Rev 2.32.424 (ERR-2): причина збою завантаження лишає слід (результат skipped → повна звірка не завершена → needFull)
     return { skipped: true };
   }
   if(updated || linked || added) await saveInstallmentAccountsLocal();
@@ -6623,6 +6631,7 @@ async function pullHiddenEntitiesCore(){
       }
     });
   }catch(e){
+    recErr('pull-hidden', e); // Rev 2.32.424 (ERR-2): причина збою завантаження лишає слід (результат skipped → повна звірка не завершена → needFull)
     return { skipped: true };
   }
   hiddenEntitiesPulledOnce = true;
@@ -9163,16 +9172,16 @@ async function runSyncCheck(reason, o){
     if(!plan.full) syncDiag('name-dirty', nameDomainDirtyBreakdown());
     try{ await syncNameDomainsOnConnect({ census: !!plan.full }); }catch(e){ recErr('sync-names', e); }
   }
-  // Rev 2.32.99: живі записи без рядка на сервері відправляються повторно. Rev 2.32.424 (ERR-2): якщо ця відправка не вдалась (виняток або failed > 0), повна звірка не вважається завершеною: наступна звичайна перевірка (не частіше за SYNC_MIN_CHECK_MS, без власного циклу) знову повна й знову знаходить «брудні» записи, а не чекає 24 години чи зміни purged_at. Раніше прапорець скидався ДО відправки, і збій губив її до наступної періодичної звірки.
-  let dirtyPushFailed = false, dirtyPushRan = false;
-  if(syncFullDirty){
-    syncFullDirty = false; dirtyPushRan = true;
-    try{ const r = await autoSyncStale('full-reconcile'); if(r && r.failed > 0) dirtyPushFailed = true; }catch(e){ dirtyPushFailed = true; recErr('sync-full', e); }
+  // Rev 2.32.99: живі записи без рядка на сервері відправляються повторно. Rev 2.32.424 (ERR-2): повна звірка вже позначила такі записи «не синхронізованими» (прибрала syncedUpdatedAt), тож після збою відправки (виняток, failed > 0 або autoSyncStale повернув null: інша відправка, режим «лише перегляд») вони лишаються в черзі, але прапорець syncFullDirty був одноразовий: повторна спроба залежала від таймерів autoSyncStale, події online і повернення з фону. Тепер збій лишає syncDirtyPending, і НАСТУПНА звичайна перевірка (не частіше за SYNC_MIN_CHECK_MS, без власного циклу чи таймера) повторює відправку (autoSyncStale без записів у черзі нічого не запитує: 0 запитів). Повна звірка для цього не потрібна й не повторюється. Запобіжник: SYNC_DIRTY_RETRY_MAX підряд невдалих спроб за сеанс; далі лишаються таймери autoSyncStale, online і повернення з фону.
+  if(syncFullDirty || (syncDirtyPending && syncDirtyFails < SYNC_DIRTY_RETRY_MAX)){
+    const fresh = syncFullDirty;
+    syncFullDirty = false;
+    let failedNow = false;
+    try{ const r = await autoSyncStale('full-reconcile'); if(r === null || (r && r.failed > 0)) failedNow = true; }catch(e){ failedNow = true; recErr('sync-full', e); }
+    if(failedNow){ syncDirtyPending = true; if(fresh) syncDirtyFails = 0; syncDirtyFails++; } // нова знахідка повної звірки починає лічильник спочатку
+    else{ syncDirtyPending = false; syncDirtyFails = 0; }
   }
   syncSeenState = applySyncResult(syncSeenState, heads, plan, results, now);
-  // та сама позначка, що й для невдалої повної звірки (planSync: s.needFull → наступна перевірка повна); зберігається в localStorage, тож переживає перезапуск. Запобіжник: не більше SYNC_DIRTY_RETRY_MAX підряд невдалих спроб за сеанс (стійка відмова сервера не має робити кожну перевірку повною); далі лишається звичайна періодична звірка
-  if(dirtyPushFailed){ syncDirtyFails++; if(syncDirtyFails <= SYNC_DIRTY_RETRY_MAX) syncSeenState.needFull = 'dirty-push'; }
-  else if(dirtyPushRan) syncDirtyFails = 0;
   saveSyncSeen(syncSeenState);
   if(o.refreshAll && changedTables.length) refreshAfterSyncAtStart(changedTables);
   if(reason === 'realtime') flushOtherActorEventsAsToasts(); else flushOtherActorEventsAsSummary();
@@ -9187,7 +9196,7 @@ function syncCheck(reason, opts){
   if(syncCheckInFlight){ if(force) syncRecheckPending = { reason: reason, opts: o }; return syncCheckInFlight; }
   if(!shouldCheckHeads(Date.now(), syncLastCheckAt, force)) return Promise.resolve(null);
   syncLastCheckAt = Date.now();
-  const run = runSyncCheck(reason, o).catch(function(){ return null; });
+  const run = runSyncCheck(reason, o).catch(function(e){ recErr('sync-check', e); return null; }); // Rev 2.32.424 (ERR-2): виняток під час перевірки (стан синхронізації не оновлено, тож наступна перевірка повторює ту саму повну/дельту) лишає слід
   syncCheckInFlight = run;
   run.then(function(){
     if(syncCheckInFlight === run) syncCheckInFlight = null;
@@ -9306,7 +9315,8 @@ const PULL_PAGE_SIZE = 500;
 const PULL_MAX_PAGES = 2000;
 // Rev 2.32.99 (PAGING-1 Rev B, F1): справжня повна звірка. Дельта за маркером (updated_at ≥ мітка − 2 с) не бачить (а) рядків зі старим updated_at («заднім числом»), (б) рядків, жорстко видалених на сервері. У режимі повної звірки (opts.full: planSync.full, «Синхронізувати все») для таблиці з маркером fetchDeltaRows замість дельти: 1) читає ЛЕГКИЙ індекс сервера id, updated_at, deleted_at ключовими сторінками за id; 2) порівнює з локальним (diffServerIndex); 3) дозавантажує повні рядки лише тих id, яких немає локально або в яких інший updated_at (по 100 в in(...)), і віддає їх звичайному pull*Core (злиття, LWW, надгробки, skippedFk без змін); 4) локальні надгробки, яких немає на сервері, прибирає (reconcilePlan + removeTrashLocally); 5) локальний ЖИВИЙ синхронізований запис витрат/доходів/боргів без рядка на сервері НЕ видаляє, а знімає syncedUpdatedAt (повторний push: рішення чату; пристрій, не відкритий довше за строк надгробків 14 днів, може відтворити видалений запис). Довідникові домени (категорії, підкатегорії, слова, картки, ОЧ): живі без рядка на сервері лишає переписові id (syncNameDomainsOnConnect). Захист: порожній індекс сервера при непорожніх локальних записах = помилка (схоже на мертву сесію/RLS), нічого не змінюється. Без маркера (перший pull) читання й так повне. Ризик: +1 запит на 500 рядків індексу на таблицю раз на 24 год (витрати ≈ 929: 2 запити індексу замість 1 дельти, тобто +1).
 let syncFullDirty = false;
-let syncDirtyFails = 0; // Rev 2.32.424 (ERR-2): підряд невдалих відправок «брудних» записів після повної звірки (у межах сеансу)
+let syncDirtyPending = false; // Rev 2.32.424 (ERR-2): відправка «брудних» записів після повної звірки не вдалась і чекає наступної перевірки
+let syncDirtyFails = 0; // підряд невдалих спроб (у межах сеансу)
 const SYNC_DIRTY_RETRY_MAX = 3;
 function sameInstantStr(a, b){
   if(!a || !b) return false;

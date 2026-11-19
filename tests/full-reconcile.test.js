@@ -43,7 +43,7 @@ const loc = (n, extra) => Object.assign({ id: ID(n), updatedAt: U(n), syncedUpda
 
 function env(over){
   const g = Object.assign({
-    cloudFamilyId: 'fam', syncFullDirty: false, getSyncMarker: () => 'marker',
+    cloudFamilyId: 'fam', syncFullDirty: false, syncDirtyPending: false, syncDirtyFails: 0, getSyncMarker: () => 'marker',
     expenses: [], incomes: [], debts: [], CATEGORIES: [], SUBCATEGORIES: [], DICTIONARY: [], bankAccounts: [], installmentAccounts: [],
     removed: [], saved: [], diag: [],
     trashStateNow: function(){ return { expenses: g.expenses, incomes: g.incomes, debts: g.debts, dictionary: g.DICTIONARY }; },
@@ -163,7 +163,7 @@ test('охоронні: режим повної звірки передаєть�
   assert.match(SRC, /const result = await step\(\{ full: true \}\);/);
   assert.equal((SRC.match(/await fetchDeltaRows\(client, '[a-z_]+', '[^']*', '[A-Za-z]+', opts\)/g) || []).length, 8);
   assert.match(SRC, /if\(opts && opts\.full && marker\) return fetchFullReconcileRows\(client, table, columns\);/);
-  assert.match(SRC, /if\(syncFullDirty\)\{\s*syncFullDirty = false; dirtyPushRan = true;\s*try\{ const r = await autoSyncStale\('full-reconcile'\); if\(r && r\.failed > 0\) dirtyPushFailed = true; \}catch\(e\)\{ dirtyPushFailed = true; recErr\('sync-full', e\); \}\s*\}/);
+  assert.match(SRC, /if\(syncFullDirty \|\| \(syncDirtyPending && syncDirtyFails < SYNC_DIRTY_RETRY_MAX\)\)\{\s*const fresh = syncFullDirty;\s*syncFullDirty = false;\s*let failedNow = false;\s*try\{ const r = await autoSyncStale\('full-reconcile'\); if\(r === null \|\| \(r && r\.failed > 0\)\) failedNow = true; \}catch\(e\)\{ failedNow = true; recErr\('sync-full', e\); \}/);
 });
 
 test('вікно між індексом і ефектами: записи, змінені після початку читання індексу, не вважаються зниклими з сервера (ні надгробок прибрати, ні живий перепушити)', async function(){

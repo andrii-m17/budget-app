@@ -1,7 +1,7 @@
-// ERR-2: запити до сервера (мок, NET_STATS): звичайна перевірка (дельта) і повна звірка; епізод збою відправки «брудних» записів: не більше 3 повторних повних, далі дельта. Синтетичні дані.
+// ERR-2: запити до сервера (мок, NET_STATS): звичайна перевірка (дельта) і повна звірка; епізод збою відправки «брудних» записів: повторні спроби йдуть у звичайних перевірках (дельта), не більше SYNC_DIRTY_RETRY_MAX; повних звірок не додається. Синтетичні дані.
 const { test, expect } = require('@playwright/test');
 const { installClock } = require('./clock');
-test('ERR-2: запити за NET_STATS: дельта / повна / епізод збою (≤ 3 повтори)', async ({ page }) => {
+test('ERR-2: запити за NET_STATS: дельта / повна / епізод збою (без додаткових повних)', async ({ page }) => {
   await installClock(page);
   await page.goto('/index.html?fixture=typical');
   await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
@@ -21,11 +21,12 @@ test('ERR-2: запити за NET_STATS: дельта / повна / епізо
     for (let i = 0; i < 6; i++) episode.push(await run());
     window.__failPush = false;
     const heal = await run();
-    return { delta, full, episode, heal, needFull: syncSeenState.needFull };
+    return { delta, full, episode, heal, pending: syncDirtyPending, fails: syncDirtyFails };
   });
   console.log('NETSTATS ' + JSON.stringify(r));
   expect(r.delta.full).toBe(false); expect(r.full.full).toBe(true);
   const fulls = r.episode.map(x => x.full);
-  expect(r.heal.full, 'після відновлення знову дельта').toBe(false);
-  expect(fulls.filter(Boolean).length, 'повних у епізоді збою: ' + JSON.stringify(r.episode)).toBeLessThanOrEqual(4); // перша + ≤ 3 повтори
+  expect(r.heal.full, 'після відновлення знову дельта').toBe(false); expect(r.fails, 'запобіжник: рівно 3 невдалі спроби (початкова + 2 повтори), далі перевірки відправку не чіпають').toBe(3);
+  expect(r.episode.slice(1).filter(x => x.n > 1).length, 'повторів у звичайних перевірках: 2, кожен +1 запит').toBe(2);
+  expect(fulls.filter(Boolean).length, 'повних у епізоді збою (лише початкова): ' + JSON.stringify(r.episode)).toBeLessThanOrEqual(1);
 });

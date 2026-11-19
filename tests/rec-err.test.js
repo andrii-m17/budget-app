@@ -78,7 +78,7 @@ test('місця виклику: кожен код `at` стоїть у catch п
     assert.ok(!/\n(?:async )?function [A-Za-z0-9_]+\(/.test(between.slice(between.indexOf('\n'))), at + ': між оголошенням ' + fn + ' і місцем немає іншої функції верхнього рівня');
   });
   // поведінка: «push-batch» усе ще падає у fallback, sync-full усе ще скидає прапорець ДО спроби (зміна — ERR-2), heads-fetch усе ще повертає null
-  assert.match(SRC, /try\{ const r = await autoSyncStale\('full-reconcile'\); if\(r && r\.failed > 0\) dirtyPushFailed = true; \}catch\(e\)\{ dirtyPushFailed = true; recErr\('sync-full', e\); \}/); // Rev 2.32.424 (ERR-2): прапорець повторної звірки ставиться при збої
+  assert.match(SRC, /try\{ const r = await autoSyncStale\('full-reconcile'\); if\(r === null \|\| \(r && r\.failed > 0\)\) failedNow = true; \}catch\(e\)\{ failedNow = true; recErr\('sync-full', e\); \}/); // Rev 2.32.424 (ERR-2): збій відправки лишає syncDirtyPending
   assert.match(SRC, /\}catch\(e\)\{ recErr\('heads-fetch', e\); return null; \}/);
   assert.match(SRC, /recErr\('push-batch-exp', e\); \/\* провал пакету/);
 });
