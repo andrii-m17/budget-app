@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
 const SRC = require('./extract').readIndexWithCss();
-const NAMES = ['suggestTapNote', 'SUGGEST_TAP_STATE', 'NAME_SUGGEST_MIN', 'NAME_SUGGEST_MAX', 'SUGGEST_TOUCH_WINDOW_MS', 'nameSuggestionsFor', 'updateNameSuggestions', 'SUGGEST_HIDE_DELAY_MS', 'SUGGEST_TOUCH_MAX_HOLD_MS', 'suggestClearList', 'scheduleHideNameSuggestions', 'suggestListTouchEnd', 'hideNameSuggestions', 'selectNameSuggestion', 'handleSuggestionPick', 'pickSuggestionNow',
+const NAMES = ['suggestTapNote', 'SUGGEST_TAP_STATE', 'suggestEnv', 'NAME_SUGGEST_MIN', 'NAME_SUGGEST_MAX', 'SUGGEST_TOUCH_WINDOW_MS', 'nameSuggestionsFor', 'updateNameSuggestions', 'SUGGEST_HIDE_DELAY_MS', 'SUGGEST_TOUCH_MAX_HOLD_MS', 'suggestClearList', 'scheduleHideNameSuggestions', 'suggestListTouchEnd', 'hideNameSuggestions', 'selectNameSuggestion', 'handleSuggestionPick', 'pickSuggestionNow',
   'SUGGEST_TAP_HOLD_MS', 'SUGGEST_TAP_MOVE_PX', 'suggestTouchId', 'suggestCancelTapTimer', 'handleSuggestionTouchMove', 'handleSuggestionTouchCancel', 'handleSuggestionTouchStart', 'handleSuggestionTouchEnd', 'suggestTapAccepted', 'suggestMouseAllowed', 'suggestShouldClose', 'onNameInput', 'debugSuggestRender', 'debugSuggestPick'];
 
 function mk(){
@@ -119,4 +119,13 @@ test('suggest-tap: pick і skip (reason) потрапляють у самопи�
   ctx.handleSuggestionTouchEnd(touchEv('touchend', 500, 500, item(0, 0, 100, 100)), 0);
   assert.ok(ev.some(e => e.type === 'suggest-tap' && e.ev === 'skip' && e.reason === 'rejected'));
   assert.ok(!JSON.stringify(ev).includes('Вел'), 'назв у події немає');
+});
+
+// Rev 2.32.404 (BUG-SUGGEST 1a): ознаки пристрою без особистих даних у подіях 'ts'.
+test('suggestEnv: версія iOS з UA, standalone, dpr, pointer: coarse; без UA-рядка й назв', () => {
+  const { ctx } = mk();
+  ctx.navigator = { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_4 like Mac OS X) AppleWebKit', standalone: true };
+  ctx.window = { devicePixelRatio: 3, matchMedia: q => ({ matches: /coarse/.test(q) }) };
+  const e = JSON.parse(JSON.stringify(ctx.suggestEnv()));
+  assert.deepEqual(e, { iosV: 18.04, standalone: true, dpr: 3, coarse: true });
 });
