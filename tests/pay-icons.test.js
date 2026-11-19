@@ -96,16 +96,15 @@ test('вимірювальна логіка fitPaymentsCard підтримує �
   assert.match(SRC, /const put = function\(i\)\{ if\(el\._payParts\) payRenderParts\(el, el\._payParts\[i\]\); else el\.textContent = ladder\[i\]; \};/);
 });
 test('екран «Платежі» (розгорнутий вигляд): секція «ОЧ без дати» з назвами — як «Картки без дати»; без суми; порожній стан не змінюється', function(){
-  const c2 = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'upcomingPayments', 'findAccountMonthDebt', 'expectedPaymentForCard', 'ppModeAmount', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payRelative', 'paymentsScreenModel']);
+  const c2 = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'upcomingPayments', 'findAccountMonthDebt', 'expectedPaymentForCard', 'ppModeAmount', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payRelative', 'PAY_MONTHS_NOM', 'payWeekEnd', 'payMonthLast', 'paySum', 'paySumText', 'payRowModel', 'payDayLabel', 'payDayGroups', 'payTilesModel', 'ochOvalsModel', 'payPlural', 'paymentsScreenModel']);
   const run = (o) => { const today = '2026-10-15'; return j(c2.paymentsScreenModel(c2.upcomingPayments(Object.assign({ today, horizonDays: 14, installments: [], cards: [], debtsByMonth: [], expenses: [], hidden: {} }, o)), today)); };
   const m = run({ installments: [I('Без1', null), I('Без2', null), I('Ок', 20)], debtsByMonth: [D('Без1', '2026-10'), D('Без2', '2026-10'), D('Ок', '2026-10')] });
-  const sec = m.sections.find(s => s.key === 'noday');
-  assert.ok(sec); assert.equal(sec.title, 'ОЧ без дати'); assert.deepEqual(sec.rows.map(r => r.name), ['Без1', 'Без2']);
-  assert.ok(sec.rows.every(r => r.amountText === '' && r.date === null && r.go === 'installments'));
-  assert.equal(m.sections[m.sections.length - 1].key, 'noday'); assert.equal(m.empty, false);
+  assert.deepEqual(m.noday.map(r => r.name), ['Без1', 'Без2']); assert.match(m.nodayCaption, /Додайте день платежу в ОЧ/);
+  assert.ok(m.noday.every(r => r.amountText === '' && r.date === null && r.go === 'installments'));
+  assert.equal(m.empty, false);
   const only = run({ installments: [I('Без1', null)], debtsByMonth: [D('Без1', '2026-10')] });
-  assert.equal(only.empty, true, 'без самих платежів порожній стан лишається'); assert.equal(only.sections.length, 1);
-  assert.equal(run({ installments: [I('Ок', 20)], debtsByMonth: [D('Ок', '2026-10')] }).sections.find(s => s.key === 'noday'), undefined, 'без ОЧ без дати секції нема');
+  assert.equal(only.empty, true, 'без самих платежів порожній стан лишається'); assert.equal(only.noday.length, 1);
+  assert.equal(run({ installments: [I('Ок', 20)], debtsByMonth: [D('Ок', '2026-10')] }).noday.length, 0, 'без ОЧ без дати секції нема');
   assert.match(SRC, /if\(r\.go === 'installments'\) openInstallmentFromPayments\(r\.name\); else openPayAction\(r\);/);
 });
 

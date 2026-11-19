@@ -1048,6 +1048,33 @@
   .pay-line.amber .pay-line-sub{ color:var(--color-warning); }
   .pay-line-amt{ flex:none; font-size:var(--fs-body); font-weight:600; font-variant-numeric:tabular-nums; }
   .pay-line-chev{ flex:none; display:flex; color:var(--text-2); }
+  /* Rev 2.32.418 (DS-PAYLIST Rev 1): екран «Платежі»: плитки підсумку, картка «Чекає внесення» (бурштин лише тут), групи за днями, «Пізніше» по місяцях. Розміри й радіуси лише з токенів (UI_PATTERNS: плитка --r-s, картка --r-l, кнопка .submit-btn.pill --r-m), без значень з макета */
+  .pl-tiles{ display:flex; gap:var(--sp-2); margin-bottom:var(--sp-6); }
+  .pl-tile{ flex:1; min-width:0; display:flex; flex-direction:column; gap:var(--sp-1); padding:var(--sp-3); background:var(--surface-2); border-radius:var(--r-s); }
+  .pl-tile-lab{ font-size:var(--fs-caption1); font-weight:600; color:var(--text-2); }
+  .pl-tile.amber .pl-tile-lab{ color:var(--warn-text); }
+  .pl-tile-amt{ font-size:var(--fs-body); font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .pl-tile-cnt{ font-size:var(--fs-caption1); color:var(--text-2); }
+  .pl-approx{ color:var(--text-3); font-weight:500; }
+  .pl-logo{ flex:none; display:block; width:40px; height:40px; }
+  .pl-logo svg{ display:block; }
+  .pl-wait-title{ font-size:var(--fs-subhead); font-weight:700; color:var(--warn-text); margin:0 var(--sp-4) var(--sp-2); }
+  .pl-wait{ display:flex; flex-direction:column; gap:var(--sp-3); padding:var(--sp-4); margin-bottom:var(--sp-2); background:var(--warn-bg); border-radius:var(--r-l); }
+  .pl-wait-row{ display:flex; align-items:center; gap:var(--sp-3); }
+  .pl-wait-text{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .pl-wait-text .pay-line-name{ font-weight:600; }
+  .pl-wait-sub{ display:block; font-size:var(--fs-footnote); font-weight:600; color:var(--warn-text); }
+  .pl-wait > .submit-btn{ width:100%; margin-top:0; }
+  .pl-winlabel{ margin-top:var(--sp-2); }
+  .pl-dayhead{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-3); margin:0 var(--sp-4) var(--sp-2); }
+  .pl-daytitle{ font-size:var(--fs-subhead); font-weight:700; color:var(--text); }
+  .pl-daysub{ font-weight:500; color:var(--text-2); }
+  .pl-daysum{ flex:none; font-size:var(--fs-subhead); font-weight:600; color:var(--text-2); font-variant-numeric:tabular-nums; }
+  .pl-month .pay-line-chev{ transition:transform var(--t-s) var(--ease-standard); margin-left:var(--sp-2); }
+  .pl-month[aria-expanded="true"] .pay-line-chev{ transform:rotate(90deg); }
+  .pl-month-body{ padding:var(--sp-3) 0 0; border-top:1px solid var(--line); }
+  .pl-month-body .struct-section{ margin-bottom:var(--sp-4); }
+  .pay-line .pl-logo + .pay-line-main{ min-width:0; }
   .pay-action-btns{ display:flex; flex-direction:column; gap:var(--sp-2); margin-top:var(--sp-2); }
   .pay-action-btns .submit-btn{ min-height:50px; }
   html:root #pay-action-drawer .pay-action-btns .submit-btn.secondary{ background:transparent; border:1.5px solid var(--line-strong); color:var(--text); box-shadow:none; }

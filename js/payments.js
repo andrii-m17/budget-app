@@ -263,7 +263,13 @@ function upcomingPayments(opts){
         const mode = installmentTypicalPay(debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name; }), month);
         if(mode != null && mode > 0){ amount = mode; estimated = true; }
       }
-      place({ kind: 'installment', name: inst.name, date: ppClampDate(month, inst.dueDay), month: month, amount: amount, estimated: estimated });
+      // Rev 2.32.418 (DS-PAYLIST Rev 1): «k з n» — з тієї самої моделі овалів, що прогрес ОЧ на картці «ОЧ» (F5-джерело: ochOvalsModel(термін, залишок, стандартний платіж)); k = сплачено + 1 (номер цього платежу), n = термін; без terмін/залишку/платежу — k, n відсутні, тоді показується лише «ОЧ». Лише додаткові поля, склад і суми списку не змінені.
+      let kOfN = null, nOfN = null;
+      if(typeof ochOvalsModel === 'function'){
+        const ov = ochOvalsModel(inst.termMonths, chainBefore, stdPay);
+        if(ov && ov.mode === 'ovals'){ nOfN = ov.term || ov.total; const paid = ov.paid !== undefined ? ov.paid : ov.done; kOfN = Math.min(nOfN, paid + 1); }
+      }
+      place({ kind: 'installment', name: inst.name, date: ppClampDate(month, inst.dueDay), month: month, amount: amount, estimated: estimated, k: kOfN, n: nOfN });
     });
     if(!inst.dueDay && firstVisibleMonth === m0) result.noDay.push(inst.name);
   });
@@ -318,7 +324,7 @@ function payCompactAmount(n){
 }
 function payAmountShortText(it){ return it.amount == null ? 'сума невідома' : (it.estimated ? '≈ ' : '') + payCompactAmount(it.amount) + ' ₴'; }
 // Драбина «Найближчого»: dp — день («Сб 17» чи «17 жов»), name — назва (випадає цілою, ніколи не обрізається).
-function payNextLadder(dp, name, overdue){ if(overdue) return ['Прострочено · ' + dp + ' · ' + name, 'Прострочено · ' + dp, dp + ' · ' + name, dp]; return ['Наступний · ' + dp + ' · ' + name, 'Далі · ' + dp + ' · ' + name, dp + ' · ' + name, 'Далі · ' + dp]; } // Rev 2.32.396: прострочений — з позначкою замість «Наступний»
+function payNextLadder(dp, name, overdue){ if(overdue) return ['Чекає внесення · ' + dp + ' · ' + name, 'Чекає внесення · ' + dp, dp + ' · ' + name, dp]; return ['Наступний · ' + dp + ' · ' + name, 'Далі · ' + dp + ' · ' + name, dp + ' · ' + name, 'Далі · ' + dp]; } // Rev 2.32.396: пільговий день — з позначкою замість «Наступний»; Rev 2.32.418 (DS-PAYLIST): позначка «Чекає внесення» (слова «Прострочено» немає)
 // Rev 2.32.160 (PAY-ICONS): драбина переліку назв без дат. Спершу прибирається хвіст переліку з «+K» («А, Б, В» → «А, Б +1» → «А +2»), потім лише заголовок; «…» немає. Повертає пари { h: заголовок, t: перелік } — заголовок і перелік фарбуються окремо.
 function payNamesParts(head, names){
   const n = names.length, out = [];
@@ -369,7 +375,7 @@ function paymentsCardModel(r, today, hasAccounts){
     const same = r.items.filter(function(x){ return x.date === f.date; });
     const nameTxt = same.length > 1 ? same.length + ' ' + payPlural(same.length) : f.name;
     const sumItem = same.length > 1 ? paySameDaySum(same) : f;
-    m.next = { label: (f.overdue ? 'Прострочено' : 'Наступний') + ' · ' + dp + ' · ' + nameTxt, amount: payAmountText(sumItem), amountShort: payAmountShortText(sumItem), ladder: payNextLadder(dp, nameTxt, !!f.overdue), overdue: !!f.overdue, date: f.date, count: same.length };
+    m.next = { label: (f.overdue ? 'Чекає внесення' : 'Наступний') + ' · ' + dp + ' · ' + nameTxt, amount: payAmountText(sumItem), amountShort: payAmountShortText(sumItem), ladder: payNextLadder(dp, nameTxt, !!f.overdue), overdue: !!f.overdue, date: f.date, count: same.length };
   }else if(nextItem && nextItem.month === today.slice(0, 7)){
     m.state = 'empty'; m.calm = 'Тиждень без платежів';
     const dp = payDow(nextItem.date) + ' ' + payDateShort(nextItem.date);
@@ -515,27 +521,130 @@ function payRelative(date, today){
   if(n === 1) return 'Завтра';
   return 'Через ' + n + ' ' + pluralUa(n, ['день', 'дні', 'днів']);
 }
-// Модель екрана (без DOM): секції «Потребує уваги», «Найближчі 14 днів», «Пізніше», «Картки без дати». r — результат upcomingPayments (horizon 14).
-function paymentsScreenModel(r, today){
-  const row = function(it, amber){
-    return { kind: it.kind, name: it.name, month: it.month, date: it.date, amount: it.amount, estimated: !!it.estimated, amountText: it.date === null ? payFmt(it.amount) : payAmountText(it), amber: !!amber || !!it.overdue,
-      day: it.date ? +it.date.slice(8, 10) : null, mon: it.date ? PAY_MONTHS_SHORT[+it.date.slice(5, 7) - 1] : null,
-      sub: it.overdue ? 'Прострочено · ' + ppDayDiff(it.date, today) + ' ' + pluralUa(ppDayDiff(it.date, today), ['день', 'дні', 'днів']) : amber ? 'Не позначено сплаченим' : (it.overdue ? 'Прострочено · ' + ppDayDiff(it.date, today) + ' ' + pluralUa(ppDayDiff(it.date, today), ['день', 'дні', 'днів']) : (it.date ? payRelative(it.date, today) : 'Мінімальний платіж')) };
+// ===== Rev 2.32.418 (DS-PAYLIST Rev 1): екран «Платежі» — підсумок, «Чекає внесення», групи за днями, «Пізніше» по місяцях. Лише вигляд: склад і суми списку дає upcomingPayments без змін; внесення (форма) — наявна підстановка payInstallmentPrefill (зміни — Rev 2). Ризики: тиждень — Пн–Нд за київським «сьогодні»; платіж пільгового дня (дата вчора, не «Чекає внесення» за installmentDuePassed) лишається в групах днів із заголовком «Вчора» і в плитці «Цей тиждень»; усі суми цілі гривні (Math.round на рядок), тож плитки сходяться зі списком; невнесені платежі минулого місяця на екрані не показуються (upcomingPayments бере поточний і наступний місяць; вибраний у застосунку місяць екран зараз не знає — див. DS-PAYLIST Rev 2). =====
+const PAY_MONTHS_NOM = ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'];
+function payWeekEnd(today){ const wd = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10))).getUTCDay(); return ppAddDays(today, wd === 0 ? 0 : 7 - wd); } // неділя поточного тижня (Пн = початок)
+function payMonthLast(today){ return ppClampDate(today.slice(0, 7), 31); }
+// Сума групи: відомі суми (цілі гривні); «≈», якщо хоч одна очікувана або без суми; усі без суми — null
+function paySum(items){
+  const known = items.filter(function(x){ return x.amount != null; });
+  if(!known.length) return { num: null, approx: false, count: items.length };
+  return { num: known.reduce(function(a, x){ return a + x.amount; }, 0), approx: known.length < items.length || items.some(function(x){ return !!x.estimated; }), count: items.length };
+}
+function paySumText(sm){ return sm.num == null ? (sm.count ? 'сума невідома' : '0 ₴') : (sm.approx ? '≈ ' : '') + payFmt(sm.num); }
+function payRowModel(it, today){
+  const isInst = it.kind === 'installment';
+  const amt = it.amount == null ? null : Math.round(it.amount);
+  const kn = isInst && it.k > 0 && it.n > 0 ? ' · ' + it.k + ' з ' + it.n : '';
+  return { kind: it.kind, name: it.name, month: it.month, date: it.date, amount: amt, estimated: !!it.estimated, k: it.k || null, n: it.n || null,
+    amountPlain: amt == null ? 'сума невідома' : payFmt(amt), approx: amt != null && !!it.estimated, amountText: amt == null ? 'сума невідома' : (it.estimated ? '≈ ' : '') + payFmt(amt),
+    sub: isInst ? 'ОЧ' + kn : (it.date ? 'Кредитка · мінімальний платіж' : 'Мінімальний платіж'), day: it.date ? +it.date.slice(8, 10) : null, mon: it.date ? PAY_MONTHS_SHORT[+it.date.slice(5, 7) - 1] : null };
+}
+// Заголовок групи дня: «Сьогодні» / «Вчора» / «Завтра» (з датою поруч) або «<день тижня>, <дата>»
+function payDayLabel(date, today){
+  const n = ppDayDiff(today, date), dd = payDow(date) + ', ' + payDateShort(date);
+  if(n === 0) return { title: 'Сьогодні', sub: dd };
+  if(n === 1) return { title: 'Завтра', sub: dd };
+  if(n === -1) return { title: 'Вчора', sub: dd };
+  return { title: dd, sub: '' };
+}
+function payDayGroups(items, today){
+  const out = [], byDate = {};
+  items.forEach(function(it){
+    const row = payRowModel(it, today);
+    if(!byDate[it.date]){ const l = payDayLabel(it.date, today); byDate[it.date] = { date: it.date, title: l.title, sub: l.sub, rows: [], items: [] }; out.push(byDate[it.date]); }
+    byDate[it.date].rows.push(row); byDate[it.date].items.push(row);
+  });
+  out.forEach(function(g){ const sm = paySum(g.items); g.sum = { num: sm.num, approx: sm.approx }; g.sumText = paySumText(sm); delete g.items; });
+  return out;
+}
+// Плитки: «Чекає внесення» (r.unconfirmed = installmentDuePassed, без зміни формул), «Цей тиждень» (до неділі, разом із пільговим днем), «До кінця місяця» (з понеділка наступного тижня до останнього дня місяця); набори не перетинаються
+function payTilesModel(r, today){
+  const sun = payWeekEnd(today), eom = payMonthLast(today), all = r.items.concat(r.later);
+  const sets = { wait: r.unconfirmed.slice(), week: all.filter(function(x){ return x.date <= sun; }), rest: all.filter(function(x){ return x.date > sun && x.date <= eom; }) };
+  const mk = function(key, label, list){
+    const rows = list.map(function(x){ return payRowModel(x, today); }), sm = paySum(rows);
+    return { key: key, label: label, count: list.length, countText: list.length + ' ' + payPlural(list.length), sum: { num: sm.num, approx: sm.approx }, sumText: paySumText(sm), amber: key === 'wait' && list.length > 0 };
   };
-  const sections = [];
-  if(r.unconfirmed.length) sections.push({ key: 'attention', title: 'Потребує уваги', rows: r.unconfirmed.map(function(x){ return row(x, true); }) });
-  if(r.items.length) sections.push({ key: 'window', title: 'Найближчі 14 днів', rows: r.items.map(function(x){ return row(x, false); }) });
-  if(r.later.length) sections.push({ key: 'later', title: 'Пізніше', rows: r.later.map(function(x){ return row(x, false); }) });
-  if(r.undatedList.length) sections.push({ key: 'cards', title: 'Картки без дати', rows: r.undatedList.map(function(x){ return row(x, false); }), caption: 'Це мінімальні платежі з «Обліку». Додайте день платежу в картці, і вона з\'явиться в календарі.' });
-  // Rev 2.32.167 (PAY-STRIP): у розгорнутому вигляді (екран «Платежі») назви ОЧ без дня платежу — як «Картки без дати»: той самий список r.noDay (логіку списку не змінено), рядки без суми; тап веде в «Облік» → ОЧ, де задається день. Не впливає на «порожній екран»: нагадування «Найближчих платежів немає» лишається, коли немає самих платежів.
-  const empty = sections.length === 0;
-  if(r.noDay.length) sections.push({ key: 'noday', title: 'ОЧ без дати', rows: r.noDay.map(function(name){ return { kind: 'installment', name: name, month: today.slice(0, 7), date: null, amount: null, estimated: false, amountText: '', amber: false, day: null, mon: null, sub: 'Без дня платежу', go: 'installments' }; }), caption: 'Додайте день платежу в ОЧ («Облік» → ОЧ), і платіж з\'явиться в календарі.' });
-  return { sections: sections, empty: empty, caption: 'Суми з «≈» очікувані за попередніми місяцями. Торкніться платежу, щоб внести його й зафіксувати факт.' };
+  return [mk('wait', 'Чекає внесення', sets.wait), mk('week', 'Цей тиждень', sets.week), mk('rest', 'До кінця місяця', sets.rest)];
+}
+// Модель екрана (без DOM). r — результат upcomingPayments (horizon 14).
+function paymentsScreenModel(r, today){
+  const wait = r.unconfirmed.map(function(x){ const row = payRowModel(x, today); row.text = 'Платіж ' + payDateShort(x.date) + ' ще не внесено у витрати'; row.action = x.kind === 'installment' ? 'Внести платіж' : 'Позначити сплаченим'; return row; });
+  const days = payDayGroups(r.items, today), winSum = paySum(r.items.map(function(x){ return payRowModel(x, today); }));
+  const win = r.items.length ? { title: 'Найближчі 14 днів', count: r.items.length, countText: r.items.length + ' ' + payPlural(r.items.length), sumText: paySumText(winSum), days: days } : null;
+  const months = [], byM = {};
+  r.later.forEach(function(x){ const k = x.date.slice(0, 7); if(!byM[k]){ byM[k] = { key: k, title: PAY_MONTHS_NOM[+k.slice(5, 7) - 1], list: [] }; months.push(byM[k]); } byM[k].list.push(x); });
+  const later = months.map(function(m){ const rows = m.list.map(function(x){ return payRowModel(x, today); }), sm = paySum(rows); return { key: m.key, title: m.title, count: m.list.length, countText: m.list.length + ' ' + payPlural(m.list.length), sumText: paySumText(sm), days: payDayGroups(m.list, today) }; });
+  const undated = r.undatedList.map(function(x){ const row = payRowModel(x, today); row.amountText = payFmt(x.amount); row.amountPlain = payFmt(x.amount); row.approx = false; return row; });
+  const empty = !wait.length && !win && !later.length && !undated.length;
+  const noday = r.noDay.map(function(name){ return { kind: 'installment', name: name, month: today.slice(0, 7), date: null, amount: null, estimated: false, amountText: '', amountPlain: '', approx: false, sub: 'Без дня платежу', go: 'installments', day: null, mon: null }; });
+  return { tiles: payTilesModel(r, today), wait: wait, window: win, later: later, undated: undated, undatedCaption: 'Це мінімальні платежі з «Обліку». Додайте день платежу в картці, і вона з\'явиться в календарі.', noday: noday, nodayCaption: 'Додайте день платежу в ОЧ («Облік» → ОЧ), і платіж з\'явиться в календарі.', empty: empty, caption: 'Суми з «≈» очікувані за попередніми місяцями. Торкніться платежу, щоб внести його й зафіксувати факт.' };
 }
 // Дії для рядка: ОЧ — «Внести платіж»; картка — «Позначити сплаченим» (витрата не створюється).
 function payActionModel(item){
   if(item.kind === 'installment') return { title: item.name, sub: (item.date ? +item.date.slice(8, 10) + ' ' + PAY_MONTHS_GEN[+item.date.slice(5, 7) - 1] + ' · ' : '') + payAmountText(item), primary: 'Внести платіж', note: 'Відкриється форма витрати з підставленими сумою, датою й ОЧ. Збереження лише вашим дотиком.' };
   return { title: item.name, sub: 'Мінімальний платіж · ' + payFmt(item.amount), primary: 'Позначити сплаченим', note: 'Це не витрата: змінюється лише позначка в «Обліку».' };
+}
+// Допоміжні для розмітки екрана (innerHTML лише для логотипа bankIcon, дані — textContent)
+let payLaterOpen = {};
+function payLogoEl(name, kind){ const e = payEl('span', 'pl-logo'); e.setAttribute('aria-hidden', 'true'); e.innerHTML = bankIcon(stripLeadingEmoji(name), 40, true, kind === 'card' ? 'card' : 'installment'); return e; }
+function payAmtEl(cls, r){ const e = payEl('span', cls); if(r.approx) e.appendChild(payEl('span', 'pl-approx', '≈ ')); e.appendChild(document.createTextNode(r.amountPlain)); return e; }
+function paySumEl(cls, sum, text){ const e = payEl('span', cls); if(sum.num != null && sum.approx) e.appendChild(payEl('span', 'pl-approx', '≈ ')); e.appendChild(document.createTextNode(sum.num != null && sum.approx ? text.replace(/^≈\s*/, '') : text)); return e; }
+function payRowBtn(r){
+  const b = payEl('button', 'pay-line'); b.type = 'button';
+  if(r.date) b.setAttribute('data-date', r.date);
+  if(r.date !== null || r.kind === 'card') b.appendChild(payLogoEl(r.name, r.kind));
+  const main = payEl('span', 'pay-line-main'); main.appendChild(payEl('span', 'pay-line-name', stripLeadingEmoji(r.name))); main.appendChild(payEl('span', 'pay-line-sub', r.sub)); b.appendChild(main);
+  if(r.amountPlain) b.appendChild(payAmtEl('pay-line-amt', r));
+  if(r.date === null){ const ch = payEl('span', 'pay-line-chev'); ch.innerHTML = PAY_CHEV_SVG; b.appendChild(ch); }
+  b.addEventListener('click', function(){ if(r.go === 'installments') openInstallmentFromPayments(r.name); else openPayAction(r); /* Rev 2.32.170: «ОЧ без дати» → «Облік» → ОЧ; рядок платежу — наявна шторка дії (Rev 2.32.418: без змін логіки, внесення — Rev 2) */ });
+  return b;
+}
+function payDayGroupEl(g){
+  const wrap = payEl('div', 'struct-section pl-day');
+  const hd = payEl('div', 'pl-dayhead'); const t = payEl('span', 'pl-daytitle', g.title); if(g.sub) t.appendChild(payEl('span', 'pl-daysub', ' · ' + g.sub)); hd.appendChild(t); hd.appendChild(paySumEl('pl-daysum', g.sum, g.sumText)); wrap.appendChild(hd);
+  const box = payEl('div', 'struct-group'); g.rows.forEach(function(r){ box.appendChild(payRowBtn(r)); }); wrap.appendChild(box);
+  return wrap;
+}
+function payTilesEl(tiles){
+  const row = payEl('div', 'pl-tiles');
+  tiles.forEach(function(t){ const c = payEl('div', 'pl-tile' + (t.amber ? ' amber' : '')); c.appendChild(payEl('span', 'pl-tile-lab', t.label)); c.appendChild(paySumEl('pl-tile-amt', t.sum, t.sumText)); c.appendChild(payEl('span', 'pl-tile-cnt', t.countText)); row.appendChild(c); });
+  return row;
+}
+function payWaitEl(rows){
+  const sec = payEl('div', 'struct-section');
+  sec.appendChild(payEl('div', 'pl-wait-title', 'Чекає внесення · ' + rows.length));
+  rows.forEach(function(r){
+    const card = payEl('div', 'pl-wait'); const top = payEl('div', 'pl-wait-row');
+    top.appendChild(payLogoEl(r.name, r.kind)); const tx = payEl('span', 'pl-wait-text'); tx.appendChild(payEl('span', 'pay-line-name', stripLeadingEmoji(r.name))); tx.appendChild(payEl('span', 'pl-wait-sub', r.text)); top.appendChild(tx); top.appendChild(payAmtEl('pay-line-amt', r)); card.appendChild(top);
+    const btn = payEl('button', 'submit-btn pill', r.action); btn.type = 'button';
+    btn.addEventListener('click', function(){ if(r.kind === 'installment') payInstallmentPrefill(r); else openPayAction(r); }); // Rev 2.32.418: ОЧ — наявна підстановка без змін логіки; картка — наявна шторка «Позначити сплаченим» (не витрата)
+    card.appendChild(btn); sec.appendChild(card);
+  });
+  return sec;
+}
+function payLaterEl(months){
+  const sec = payEl('div', 'struct-section'); sec.appendChild(payEl('div', 'struct-group-label', 'Пізніше'));
+  const box = payEl('div', 'struct-group');
+  months.forEach(function(m){
+    const open = !!payLaterOpen[m.key];
+    const b = payEl('button', 'pay-line pl-month'); b.type = 'button'; b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const main = payEl('span', 'pay-line-main'); main.appendChild(payEl('span', 'pay-line-name', m.title)); main.appendChild(payEl('span', 'pay-line-sub', m.countText)); b.appendChild(main);
+    b.appendChild(payMonthSumEl(m));
+    const ch = payEl('span', 'pay-line-chev'); ch.innerHTML = PAY_CHEV_SVG; b.appendChild(ch);
+    b.addEventListener('click', function(){ payLaterOpen[m.key] = !payLaterOpen[m.key]; renderPaymentsScreen(); });
+    box.appendChild(b);
+    if(open){ const body = payEl('div', 'pl-month-body'); m.days.forEach(function(g){ body.appendChild(payDayGroupEl(g)); }); box.appendChild(body); }
+  });
+  sec.appendChild(box);
+  return sec;
+}
+function payMonthSumEl(m){ const approx = /^≈/.test(m.sumText); return paySumEl('pay-line-amt', { num: approx ? 1 : 0, approx: approx }, m.sumText); }
+function payExtraEl(title, rows, caption){
+  const wrap = payEl('div', 'struct-section'); wrap.appendChild(payEl('div', 'struct-group-label', title + ' · ' + rows.length));
+  const g = payEl('div', 'struct-group'); rows.forEach(function(r){ g.appendChild(payRowBtn(r)); }); wrap.appendChild(g);
+  wrap.appendChild(payEl('div', 'struct-caption', caption)); return wrap;
 }
 function renderPaymentsScreen(){
   const body = document.getElementById('payments-body');
@@ -543,31 +652,22 @@ function renderPaymentsScreen(){
   const today = kyivTodayISO();
   const m = paymentsScreenModel(computeUpcomingNow(14), today);
   body.textContent = '';
-  if(m.empty){ body.appendChild(payEl('div', 'mono-note', 'Найближчих платежів немає')); body.appendChild(payEl('div', 'struct-caption', m.caption)); if(!m.sections.length) return; }
-  m.sections.forEach(function(sec){
-    const wrap = payEl('div', 'struct-section');
-    wrap.appendChild(payEl('div', 'struct-group-label', sec.title + ' · ' + sec.rows.length));
-    const g = payEl('div', 'struct-group');
-    sec.rows.forEach(function(r){
-      const b = payEl('button', 'pay-line' + (r.amber ? ' amber' : '')); b.type = 'button';
-      if(r.date) b.setAttribute('data-date', r.date);
-      if(r.day !== null){ const d = payEl('span', 'pay-date'); d.appendChild(payEl('b', '', String(r.day))); d.appendChild(payEl('i', '', r.mon)); b.appendChild(d); }
-      const main = payEl('span', 'pay-line-main'); main.appendChild(payEl('span', 'pay-line-name', r.name)); main.appendChild(payEl('span', 'pay-line-sub', r.sub)); b.appendChild(main);
-      b.appendChild(payEl('span', 'pay-line-amt', r.amountText));
-      if(r.date === null){ const ch = payEl('span', 'pay-line-chev'); ch.innerHTML = PAY_CHEV_SVG; b.appendChild(ch); }
-      b.addEventListener('click', function(){ if(r.go === 'installments') openInstallmentFromPayments(r.name); else openPayAction(r); /* Rev 2.32.170: «ОЧ без дати» → «Облік» → ОЧ → шторка цієї ОЧ з підсвіченою «Датою платежу» */ }); // Rev 2.32.167: рядок «ОЧ без дати» веде в «Облік» → ОЧ (performSwitchTab закриває екран «Платежі»)
-      g.appendChild(b);
-    });
-    wrap.appendChild(g);
-    if(sec.caption) wrap.appendChild(payEl('div', 'struct-caption', sec.caption));
-    body.appendChild(wrap);
-  });
-  body.appendChild(payEl('div', 'struct-caption', m.caption));
+  if(m.empty){ body.appendChild(payEl('div', 'mono-note', 'Найближчих платежів немає')); body.appendChild(payEl('div', 'struct-caption', m.caption)); }
+  else body.appendChild(payTilesEl(m.tiles));
+  if(m.wait.length) body.appendChild(payWaitEl(m.wait));
+  if(m.window){
+    body.appendChild(payEl('div', 'struct-group-label pl-winlabel', m.window.title + ' · ' + m.window.countText + ' · ' + m.window.sumText));
+    m.window.days.forEach(function(g){ body.appendChild(payDayGroupEl(g)); });
+  }
+  if(m.later.length) body.appendChild(payLaterEl(m.later));
+  if(m.undated.length) body.appendChild(payExtraEl('Картки без дати', m.undated, m.undatedCaption));
+  if(m.noday.length) body.appendChild(payExtraEl('ОЧ без дати', m.noday, m.nodayCaption)); // Rev 2.32.167 (PAY-STRIP): назви ОЧ без дня платежу; тап веде в «Облік» → ОЧ
+  if(!m.empty) body.appendChild(payEl('div', 'struct-caption', m.caption));
 }
 function openPaymentsScreen(date){
   const screen = document.getElementById('payments-screen');
   if(!screen) return;
-  if(!isPaymentsOpen){ lastFocusedBeforeDialog = document.activeElement; lockBackgroundScroll(); }
+  if(!isPaymentsOpen){ lastFocusedBeforeDialog = document.activeElement; lockBackgroundScroll(); payLaterOpen = {}; } // Rev 2.32.418: місяці «Пізніше» за замовчуванням згорнуті при кожному відкритті екрана
   isPaymentsOpen = true;
   renderPaymentsScreen();
   screen.classList.remove('hidden'); screen.removeAttribute('inert'); screen.scrollTop = 0;

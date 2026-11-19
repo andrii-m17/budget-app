@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = require('./extract').readIndexWithCss();
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const names = ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'upcomingPayments', 'findAccountMonthDebt', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payPlural', 'payRelative', 'paymentsScreenModel', 'payActionModel'];
+const names = ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'upcomingPayments', 'findAccountMonthDebt', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payPlural', 'payRelative', 'PAY_MONTHS_NOM', 'payWeekEnd', 'payMonthLast', 'paySum', 'paySumText', 'payRowModel', 'payDayLabel', 'payDayGroups', 'payTilesModel', 'ochOvalsModel', 'paymentsScreenModel', 'payActionModel'];
 const c = buildSandbox({}, names);
 const I = function(name, dueDay){ return { name: name, dueDay: dueDay }; };
 const D = function(name, month, extra){ return Object.assign({ kind: 'installment', name: name, month: month }, extra || {}); };
@@ -19,28 +19,27 @@ function model(o){
 const DATA = { installments: [I('ПУМБ Dyson', 4), I('ПУМБ iPhone', 17), I('Моно Ноутбук1', 20), I('Моно Ноутбук2', 26), I('ПУМБ Ноутбук', 30)], cards: [{ name: 'Приват Банк' }, { name: 'Моно Банк', paymentDay: 24 }],
   debtsByMonth: [D('ПУМБ Dyson', '2026-09', { monthlyPayment: 2000, balance: 9 }), D('ПУМБ iPhone', '2026-09', { monthlyPayment: 5000, balance: 9 }), D('Моно Ноутбук1', '2026-09', { monthlyPayment: 4940, balance: 9 }), D('Моно Ноутбук2', '2026-09', { monthlyPayment: 7865, balance: 9 }), D('ПУМБ Ноутбук', '2026-09', { monthlyPayment: 3200, balance: 9 }),
     { kind: 'card', name: 'Приват Банк', month: '2026-10', minPayment: 37775 }, { kind: 'card', name: 'Моно Банк', month: '2026-10', minPayment: 16449 }] };
-test('секції: Потребує уваги, Найближчі 14 днів, Пізніше, Картки без дати — із кількістю й порядком', function(){
+test('Rev 2.32.418 (DS-PAYLIST): модель — плитки, «Чекає внесення», групи 14 днів, «Пізніше» по місяцях, картки без дати', function(){
   const m = model(DATA);
-  assert.deepEqual(m.sections.map(function(s){ return s.key + ':' + s.rows.length; }), ['attention:1', 'window:4', 'later:6', 'cards:1']); // «Пізніше» — до кінця наступного місяця: 30 жов і весь листопад
-  assert.equal(m.sections[0].title, 'Потребує уваги');
+  assert.deepEqual(m.tiles.map(t => t.key), ['wait', 'week', 'rest']);
+  assert.equal(m.wait.length, 1); assert.equal(m.wait[0].name, 'ПУМБ Dyson'); assert.equal(m.wait[0].text, 'Платіж 4 жов ще не внесено у витрати'); assert.equal(m.wait[0].action, 'Внести платіж');
+  assert.equal(m.window.title, 'Найближчі 14 днів'); assert.equal(m.window.count, 4);
+  assert.deepEqual(m.later.map(x => x.key), ['2026-10', '2026-11']); assert.equal(m.later[0].title, 'Жовтень'); assert.equal(m.later[1].title, 'Листопад');
+  assert.equal(m.undated.length, 1); assert.equal(m.undated[0].name, 'Приват Банк');
 });
-test('рядки: плитка дати, підпис «Через N днів», сума з «≈», «Не позначено сплаченим» для уваги', function(){
+test('рядки: «ОЧ», сума з сірим «≈» лише для очікуваних; слова «Прострочено» немає', function(){
   const m = model(DATA);
-  const att = m.sections[0].rows[0]; assert.equal(att.name, 'ПУМБ Dyson'); assert.equal(att.sub, 'Не позначено сплаченим'); assert.equal(att.day, 4); assert.equal(att.mon, 'жов'); assert.equal(att.amber, true); assert.match(att.amountText, /^≈ 2\s000\s₴$/);
-  const win = m.sections[1].rows; assert.equal(win[0].name, 'ПУМБ iPhone'); assert.equal(win[0].sub, 'Через 2 дні'); assert.equal(win[1].sub, 'Через 5 днів');
-  assert.ok(!/прострочен/.test(JSON.stringify(m)));
+  const w = m.wait[0]; assert.equal(w.approx, true); assert.match(w.amountText, /^≈ 2\s000\s₴$/); assert.match(w.amountPlain, /^2\s000\s₴$/);
+  assert.equal(m.window.days[0].rows[0].name, 'ПУМБ iPhone'); assert.equal(m.window.days[0].rows[0].sub, 'ОЧ');
+  assert.ok(!/прострочен/i.test(JSON.stringify(m)));
 });
-test('картки без дати — окрема секція з підписом-поясненням; сума без «≈»', function(){
-  const m = model(DATA); const sec = m.sections.filter(function(s){ return s.key === 'cards'; })[0];
-  assert.equal(sec.rows[0].name, 'Приват Банк'); assert.match(sec.rows[0].amountText, /^37\s775\s₴$/); assert.equal(sec.rows[0].date, null);
-  assert.match(sec.caption, /Додайте день платежу в картці/);
+test('картки без дати — окремі рядки з підписом-поясненням; сума без «≈»', function(){
+  const m = model(DATA);
+  assert.equal(m.undated[0].name, 'Приват Банк'); assert.match(m.undated[0].amountText, /^37\s775\s₴$/); assert.equal(m.undated[0].date, null); assert.equal(m.undated[0].approx, false);
+  assert.match(m.undatedCaption, /Додайте день платежу в картці/);
   assert.equal(m.caption, 'Суми з «≈» очікувані за попередніми місяцями. Торкніться платежу, щоб внести його й зафіксувати факт.');
 });
-test('вікно 14 днів і «Пізніше» (до кінця наступного місяця); порожній екран', function(){
-  const m = model(DATA);
-  assert.deepEqual(m.sections.filter(function(s){ return s.key === 'later'; })[0].rows.map(function(r){ return r.day + ' ' + r.mon; }).slice(0, 2), ['30 жов', '4 лис']);
-  const e = model({}); assert.equal(e.empty, true);
-});
+test('порожній екран', function(){ const e = model({}); assert.equal(e.empty, true); assert.equal(e.wait.length, 0); assert.equal(e.window, null); });
 test('дії: ОЧ — «Внести платіж» (форма витрати), картка — «Позначити сплаченим» (не витрата); тексти як у макеті', function(){
   const a = j(c.payActionModel({ kind: 'installment', name: 'ПУМБ iPhone', date: '2026-10-17', amount: 5000, estimated: true }));
   assert.equal(a.primary, 'Внести платіж'); assert.match(a.sub, /^17 жовтня · ≈ 5\s000\s₴$/); assert.equal(a.note, 'Відкриється форма витрати з підставленими сумою, датою й ОЧ. Збереження лише вашим дотиком.');
@@ -88,8 +87,8 @@ test('пільговий день dueDate+1: ОЧ у «Найближчих» з
   assert.equal(g.unconfirmed.length, 0); assert.equal(g.items.length, 1);
   assert.equal(g.items[0].date, '2026-10-15', 'справжня дата, не «сьогодні»'); assert.equal(g.items[0].overdue, true);
   assert.equal(g.load.total, 5000); assert.equal(g.load.count, 1);
-  const m = c.paymentsScreenModel(g, '2026-10-16');
+  const m = j(c.paymentsScreenModel(g, '2026-10-16'));
   assert.ok(!/Через -\d/.test(JSON.stringify(m)), 'жодного від\'ємного «Через -1 дні»');
-  assert.equal(m.sections[0].rows[0].sub, 'Прострочено · 1 день'); assert.equal(m.sections[0].rows[0].amber, true);
+  assert.equal(m.wait.length, 0, 'пільговий день — не в «Чекає внесення»'); assert.equal(m.window.days[0].title, 'Вчора'); assert.equal(m.window.days[0].date, '2026-10-15');
   const d2 = mk('2026-10-17'); assert.equal(d2.unconfirmed.length, 1); assert.equal(d2.items.length, 0);
 });

@@ -165,6 +165,7 @@
   :root{
     --income: var(--color-success); --expense: var(--color-error); --debt: var(--color-warning); --inst: var(--color-info);
     --r-s: var(--ui-r-small); --r-m: var(--ui-r-control); --r-pill: var(--ui-r-pill);
+    --warn-text: var(--ui-warning-text); --warn-bg: var(--color-warning-bg); /* Rev 2.32.418 (DS-PAYLIST): короткі назви для екрана «Платежі» (бурштин лише в «Чекає внесення»); ті самі значення, що --ui-warning-text / --color-warning-bg */
     --t-micro: var(--motion-micro); --t-s: var(--motion-s); --t-m: var(--motion-m); --t-l: var(--motion-l); --t-count: var(--motion-count);
   }
   /* Без відповідника в поточних токенах: значення з DS-PLAN (макет «Аналітики»), ще ніде не використовуються */
