@@ -837,6 +837,7 @@ function showIncompleteInfo(kind, i){
 }
 // «Заповнити»: відкриває шторку цієї картки/ОЧ і підсвічує (та прокручує до) першого порожнього поля — БЕЗ автофокусу (клавіатурна логіка шторок не чіпається).
 function fillIncomplete(kind, i, codes){
+  if(typeof balSheetClose === 'function') ['bal-sheet-debt', 'bal-sheet-inst'].forEach(function(id){ const d = document.getElementById(id); if(d && d.classList.contains('open')) balSheetClose(id); }); // Rev 2.32.411 (FIX-1119 п.5): «Заповнити» з шторки «Аналітики» спершу закриває її, потім відкриває форму картки/ОЧ
   if(kind === 'card') openCardDebtEditor(i); else openInstallmentEditor(i);
   const list = Array.isArray(codes) ? codes : [codes];
   setTimeout(function(){

@@ -1212,7 +1212,12 @@ function renderDebtOchTiles(c, replay){
 
 // ---- шторки (компонент .drawer, DS-4) ----
 function balLogoHtml(name, kind){ return '<span class="bal-logo">' + bankIcon(name, 32, true, kind) + '</span>'; }
-function balDotHtml(){ return '<span class="cdr-dot" role="img" aria-label="Дані заповнені неповністю"></span>'; }
+// Rev 2.32.411 (FIX-1119 п.5): крапка у шторках «Борги по картках» / «ОЧ» знову дієва (була німою після DS-5b): дотик відкриває пояснення «що бракує» (showIncompleteInfo: ліміт, факт за місяць тощо) з дією «Заповнити» → форма цієї картки/ОЧ. Крапка — role=button, зона дотику з .cdr-dot::before.
+function balDotHtml(kind, acc){
+  const i = acc ? (kind === 'card' ? bankAccounts : installmentAccounts).indexOf(acc) : -1;
+  if(i < 0) return '<span class="cdr-dot" role="img" aria-label="Дані заповнені неповністю"></span>';
+  return '<span class="cdr-dot" role="button" tabindex="0" aria-label="Дані заповнені неповністю: що бракує" onclick="event.stopPropagation(); showIncompleteInfo(\'' + kind + '\', ' + i + ')" onkeydown="if(event.key === \'Enter\' || event.key === \' \'){ event.preventDefault(); event.stopPropagation(); showIncompleteInfo(\'' + kind + '\', ' + i + '); }"></span>';
+}
 function balStyleV(v){ return 'style="--v:' + Math.max(0, Math.min(1, Number(v) || 0)).toFixed(4) + '"'; }
 function debtSheetHtml(c){
   const cards = c.debtNow.list.filter(function(d){ return d.kind === 'card'; }).slice().sort(function(a, b){ return b.balance - a.balance; });
@@ -1226,7 +1231,7 @@ function debtSheetHtml(c){
     const acc = debtAccount(d), u = cardUsageModel(d.balance, acc ? acc.creditLimit : null);
     const incomplete = acc ? cardIncompleteReasons(acc).length > 0 : false;
     h += '<div class="bal-dr">' +
-      '<div class="bal-top2">' + balLogoHtml(d.name, 'card') + '<span class="bal-nm">' + escapeHtml(stripLeadingEmoji(d.name)) + (incomplete ? balDotHtml() : '') + '</span><span class="bal-mono' + (u.zero ? ' dim' : '') + '">' + fmt(d.balance) + '</span></div>' +
+      '<div class="bal-top2">' + balLogoHtml(d.name, 'card') + '<span class="bal-nm">' + escapeHtml(stripLeadingEmoji(d.name)) + (incomplete ? balDotHtml('card', acc) : '') + '</span><span class="bal-mono' + (u.zero ? ' dim' : '') + '">' + fmt(d.balance) + '</span></div>' +
       (u.hasLimit ? '<div class="bal-strack"><div class="bal-fill ' + (u.over ? 'over' : 'debt') + '" ' + balStyleV(u.fill) + '></div></div>' : '') +
       '<div class="bal-srow"><span class="bal-scap3">' + (u.hasLimit ? 'кредитний ліміт ' + fmt(acc.creditLimit) : 'кредитний ліміт не вказано') + '</span><span class="bal-scap3">' + (u.hasLimit ? (u.zero ? 'без боргу' : u.pct + '% використано') : '') + '</span></div></div>';
   });
@@ -1248,7 +1253,7 @@ function instSheetHtml(c){
     const ini = acc && Number(acc.initialAmount) > 0 ? Number(acc.initialAmount) : null;
     const incomplete = acc ? installmentIncompleteReasons(acc).length > 0 : false;
     h += '<div class="bal-dr">' +
-      '<div class="bal-top2">' + balLogoHtml(d.name, 'installment') + '<span class="bal-nm">' + escapeHtml(stripLeadingEmoji(d.name)) + (incomplete ? balDotHtml() : '') + '<span class="bal-nsub">' + (ini !== null ? 'початкова сума ' + fmt(ini) : 'початкова сума не вказана') + '</span></span>' +
+      '<div class="bal-top2">' + balLogoHtml(d.name, 'installment') + '<span class="bal-nm">' + escapeHtml(stripLeadingEmoji(d.name)) + (incomplete ? balDotHtml('installment', acc) : '') + '<span class="bal-nsub">' + (ini !== null ? 'початкова сума ' + fmt(ini) : 'початкова сума не вказана') + '</span></span>' +
       '<span class="bal-mono">' + (pay != null ? fmt(pay) : '—') + '<small> /міс</small></span></div>' +
       (model.mode === 'ovals' ? ochOvalsHtml(model) : '') +
       '<div class="bal-srow"><span class="bal-scap3">' + (k !== null ? k + ' з ' + n + ' платежів' : '') + '</span><span class="bal-scap3">залишок ' + fmt(d.balance) + '</span></div></div>';

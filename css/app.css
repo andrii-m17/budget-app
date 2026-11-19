@@ -726,6 +726,12 @@
   .data-status.warning .data-status-dot::after{ background:var(--color-warning); }
   .data-status-popover{ display:none; position:absolute; top:100%; right:0; margin-top:var(--sp-2); width:220px; max-width:calc(100vw - 32px); background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); padding:var(--sp-3) var(--sp-3); text-align:left; }
   .data-status.open .data-status-popover{ display:block; }
+  /* Rev 2.32.411 (FIX-1119 п.5): на плитках «Борг»/«ОЧ» (дві колонки по ≈173 pt) попап 220 pt, прив'язаний до правого краю контейнера-крапки, виходив за лівий край екрана (−43 pt) і здавався «німим». Тепер .data-status на плитці без позиції, крапка позиціонується сама (ті самі top/right), попап — від плитки: на всю ширину пари (200% + проміжок), ліва плитка від лівого краю, права від правого. */
+  .bal-tile .data-status{ position:static; }
+  .bal-tile .data-status-dot{ position:absolute; top:12px; right:12px; z-index:3; }
+  .bal-tile .data-status-popover{ z-index:6; top:calc(12px + var(--sp-5)); margin-top:0; width:calc(200% + var(--sp-3)); max-width:none; box-sizing:border-box; }
+  #bal-debt-tile .data-status-popover{ left:0; right:auto; }
+  #bal-inst-tile .data-status-popover{ right:0; left:auto; }
   .dsp-title{ font-size:var(--fs-caption1); font-weight:700; color:var(--text); margin-bottom:var(--sp-1); }
   .dsp-text{ font-size:var(--fs-caption1); color:var(--text-2); line-height:1.4; }
   /* Rev #30 (6D.91) — за проханням користувача: попап "Стан даних" тепер
