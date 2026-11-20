@@ -1,0 +1,11 @@
+TRIAL {"k":0,"pick1":{"reached":true,"len":11},"attempts":[{"a":1,"reached":true,"fieldBottom":275,"rowTop":281,"len":14,"active":"f-amount","shown":false}],"ok2":true,"typed2":{"len":10,"list":true}}
+TRIAL {"k":1,"pick1":{"reached":true,"len":11},"attempts":[{"a":1,"reached":true,"fieldBottom":275,"rowTop":281,"len":14,"active":"f-amount","shown":false}],"ok2":true,"typed2":{"len":10,"list":true}}
+TRIAL {"k":2,"pick1":{"reached":true,"len":11},"attempts":[{"a":1,"reached":true,"fieldBottom":275,"rowTop":281,"len":14,"active":"f-amount","shown":false}],"ok2":true,"typed2":{"len":10,"list":true}}
+TRIAL {"k":3,"pick1":{"reached":true,"len":11},"attempts":[{"a":1,"reached":true,"fieldBottom":275,"rowTop":281,"len":14,"active":"f-amount","shown":false}],"ok2":true,"typed2":{"len":10,"list":true}}
+TRIAL {"k":4,"pick1":{"reached":true,"len":11},"attempts":[{"a":1,"reached":true,"fieldBottom":275,"rowTop":281,"len":14,"active":"f-amount","shown":false}],"ok2":true,"typed2":{"len":10,"list":true}}
+TRIAL {"k":5,"pick1":{"reached":true,"len":11},"attempts":[{"a":1,"reached":true,"fieldBottom":275,"rowTop":281,"len":14,"active":"f-amount","shown":false}],"ok2":true,"typed2":{"len":10,"list":true}}
+TRIAL {"k":6,"pick1":{"reached":true,"len":11},"attempts":[{"a":1,"reached":true,"fieldBottom":275,"rowTop":281,"len":14,"active":"f-amount","shown":false}],"ok2":true,"typed2":{"len":10,"list":true}}
+TRIAL {"k":7,"pick1":{"reached":true,"len":11},"attempts":[{"a":1,"reached":true,"fieldBottom":275,"rowTop":281,"len":14,"active":"f-amount","shown":false}],"ok2":true,"typed2":{"len":10,"list":true}}
+TRIAL {"k":8,"pick1":{"reached":true,"len":11},"attempts":[{"a":1,"reached":true,"fieldBottom":275,"rowTop":281,"len":14,"active":"f-amount","shown":false}],"ok2":true,"typed2":{"len":10,"list":true}}
+TRIAL {"k":9,"pick1":{"reached":true,"len":11},"attempts":[{"a":1,"reached":true,"fieldBottom":275,"rowTop":281,"len":14,"active":"f-amount","shown":false}],"ok2":true,"typed2":{"len":10,"list":true}}
+RESULT {"variant":"noselect","device":"iPhone 16 Pro Max iOS-27-2","n":10,"firstTapReached":10,"firstTapMissed":0,"anyAttemptMissed":0,"notPickedAfter3":0}
