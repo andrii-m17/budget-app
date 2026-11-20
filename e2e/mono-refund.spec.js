@@ -27,6 +27,12 @@ for (const theme of ['dark', 'light']){
     await boot(page); await seed(page);
     await page.evaluate((th) => document.documentElement.setAttribute('data-theme', th), theme);
     await openInbox(page, 'new');
+    // Rev 2.32.429 (NAV-STATE п.4): з 2.32.414 (FIX-1119 п.9) підказка повернення — компактна позначка «↩ Повернення» в рядку назви; підпис і сума з'являються після дотику до неї
+    const chip = page.locator('[data-mono-row="r1"] .mono-chip-refund');
+    await expect(chip).toHaveText(/^↩ Повернення$/);
+    await expect(page.locator('[data-mono-row="r1"] button.mono-refund-label')).toHaveCount(0);
+    await chip.click();
+    await expect(page.locator('[data-mono-row="r1"] button.mono-refund-label')).toHaveCount(1);
     const info = await page.evaluate(() => {
       const row = (id) => document.querySelector('[data-mono-row="' + id + '"]');
       const cs = (el, p) => getComputedStyle(el)[p];

@@ -102,7 +102,7 @@ for (const theme of ['dark', 'light']){
     for (const w of [320, 360, 390, 440]){
       await boot(page, w); await seed(page, { noAuto: true, noNew: true }); await refresh(page);
       await page.evaluate((th) => document.documentElement.setAttribute('data-theme', th), theme);
-      const geo = () => page.evaluate(() => { const h = document.getElementById('page-title'); const rg = document.createRange(); rg.selectNodeContents(h); const t = rg.getBoundingClientRect(), p = document.getElementById('mono-paw-btn').getBoundingClientRect(), a = document.getElementById('profile-btn-top').getBoundingClientRect(), b = document.getElementById('notif-bell-btn').getBoundingClientRect(); return { tl: t.left, tr: t.right, paw: [p.left, p.right], av: a.right, bell: [b.left, b.right], vis: document.getElementById('mono-paw-wrap').getBoundingClientRect().width > 0, fs: getComputedStyle(h).fontSize }; });
+      const geo = () => page.evaluate(() => { const h = document.getElementById('page-title'); const rg = document.createRange(); rg.selectNodeContents(h); const t0 = rg.getBoundingClientRect(), hb = h.getBoundingClientRect(), t = { left: t0.left, right: Math.min(t0.right, hb.right) }, p = document.getElementById('mono-paw-btn').getBoundingClientRect(), a = document.getElementById('profile-btn-top').getBoundingClientRect(), b = document.getElementById('notif-bell-btn').getBoundingClientRect(); return { tl: t.left, tr: t.right, paw: [p.left, p.right], av: a.right, bell: [b.left, b.right], vis: document.getElementById('mono-paw-wrap').getBoundingClientRect().width > 0, fs: getComputedStyle(h).fontSize }; });
       const without = await geo(); expect(without.vis).toBe(false);
       await page.screenshot({ path: 'e2e-results/mono-flow-hdr-' + w + '-' + theme + '-without.png', clip: { x: 0, y: 0, width: w, height: 120 } });
       await seed(page, { noNew: true }); await refresh(page);
@@ -111,7 +111,7 @@ for (const theme of ['dark', 'light']){
       expect(wp.tr, w + ': заголовок не накриває лапку').toBeLessThanOrEqual(wp.paw[0] + 1);
       expect(wp.tl, w + ': заголовок не накриває аватар').toBeGreaterThanOrEqual(wp.av - 0.5);
       expect(wp.tl, w + ': заголовок зсунуто ліворуч').toBeLessThan(without.tl - 20);
-      if(w <= 360) expect(wp.fs).toBe('21px');
+      if(w <= 360) expect(wp.fs).toBe(without.fs); // Rev 2.32.429 (NAV-STATE): кегль при лапці не зменшується (раніше тут стояло застаріле '21px', відтоді --fs-title2 = 22px)
       await page.screenshot({ path: 'e2e-results/mono-flow-hdr-' + w + '-' + theme + '-with.png', clip: { x: 0, y: 0, width: w, height: 120 } });
     }
   });

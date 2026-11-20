@@ -182,4 +182,17 @@ function sheetSwipeBlockedWhy(drawer){
     drawer.addEventListener('lostpointercapture', function(e){ if(e.target !== drawer) return; if(st && st.dragging && e.pointerId === st.id) end(e); });
   });
 })();
+// Rev 2.32.429 (NAV-STATE п.1): кожна детальна шторка (.drawer) щоразу відкривається з початку вмісту (прокручування 0), форми з чернеткою теж (чернетка лишається: чіпається лише scrollTop). Одне місце замість правок у кожній функції відкриття: спостерігач за класом `open`; його колбек іде мікрозавданням після синхронного коду відкривача й ДО першого кадру, тож шторка з'являється вже з нуля, а анімація появи (перехід CSS) стартує від поточного стану. Клавіатурний модуль і клавіатурна частина .drawer не чіпаються: лише присвоєння scrollTop при переході закрита → відкрита (повторні перемальовування відкритої шторки, що відновлюють прокручування, клас не змінюють). Ризик: відкривач, який навмисно прокручує шторку під час відкриття, програє — таких немає (перевірено пошуком scrollTop у відкривачах; WebKit-тест на кожну шторку).
+function sheetScrollResetOnOpen(drawer){ try{ if(drawer.scrollTop) drawer.scrollTop = 0; }catch(e){} }
+(function(){
+  if(typeof MutationObserver !== 'function') return;
+  const obs = new MutationObserver(function(list){
+    list.forEach(function(m){
+      const d = m.target;
+      const was = (m.oldValue || '').split(/\s+/).indexOf('open') !== -1;
+      if(!was && d.classList && d.classList.contains('open')) sheetScrollResetOnOpen(d);
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.drawer'), function(d){ obs.observe(d, { attributes: true, attributeFilter: ['class'], attributeOldValue: true }); });
+})();
 (window.__MT_FILES = window.__MT_FILES || []).push('sheets.js');

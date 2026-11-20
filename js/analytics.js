@@ -1549,7 +1549,8 @@ function openCatsSheet(key, mode){
   if(mode === 'cat' || mode === 'sub') balCatMode = mode;
   balCatSel = key || null;
   renderCatsSheet(true); balSheetOpen('bal-sheet-cats');
-  if(balCatSel){ const r = document.querySelector('#bal-call .bal-crow.on'); if(r && r.scrollIntoView) r.scrollIntoView({ block: 'nearest' }); }
+  // Rev 2.32.429 (NAV-STATE): шторка тепер відкривається з початку (js/sheets.js скидає scrollTop мікрозавданням після цього коду); ця цільова прокрутка до вибраного рядка виконується ПІСЛЯ скидання (власне мікрозавдання стоїть у черзі за мікрозавданням спостерігача, бо клас open додано вище)
+  if(balCatSel) Promise.resolve().then(function(){ const r = document.querySelector('#bal-call .bal-crow.on'); if(r && r.scrollIntoView) r.scrollIntoView({ block: 'nearest' }); });
 }
 function closeCatsSheet(){ balSheetClose('bal-sheet-cats'); balCatSel = null; }
 (function(){

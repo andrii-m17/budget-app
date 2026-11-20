@@ -1300,6 +1300,21 @@ function updateTabBubble(skipAnimation){
   }
 }
 
+// Rev 2.32.429 (NAV-STATE п.2): повторний дотик до активної вкладки (чистий тап): розгорнуті картки ЦІЄЇ вкладки згортаються наявною анімацією згортання (інші вкладки не чіпаються; перехід між вкладками стан не скидає), і вкладка плавно (при «зменшити рух» миттєво) прокручується на початок. Уже на початку й нічого не розгорнуто — нічого не відбувається. Зараз розгортні картки є на «Аналітиці»: «Сімейний баланс» (balOpen) і друга картка балансу (balPotOpen).
+function tabCollapseExpanded(tab){
+  let n = 0;
+  try{
+    if(tab === 'analytics'){
+      if(typeof balOpen !== 'undefined' && balOpen && typeof toggleBalanceCard === 'function'){ toggleBalanceCard(); n++; }
+      if(typeof balPotOpen !== 'undefined' && balPotOpen && typeof togglePotCard === 'function'){ togglePotCard(); n++; }
+    }
+  }catch(e){}
+  return n;
+}
+function tabRepeatTap(tab){
+  tabCollapseExpanded(tab);
+  smoothScrollToTop();
+}
 function smoothScrollToTop(duration, onDone, onProgress){
   if(typeof mainUserReset === 'function') mainUserReset(); // Rev 2.32.373 (DS-3c4): програмна прокрутка («вгору») не є користувацькою
   duration = duration || 380;
@@ -1308,6 +1323,7 @@ function smoothScrollToTop(duration, onDone, onProgress){
   const startY = mainColEl.scrollTop || 0;
   if(startY <= 0){ if(onDone) onDone(); return; }
   killMainColMomentumScroll();
+  if(motionReduced()){ mainColEl.scrollTop = 0; if(onProgress) onProgress(1); if(onDone) onDone(); return; } // Rev 2.32.429 (NAV-STATE п.2): «зменшити рух» — миттєво
   const startTime = performance.now();
   function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
   function step(now){

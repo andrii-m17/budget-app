@@ -1407,7 +1407,8 @@
   .side button.side-tab.hidden{ display:none; }
   /* Rev 2.32.332 (MONO-FLOW-2): тимчасова компенсація заголовка шапки, коли лапка видима (третя кнопка праворуч), до нового макета шапки з дизайн-системи */
   @media (max-width:440px){ html.mono-paw-on .page-header-text h1{ position:relative; left:-28px; } }
-  @media (max-width:360px){ html.mono-paw-on .page-header-text h1{ left:-36px; font-size:var(--fs-title2); line-height:27px; } }
+  /* Rev 2.32.429 (NAV-STATE п.5): на ≤ 360 pt зсув заголовка (-36 px) виводив текст на лапку (320 pt: «Аналітика» +2,4 pt, «Структура» +6,4 pt з 2.32.341). Тепер коробка h1 — рівно проміжок між аватаром і лапкою (від правого краю аватара +4 до лівого краю лапки −4: поле .page-header-text має відступи 76 px, поле має відступи 76 px і ще 20 px зовнішні: вміст [96, W-96], тож margin -36 зліва й 52 справа), текст по центру; що не вміщується — обрізається «…». Кегль (--fs-title2) не зменшено. */
+  @media (max-width:360px){ html.mono-paw-on .page-header-text h1{ position:static; left:0; margin-left:-36px; margin-right:52px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; font-size:var(--fs-title2); line-height:27px; } }
   .notif-bell-count.mono-paw-count{ background:var(--color-info); }
   .mono-paw-dot{ position:absolute; top:-2px; right:-2px; width:8px; height:8px; border-radius:50%; background:var(--color-info); box-shadow:0 0 0 1.5px var(--bg); }
   .side-ico .mono-paw-dot{ top:-4px; right:-6px; }
