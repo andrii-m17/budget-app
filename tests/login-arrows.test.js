@@ -47,3 +47,7 @@ test('обробники: лише #cldfielda1 і #cloud-password, делего�
   assert.match(mod, /const on = loginRoActive\(\) && Date\.now\(\) >= loginRoHoldUntil/); // control → on=false → усі позначки знімаються
   assert.match(mod, /LOGIN_RO_AUTOFILL_MS = 2000/);
 });
+test('шторка «Для розробника» має контейнер карток варіантів (його втрата в 2.32.260 ховала всі картки)', function(){
+  assert.match(SRC, /<div id="testing-variants-list"><\/div>/);
+  assert.match(SRC, /function renderTestingDrawer\(\)\{\s*const list = document\.getElementById\('testing-variants-list'\);/);
+});

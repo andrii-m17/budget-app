@@ -77,3 +77,21 @@ test('перемикання назад на control знімає readonly на 
   await page.waitForTimeout(100);
   expect(await st(page)).toMatchObject({ e: false, p: false });
 });
+
+test('«Для розробника»: картка варіанта «Вхід: друге поле лише для читання (експеримент)» видима, кнопки перемикають і зберігають значення', async ({ page }) => {
+  await boot(page, null);
+  await page.evaluate(() => { closeProfileLoginDrawer(); });
+  await page.waitForTimeout(500);
+  await page.evaluate(() => { openTestingDrawer(); });
+  const card = page.locator('#testing-drawer [data-test-id="login-arrows"]');
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('Вхід: друге поле лише для читання (експеримент)');
+  await expect(card.locator('[data-variant="control"]')).toBeVisible();
+  const w = await page.evaluate(() => { const c = document.querySelector('#testing-drawer [data-test-id="login-arrows"]'), d = document.getElementById('testing-drawer'); return [c.getBoundingClientRect().width, d.getBoundingClientRect().width]; });
+  expect(w[0], 'картка на всю ширину шторки (не стиснута в шапці)').toBeGreaterThan(w[1] - 60);
+  await card.locator('[data-variant="readonly"]').click();
+  expect(await page.evaluate(() => getVariant('login-arrows'))).toBe('readonly');
+  await card.locator('[data-variant="control"]').click();
+  expect(await page.evaluate(() => getVariant('login-arrows'))).toBe('control');
+  await page.screenshot({ path: 'e2e-results/login-arrows-card.png' });
+});
