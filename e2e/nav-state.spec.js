@@ -145,3 +145,65 @@ test('8. екрани, куди ведуть маршрути сповіщень
   const r = await page.evaluate(() => ['journal-overlay', 'mono-inbox-screen', 'mono-screen', 'notif-archive-screen', 'payments-screen'].map(id => [id, document.getElementById(id).classList.contains('drawer')]));
   r.forEach(([id, isDrawer]) => expect(isDrawer, id).toBe(false));
 });
+
+// NAV-STATE-2: повноекранні екрани (.mono-screen, журнал) при новому відкритті — з початку; «назад» з вкладеного екрана лишає попередній на місці
+const SCREENS = [
+  ['Платежі', 'payments-screen', () => openPaymentsScreen(null), () => closePaymentsScreen()],
+  ['Вхідні', 'mono-inbox-screen', () => openMonoInbox({ tab: 'new' }), () => closeMonoInbox()],
+  ['Monobank', 'mono-screen', () => openMonoScreen(), () => closeMonoScreen()],
+  ['Архів сповіщень', 'notif-archive-screen', () => openNotifArchive(), () => closeNotifArchive()],
+];
+for (const [name, id, open, close] of SCREENS) {
+  test('9. ' + name + ': відкрити → прокрутити → закрити → відкрити знову → 0', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 600 });
+    await boot(page);
+    const r = await page.evaluate(async ([sid, o, c]) => {
+      const w = (ms) => new Promise(r => setTimeout(r, ms)), sc = document.getElementById(sid);
+      eval('(' + o + ')()'); await w(700);
+      const sp = document.createElement('div'); sp.style.cssText = 'height:3000px'; sc.appendChild(sp);
+      sc.scrollTop = 600; const first = sc.scrollTop;
+      eval('(' + c + ')()'); await w(600);
+      eval('(' + o + ')()'); await w(500);
+      const again = sc.scrollTop; sp.remove(); eval('(' + c + ')()'); await w(400);
+      return { first, again };
+    }, [id, open.toString(), close.toString()]);
+    expect(r.first, name + ': прокручувалось').toBeGreaterThan(0);
+    expect(r.again, name + ': з початку').toBe(0);
+  });
+}
+test('9. журнал: відкрити → прокрутити → закрити → відкрити знову → 0', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 600 });
+  await boot(page);
+  const r = await page.evaluate(async () => {
+    const w = (ms) => new Promise(r => setTimeout(r, ms)), pos = () => Math.max(document.getElementById('main-col').scrollTop, document.getElementById('journal-overlay').scrollTop);
+    switchTab('vytraty', { noFocus: true }); await w(600); openJournal(); await w(800);
+    const ov = document.getElementById('journal-overlay'), mc = document.getElementById('main-col');
+    const sp = document.createElement('div'); sp.style.cssText = 'height:3000px'; ov.appendChild(sp);
+    ov.scrollTop = 500; mc.scrollTop = 500; const first = pos();
+    closeJournal(); await w(600); openJournal(); await w(600);
+    const again = pos(); sp.remove(); closeJournal();
+    return { first, again };
+  });
+  expect(r.first).toBeGreaterThan(0); expect(r.again).toBe(0);
+});
+test('10. «Назад» з «Вхідних» у Monobank: екран Monobank лишається на місці (скидання лише при новому відкритті)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 600 });
+  await boot(page);
+  const r = await page.evaluate(async () => {
+    const w = (ms) => new Promise(r => setTimeout(r, ms)), sc = document.getElementById('mono-screen');
+    openMonoScreen(); await w(700);
+    const sp = document.createElement('div'); sp.style.cssText = 'height:3000px'; sc.appendChild(sp); sc.scrollTop = 400; const before = sc.scrollTop;
+    const row = document.querySelector('#mono-body [data-mono-action="inbox"]');
+    if (row) row.click(); else openMonoInbox({ tab: 'new' });
+    await w(700);
+    const inboxOpen = isMonoInboxOpen;
+    closeMonoInbox(); await w(700);
+    const after = sc.scrollTop, stillOpen = isMonoOpen; sp.remove(); closeMonoScreen();
+    return { before, after, inboxOpen, stillOpen };
+  });
+  expect(r.before).toBeGreaterThan(0);
+  expect(r.inboxOpen).toBe(true);
+  console.log('NAV2-BACK ' + JSON.stringify(r));
+  expect(r.stillOpen).toBe(true);
+  expect(r.after, 'Monobank на тому ж місці після «назад»').toBe(r.before);
+});
