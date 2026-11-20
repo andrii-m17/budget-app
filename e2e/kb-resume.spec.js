@@ -247,6 +247,72 @@ test('keep-lift: зсув iOS при нативному фокусі прийм�
   expect(keep.sc, 'keep-lift: scrollTo не викликано').toBe(0); expect(keep.comp, 'keep-lift: pan-comp немає').toBe(0);
 });
 
+const fieldCenter = (page) => page.evaluate((sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return Math.round((r.top + r.height / 2) * 10) / 10; }, FIELD);
+const sheetBox = (page) => page.evaluate(() => { const r = document.getElementById('card-debt-drawer').getBoundingClientRect(); return { top: Math.round(r.top * 10) / 10, bottom: Math.round(r.bottom * 10) / 10 }; });
+const toKeep = async (page) => { await openWithKeyboard(page); await setVisibility(page, 'hidden'); await hideKeyboard(page); await page.waitForTimeout(500); await setVisibility(page, 'visible'); await page.waitForTimeout(300); };
+
+test('keep-lift (KB-RESUME-6): центр поля стоїть у (innerH - kbH)/2 - 2 ±2 (або шторку піднято наскільки можна, liftClamped); подія має centerTarget, liftMore, liftClamped, fieldCenterAtTouch', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'keep-lift', true);
+  try {
+    const before = await (async () => { await openWithKeyboard(page); return fieldCenter(page); })();
+    await setVisibility(page, 'hidden'); await hideKeyboard(page); await page.waitForTimeout(500); await setVisibility(page, 'visible'); await page.waitForTimeout(300);
+    const inner = await page.evaluate(() => window.__H0);
+    const c = await fieldCenter(page);
+    const target = (inner - 388) / 2 - 2;
+    const ev = (await events(page)).find(e => e.branch === 'keep-enter');
+    expect(ev.centerTarget).toBe(Math.round(target));
+    expect(typeof ev.liftMore).toBe('number'); expect(typeof ev.liftClamped).toBe('boolean');
+    if (!ev.liftClamped) expect(Math.abs(c - target)).toBeLessThanOrEqual(2);
+    else expect(c).toBeGreaterThan(target);
+    expect(c <= before + 0.5, 'поле не опускається нижче, ніж було').toBe(true);
+    await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
+    await page.evaluate(() => document.querySelector('#cdd-balance').focus());
+    await page.waitForTimeout(1300);
+    const rec = (await events(page)).find(e => e.keptLift === true && e.branch === 'none');
+    expect(rec.centerTarget).toBe(Math.round(target)); expect(rec.liftMore).toBe(ev.liftMore); expect(rec.liftClamped).toBe(ev.liftClamped);
+    expect(typeof rec.fieldCenterAtTouch).toBe('number');
+  } finally { await ctx.close(); }
+});
+
+test('keep-lift (KB-RESUME-6): після нативного фокусу й kb-vv-resize верх шторки не рухається, низ = верх клавіатури; закриття клавіатури повертає звичайну висоту', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'keep-lift', true);
+  try {
+    await toKeep(page);
+    const hKeep = await page.evaluate(() => document.getElementById('card-debt-drawer').style.minHeight);
+    const b0 = await sheetBox(page);
+    await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
+    await page.evaluate(() => document.querySelector('#cdd-balance').focus());
+    await page.waitForTimeout(100); await showKeyboard(page); await page.waitForTimeout(1300);
+    const b1 = await sheetBox(page);
+    const inner = await page.evaluate(() => window.__H0);
+    expect(Math.abs(b1.top - b0.top), 'верх не рухається').toBeLessThanOrEqual(2);
+    expect(Math.abs(b1.bottom - (inner - 388)), 'низ шторки — біля верху клавіатури (проміжок ≤ 12)').toBeLessThanOrEqual(12);
+    expect(await page.evaluate(() => document.getElementById('card-debt-drawer').style.minHeight)).toBe(hKeep);
+    await page.evaluate(() => document.activeElement.blur()); await hideKeyboard(page);
+    await page.waitForTimeout(1200);
+    expect(await page.evaluate(() => document.getElementById('card-debt-drawer').style.minHeight), 'після закриття клавіатури висота звичайна').toBe('');
+  } finally { await ctx.close(); }
+});
+
+test('keep-lift (KB-RESUME-6): перемикання на інше поле скидає збільшену висоту; звичайне відкриття (control) без змін', async ({ browser }) => {
+  let h = await open(browser, 'keep-lift', true);
+  try {
+    await toKeep(h.page);
+    await touch(h.page, 'touchstart', FIELD); await touch(h.page, 'touchend', FIELD);
+    await h.page.evaluate(() => document.querySelector('#cdd-balance').focus());
+    await h.page.waitForTimeout(100); await showKeyboard(h.page); await h.page.waitForTimeout(900);
+    const other = await h.page.evaluate(() => { const f = Array.from(document.querySelectorAll('#card-debt-drawer input')).find(i => i.id && i.id !== 'cdd-balance' && i.offsetParent); if (f) f.focus(); return !!f; });
+    await h.page.waitForTimeout(500);
+    if (other) expect(await h.page.evaluate(() => document.getElementById('card-debt-drawer').style.minHeight)).toBe('');
+  } finally { await h.ctx.close(); }
+  h = await open(browser, 'control', true);
+  try {
+    await openWithKeyboard(h.page);
+    expect(await h.page.evaluate(() => document.getElementById('card-debt-drawer').style.minHeight), 'у control висоту не чіпаємо').toBe('');
+    expect((await sheet(h.page)).kbKeep).toBe(false);
+  } finally { await h.ctx.close(); }
+});
+
 test('варіанти kb-resume: control, proxy-tap, keep-lift (await-focus і ro-tap відсутні); типово control', async ({ browser }) => {
   const { ctx, page } = await open(browser, null, true);
   try {

@@ -9,7 +9,7 @@ const SRC = ex.readIndexWithCss();
 const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const store = {};
 const ls = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
-const c = ex.buildSandbox({ localStorage: ls }, ['TEST_VARIANTS_LS_KEY', 'TEST_VARIANTS', 'readTestVariantsMap', 'writeTestVariantsMap', 'findTestVariant', 'getVariant', 'setVariant', 'resetVariant', 'KB_RESUME_PROXY_MS', 'KB_KEEP_FOCUS_MS', 'KB_KEEP_DRAG_PX', 'kbKeepTouchKind', 'kbKeepOutcome', 'kbResumeVariant', 'kbResumeDecide']);
+const c = ex.buildSandbox({ localStorage: ls }, ['TEST_VARIANTS_LS_KEY', 'TEST_VARIANTS', 'readTestVariantsMap', 'writeTestVariantsMap', 'findTestVariant', 'getVariant', 'setVariant', 'resetVariant', 'KB_RESUME_PROXY_MS', 'KB_KEEP_FOCUS_MS', 'KB_KEEP_DRAG_PX', 'kbKeepTouchKind', 'kbKeepOutcome', 'kbKeepCenterPlan', 'kbResumeVariant', 'kbResumeDecide']);
 const j = v => JSON.parse(JSON.stringify(v));
 
 test('kbResumeDecide: hasFocus не false — none; control, keep-lift, await-focus — none; false + proxy-tap — proxy-tap; ro-tap і невідомі — none', function(){
@@ -36,8 +36,8 @@ test('самописець: тип kb-resume і ключі variant, branch, hasF
   const D = read('js/diag.js');
   assert.match(D, /const REC_ALLOWED_TYPES = \[[^\]]*'kb-resume'[^\]]*\]/);
   const keys = D.slice(D.indexOf('const REC_ALLOWED_KEYS = ['), D.indexOf('];', D.indexOf('const REC_ALLOWED_KEYS = [')));
-  ['variant', 'branch', 'hasFocusStart', 'hasFocusEnd', 'kbShownMs', 'panMax', 'intercept', 'transferMs', 'jumpMax', 'keptLift', 'liftTarget', 'fieldTopAtTouch', 'released', 'releaseAt', 'moveMax', 'docScrollH'].forEach(function(k){ assert.match(keys, new RegExp("'" + k + "'"), k); });
-  assert.match(SRC, /pushDebugEvent\(\{ type: 'kb-resume', variant: rec\.variant, branch: rec\.branch, hasFocusStart: rec\.hasFocusStart, hasFocusEnd: rec\.hasFocusEnd, intercept: rec\.intercept, transferMs: rec\.transferMs, kbShownMs: rec\.kbShownMs, panMax: rec\.panMax, jumpMax: rec\.jumpMax, keptLift: rec\.keptLift, liftTarget: rec\.liftTarget, released: rec\.released, releaseAt: rec\.releaseAt, moveMax: rec\.moveMax, docScrollH: rec\.docScrollH, innerH: rec\.innerH, scrollY: rec\.scrollY, fieldTopAtTouch: rec\.fieldTopAtTouch \}\)/);
+  ['variant', 'branch', 'hasFocusStart', 'hasFocusEnd', 'kbShownMs', 'panMax', 'intercept', 'transferMs', 'jumpMax', 'keptLift', 'liftTarget', 'centerTarget', 'fieldCenterAtTouch', 'liftMore', 'liftClamped', 'fieldTopAtTouch', 'released', 'releaseAt', 'moveMax', 'docScrollH'].forEach(function(k){ assert.match(keys, new RegExp("'" + k + "'"), k); });
+  assert.match(SRC, /pushDebugEvent\(\{ type: 'kb-resume', variant: rec\.variant, branch: rec\.branch, hasFocusStart: rec\.hasFocusStart, hasFocusEnd: rec\.hasFocusEnd, intercept: rec\.intercept, transferMs: rec\.transferMs, kbShownMs: rec\.kbShownMs, panMax: rec\.panMax, jumpMax: rec\.jumpMax, keptLift: rec\.keptLift, liftTarget: rec\.liftTarget, centerTarget: rec\.centerTarget, fieldCenterAtTouch: rec\.fieldCenterAtTouch, liftMore: rec\.liftMore, liftClamped: rec\.liftClamped, released: rec\.released, releaseAt: rec\.releaseAt, moveMax: rec\.moveMax, docScrollH: rec\.docScrollH, innerH: rec\.innerH, scrollY: rec\.scrollY, fieldTopAtTouch: rec\.fieldTopAtTouch \}\)/);
   ['proxy-focus', 'proxy-miss', 'keep-enter', 'keep-release'].forEach(function(b){ assert.ok(SRC.indexOf("'" + b + "'") !== -1, b); });
   ['tap-field', 'tap-other', 'drag', 'close', 'reset'].forEach(function(r){ assert.ok(SRC.indexOf("kbKeepRelease('" + r + "'") !== -1, r); });
   assert.ok(SRC.indexOf('kbKeepOutcome(mv, false)') !== -1, 'tap-miss через kbKeepOutcome');
@@ -48,7 +48,7 @@ test('keep-lift: вхід лише з visibilitychange hidden, варіант ke
   assert.match(SRC, /function updateKbSheetGeometry\(\)\{\s*if\(!kbSheetActive \|\| !window\.visualViewport\) return;\s*if\(kbKeep\) return;/);
   assert.match(SRC, /function handleKeyboardFieldFocusSettle\(\)\{\s*if\(kbKeep\) return;/);
   assert.match(SRC, /document\.addEventListener\('focusout', function\(e\)\{\s*if\(!isKeyboardField\(e\.target\)\) return;\s*if\(kbKeep\) return;/);
-  assert.match(SRC, /function exitKbSheet\(removeKbOpen\)\{\s*if\(!kbSheetActive\) return;\s*if\(kbKeep\) kbKeepRelease\('close', true\);/);
+  assert.match(SRC, /function exitKbSheet\(removeKbOpen\)\{\s*kbKeepGrowClear\(\);[^\n]*\n\s*if\(!kbSheetActive\) return;\s*if\(kbKeep\) kbKeepRelease\('close', true\);/);
   assert.match(SRC, /function handleKeyboardFieldFocusIn\(target\)\{\s*globalThis\.__kbSt[^\n]*\n\s*if\(kbKeep\) kbKeepRelease\('tap-field', true\);/);
   assert.match(SRC, /html\.kb-keep \.drawer\.open\{ box-shadow:var\(--shadow-lg\), 0 calc\(var\(--sheet-lift, 0\) \* \.25px\) 0 0 var\(--surface\), [^\n]*\* 1px\) 0 0 var\(--surface\); \}/);
   ['kbResumeRoPrepare', 'kbResumeRoArm', 'data-kb-resume-ro', 'KB_RESUME_RO_MS', "'ro-click'", "'ro-focus'", "'ro-timeout'", 'kbResumeAwaitFocus', 'KB_RESUME_AWAIT_MS', "'await-ok'", "'await-miss'"].forEach(function(w){ assert.equal(SRC.indexOf(w), -1, w + ' прибрано'); });
@@ -72,4 +72,15 @@ test('класифікація дотику по полю піднятої шт�
   assert.equal(c.kbKeepOutcome(0, true), 'tap-field'); assert.equal(c.kbKeepOutcome(6, true), 'tap-field');
   assert.equal(c.kbKeepOutcome(6, false), 'tap-miss', 'без focusin за 300 мс — звичайне опускання');
   assert.equal(c.kbKeepOutcome(12, true), 'drag'); assert.equal(c.kbKeepOutcome(12, false), 'drag');
+});
+test('ціль підйому за законом центрування iOS (KB-RESUME-6): поле нижче центру, вище центру, обмеження зверху', function(){
+  // innerH 894, kbH 389 -> vvH 505, ціль центру = 252.5 - 2 = 250.5
+  const lo = c.kbKeepCenterPlan({ innerH: 894, kbH: 389, fieldCenter: 571, drawerTop: 400, minTop: 59 });
+  assert.equal(lo.centerTarget, 250.5); assert.equal(Math.round(lo.extra), 321); assert.equal(lo.clamped, false);
+  const hi = c.kbKeepCenterPlan({ innerH: 894, kbH: 389, fieldCenter: 200, drawerTop: 100, minTop: 59 });
+  assert.equal(hi.extra, 0, 'поле вище цілі - додатково не піднімаємо'); assert.equal(hi.clamped, false);
+  const cl = c.kbKeepCenterPlan({ innerH: 894, kbH: 389, fieldCenter: 571, drawerTop: 120, minTop: 59 });
+  assert.equal(cl.extra, 61); assert.equal(cl.clamped, true, 'не вміщується: піднято наскільки можна');
+  const eq = c.kbKeepCenterPlan({ innerH: 894, kbH: 389, fieldCenter: 300, drawerTop: 200, minTop: 59 });
+  assert.equal(Math.round(eq.extra), 50);
 });

@@ -99,7 +99,9 @@ function buildSandbox(globals, names){
     + "if(typeof READONLY_USER_HINT === 'undefined') this.READONLY_USER_HINT = 'x';" // OPS-1: не var — інакше const READONLY_USER_HINT з index.html дає SyntaxError «already declared» у Node 22 (CI)
     + "if(typeof recErr === 'undefined') var recErr = function(){};"
     + "if(typeof kbKeep === 'undefined') var kbKeep = null;"
-    + "if(typeof kbKeepAcceptUntil === 'undefined') var kbKeepAcceptUntil = 0;" // Rev 2.32.436 (KB-RESUME-5) // Rev 2.32.435 (KB-RESUME-4): стан «піднята шторка» живе в модулі клавіатури; у тестах за замовчуванням відсутній
+    + "if(typeof kbKeepAcceptUntil === 'undefined') var kbKeepAcceptUntil = 0;"
+    + "if(typeof kbKeepGrow === 'undefined') var kbKeepGrow = null;" // Rev 2.32.437 (KB-RESUME-6)
+    + "if(typeof kbKeepGrowClear === 'undefined') var kbKeepGrowClear = function(){};" // Rev 2.32.436 (KB-RESUME-5) // Rev 2.32.435 (KB-RESUME-4): стан «піднята шторка» живе в модулі клавіатури; у тестах за замовчуванням відсутній
     + "if(typeof kbResumeVariant === 'undefined') var kbResumeVariant = function(){ return 'control'; };" // ERR-1a: слід помилок у самописці; у тестах за замовчуванням порожня (тест може передати власну)
     + "if(typeof isCloudWriteReady === 'undefined') var isCloudWriteReady = function(){ return !isWriteBlocked() && (typeof isCloudSessionReady === 'function' ? isCloudSessionReady() : false); };", context);
   // Rev 2.32.192 (SHADOW-REV): тіньові помічники обліку версій викликаються з push/save-функцій; додаємо їх у кожен sandbox автоматично (тести не мусять перелічувати їх у NAMES).
