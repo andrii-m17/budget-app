@@ -15,20 +15,23 @@ test('шторка «Для розробника»: порядок груп, р�
   if (tag === 'before') return;
   const labels = await page.evaluate(() => Array.from(document.querySelectorAll('#testing-drawer > .chk-label')).filter(e => getComputedStyle(e).display !== 'none').map(e => e.textContent.trim()));
   // «Середовище» (лише поза робочим origin) іде останнім; на моку воно є
-  expect(labels.slice(0, 3)).toEqual(['Самописець', 'Діагностика', 'Дані']);
-  expect(labels).not.toContain('Експерименти'); expect(labels).not.toContain('Лабораторія входу'); expect(labels).not.toContain('Варіанти для перевірки');
+  expect(labels.slice(0, 4)).toEqual(['Самописець', 'Діагностика', 'Дані', 'Експерименти']); // Rev 2.32.433: активний експеримент kb-resume
+  expect(labels).not.toContain('Лабораторія входу'); expect(labels).not.toContain('Варіанти для перевірки');
   const rows = await page.evaluate(() => Array.from(document.querySelectorAll('#testing-drawer .chk-row')).map(e => e.textContent.replace(/\s+/g, ' ').trim()));
   ['Записує постійно', 'Повідомити про проблему', 'Надіслані звіти', 'Скопіювати запис', 'Розширена діагностика', 'Перевірка цілісності даних'].forEach(t => expect(rows.some(r => r.indexOf(t) === 0), t).toBe(true));
   expect(await page.evaluate(() => !!document.getElementById('login-lab-link'))).toBe(false);
-  expect(await page.evaluate(() => document.querySelector('#testing-drawer [data-test-id]'))).toBeNull();
+  expect(await page.evaluate(() => Array.from(document.querySelectorAll('#testing-drawer [data-test-id]')).map(x => x.getAttribute('data-test-id')))).toEqual(['kb-resume']);
   // «Повідомити про проблему» з цього екрана відкриває шторку звіту
   await page.evaluate(() => document.getElementById('rec-report-row').click());
   await page.waitForTimeout(600);
   expect(await page.evaluate(() => document.getElementById('rec-report-drawer').classList.contains('open'))).toBe(true);
-  // механізм варіантів на місці: додати експеримент у реєстр → група з’являється
-  await page.evaluate(() => { closeRecReport(); TEST_VARIANTS.push({ id: 'x-test', title: 'Тестовий експеримент', what: 'перевірка структури', variants: [{ key: 'control', label: 'Як зараз', hint: 'a' }, { key: 'b', label: 'Б', hint: 'b' }], defaultVariant: 'control', addedIn: 'тест', cleanupBy: 'тест', checkSteps: ['1', '2'] }); renderTestingDrawer(); });
+  // механізм варіантів на місці: порожній реєстр → групи нема; додати експеримент → група з’являється
+  await page.evaluate(() => { closeRecReport(); window.__saved = TEST_VARIANTS.splice(0); renderTestingDrawer(); });
+  expect(await page.evaluate(() => getComputedStyle(document.getElementById('testing-variants-label')).display)).toBe('none');
+  await page.evaluate(() => { TEST_VARIANTS.push({ id: 'x-test', title: 'Тестовий експеримент', what: 'перевірка структури', variants: [{ key: 'control', label: 'Як зараз', hint: 'a' }, { key: 'b', label: 'Б', hint: 'b' }], defaultVariant: 'control', addedIn: 'тест', cleanupBy: 'тест', checkSteps: ['1', '2'] }); renderTestingDrawer(); });
   expect(await page.evaluate(() => getComputedStyle(document.getElementById('testing-variants-label')).display)).not.toBe('none');
   expect(await page.evaluate(() => document.querySelectorAll('#testing-variants-list [data-test-id="x-test"]').length)).toBe(1);
   await page.evaluate(() => { TEST_VARIANTS.length = 0; renderTestingDrawer(); });
   expect(await page.evaluate(() => getComputedStyle(document.getElementById('testing-variants-label')).display)).toBe('none');
+  await page.evaluate(() => { window.__saved.forEach(x => TEST_VARIANTS.push(x)); renderTestingDrawer(); });
 });

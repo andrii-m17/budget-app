@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.432"><link rel="stylesheet" href="./css/app.css?v=2.32.432"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.433"><link rel="stylesheet" href="./css/app.css?v=2.32.433"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -875,7 +875,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.432</div>
+  <div class="version-footer">Money Tree · Rev 2.32.433</div>
 </div>
   </div>
 </div>
@@ -1663,16 +1663,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.432"></script>
-<script src="./js/util-date.js?v=2.32.432"></script>
-<script src="./js/util-safe.js?v=2.32.432"></script>
-<script src="./js/util-misc.js?v=2.32.432"></script>
-<script src="./js/diag.js?v=2.32.432"></script>
-<script src="./js/shell.js?v=2.32.432"></script>
-<script src="./js/structure.js?v=2.32.432"></script>
-<script src="./js/analytics.js?v=2.32.432"></script>
-<script src="./js/payments.js?v=2.32.432"></script>
-<script src="./js/sheets.js?v=2.32.432"></script>
+<script src="./js/util-format.js?v=2.32.433"></script>
+<script src="./js/util-date.js?v=2.32.433"></script>
+<script src="./js/util-safe.js?v=2.32.433"></script>
+<script src="./js/util-misc.js?v=2.32.433"></script>
+<script src="./js/diag.js?v=2.32.433"></script>
+<script src="./js/shell.js?v=2.32.433"></script>
+<script src="./js/structure.js?v=2.32.433"></script>
+<script src="./js/analytics.js?v=2.32.433"></script>
+<script src="./js/payments.js?v=2.32.433"></script>
+<script src="./js/sheets.js?v=2.32.433"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6829,7 +6829,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.432';
+const APP_VERSION = '2.32.433';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -16171,7 +16171,27 @@ purgeLegacyKeyboardKeys();
 const TEST_VARIANTS_LS_KEY = 'budget_variants_v1';
 // Rev 2.32.0 (F): реєстр порожній — motion-intensity («Стандартна», ×1) і card-reveal («Стандартно», 420/40) зафіксовано константами; pruneVariants() прибирає їхні старі ключі з localStorage.
 // Rev 2.32.8 (A): реєстр порожній — edit-label завершено (no-for); pruneVariants() прибирає його ключ із localStorage.
-const TEST_VARIANTS = []; // Rev 2.32.432 (TEST-CLEAN): активних експериментів немає (autofill-guard і login-arrows завершено, рішення власника 20.11); механізм (getVariant/setVariant/device.variants) лишається для майбутніх
+// Rev 2.32.433 (KB-RESUME, C): експеримент kb-resume. Звіт MT-1120-4439 (Safari 27.2): після повернення з іншого застосунку iOS ще раз ненадовго забирає фокус у вікна (hasFocus false), перший дотик по полю шторки застосунок перехоплює й ставить фокус програмно, а iOS при неактивному вікні клавіатуру з програмного фокуса не піднімає; клавіатура є лише з другого дотику. На симуляторі цього вікна нема, тож варіанти перевіряються на телефоні (docs/reports/KB-RESUME-step0.md). При hasFocus true всі варіанти ідентичні control.
+const TEST_VARIANTS = [
+  {
+    id: 'kb-resume',
+    title: 'Клавіатура після повернення в застосунок (експеримент)',
+    what: 'Чи піднімається клавіатура з першого дотику по полю шторки після повернення з іншого застосунку і чи не стрибає форма. Журнал записує, чи вікно було активне в момент дотику (hasFocus), чи перехоплено дотик, за скільки мс піднялась клавіатура і зсув сторінки.',
+    variants: [
+      { key: 'control', label: 'Як зараз', hint: 'перший дотик перехоплюється, фокус ставить застосунок' },
+      { key: 'win-focus', label: 'Активувати вікно', hint: 'якщо вікно неактивне в момент дотику, спершу window.focus(), далі звичайний шлях' },
+      { key: 'native', label: 'Віддати дотик iOS', hint: 'якщо вікно неактивне, перший дотик не перехоплюється: нативний фокус (можливий стрибок форми)' },
+    ],
+    defaultVariant: 'control',
+    addedIn: 'Rev 2.32.433 (KB-RESUME)',
+    cleanupBy: 'після перевірки на iPhone: лишити переможця як поведінку або прибрати разом із кодом kbResume*',
+    checkSteps: [
+      'Оберіть варіант. Відкрийте Облік, картку боргу, торкніться поля (клавіатура відкрилась), перейдіть в інший застосунок.',
+      'Поверніться й одразу торкніться поля: чи є клавіатура з першого дотику, чи не стрибнула форма. Три рази для кожного варіанта.',
+      'Після трьох разів натисніть «Записати лог із цим варіантом» і надішліть код звіту (події kb-resume).',
+    ],
+  },
+];
 function readTestVariantsMap(){
   try{
     const raw = localStorage.getItem(TEST_VARIANTS_LS_KEY);
@@ -16229,6 +16249,35 @@ function getVariantsSnapshot(){
 }
 // </test-variants-module>
 pruneVariants();
+// Rev 2.32.433 (KB-RESUME, C): експеримент kb-resume. Чиста функція рішення для ПЕРШОГО дотику по полю шторки (клавіатура закрита): що робити, коли вікно неактивне (document.hasFocus() === false). hasFocus true або control — нічого нового (поведінка ідентична поточній).
+function kbResumeVariant(){ try{ return getVariant('kb-resume') || 'control'; }catch(e){ return 'control'; } }
+function kbResumeDecide(variant, hasFocus){
+  if(hasFocus !== false) return { focusWindow: false, skipIntercept: false };
+  if(variant === 'win-focus') return { focusWindow: true, skipIntercept: false };
+  if(variant === 'native') return { focusWindow: false, skipIntercept: true };
+  return { focusWindow: false, skipIntercept: false };
+}
+// Самописець (клас A, усі варіанти): запис першого дотику по полю шторки: variant, hasFocusStart (touchstart), hasFocusEnd (touchend), intercept (так/ні), kbShownMs (до першого помітного стиснення visualViewport ≥ 100 pt, null через 1 с), panMax (макс. visualViewport.offsetTop за 600 мс). Лише числа й булеві.
+function kbResumeBegin(hasFocus){
+  const rec = { variant: kbResumeVariant(), hasFocusStart: hasFocus, hasFocusEnd: null, intercept: false, kbShownMs: null, panMax: 0, t0: performance.now(), h0: 0 };
+  try{
+    const vv = window.visualViewport;
+    rec.h0 = vv ? vv.height : window.innerHeight;
+    (function tick(){
+      try{
+        const el = performance.now() - rec.t0, v = window.visualViewport;
+        if(v){
+          if(rec.kbShownMs === null && rec.h0 - v.height >= 100) rec.kbShownMs = Math.round(el);
+          if(el <= 600 && v.offsetTop > rec.panMax) rec.panMax = Math.round(v.offsetTop);
+        }
+        if(el < 1000){ requestAnimationFrame(tick); return; }
+        if(typeof pushDebugEvent === 'function') pushDebugEvent({ type: 'kb-resume', variant: rec.variant, hasFocusStart: rec.hasFocusStart, hasFocusEnd: rec.hasFocusEnd, intercept: rec.intercept, kbShownMs: rec.kbShownMs, panMax: rec.panMax });
+      }catch(e){}
+    })();
+  }catch(e){}
+  return rec;
+}
+function kbResumeEnd(rec, intercept){ try{ if(rec){ rec.hasFocusEnd = document.hasFocus(); rec.intercept = !!intercept; } }catch(e){} }
 // Rev 2.32.432 (TEST-CLEAN): експеримент автозаповнення контактів (Rev 2.32.47) завершено: лишається типовий варіант «поля входу в DOM від старту, type=text»; решту варіантів (вхід на вимогу, type=search, обидва) і їхній код прибрано.
 initSegments(); // Rev 2.26.0 (M3): ковзні індикатори сегментів (.struct-tabs, .theme-toggle, .n-days)
 // Rev 2.23.22 (6D.191) — UI "Тестування" (бейдж, шторка, картки). Значення
@@ -21283,7 +21332,7 @@ function resolveTapFieldInSheet(target, x, y){
 // (resolveTapField) — текстове всередині шторки, клавіатура ще не відкрита,
 // без руху, <500мс. Та сама логіка, що shouldInterceptTap, але від ПОЛЯ.
 function shouldInterceptFirstFocus(o){
-  if(!o) return false;
+  if(!o || o.noFocus) return false; // Rev 2.32.433 (KB-RESUME): noFocus — експеримент kb-resume native
   const f = o.field;
   return shouldInterceptTap({
     targetKind: isTapTargetField(f) ? 'field' : 'other',
@@ -22825,7 +22874,15 @@ document.addEventListener('touchstart', function(e){
         // Rev 2.32.310 (KB-FINAL, C): клавіатура закрита: дотик у межах 12 пт від текстового поля шторки (input, підпис, заголовок поряд) — preventDefault одразу, фокус на touchend цього ж дотику (шлях першого фокуса: прямий або через допоміжне поле)
         const field = resolveTapField(raw) || resolveTapFieldNear(raw, t.clientX, t.clientY) || resolveTapFieldInSheet(raw, t.clientX, t.clientY);
         // Rev 2.32.327 (LOGIN-FORM-2): виняток платформи для прямого дотику (2.32.322) прибрано: звіт MT-1117-3640: власний фокус iOS давав intercept-miss і pan-corrected 361; поля входу знову йдуть шляхом першого дотику (перехоплення / focus-proxy)
-        if(field && field !== active && isFieldInsideDrawer(field) && shouldInterceptFirstFocus({ field: field, kbSheetOpen: false, moved: false, durationMs: 0 })){
+        // Rev 2.32.433 (KB-RESUME, C): перший дотик по полю шторки: запис у самописець (усі варіанти) і гілка експерименту kb-resume лише при document.hasFocus() === false; інакше (і в control) шлях без змін
+        const resumeTap = !!(field && field !== active && isFieldInsideDrawer(field));
+        const resumeDec = resumeTap ? kbResumeDecide(kbResumeVariant(), document.hasFocus()) : null;
+        if(resumeDec){
+          entry.rec = kbResumeBegin(document.hasFocus());
+          if(resumeDec.focusWindow){ try{ window.focus(); }catch(errF){} }
+          if(resumeDec.skipIntercept) entry.noFocus = true;
+        }
+        if(resumeTap && !(resumeDec && resumeDec.skipIntercept) && shouldInterceptFirstFocus({ field: field, kbSheetOpen: false, moved: false, durationMs: 0 })){
           entry.field = field; entry.intercept = true; entry.first = true; entry.scroller = kbTouchScroller(field);
           if(e.cancelable) e.preventDefault();
         }
@@ -22880,6 +22937,7 @@ function kbTapEnd(e, t, start){ // Rev 2.32.307 (KB-SWITCH-FINAL): рішенн�
     classes: String((start.target && start.target.getAttribute && start.target.getAttribute('class')) || '').slice(0, 60),
     x: Math.round(t.clientX), y: Math.round(t.clientY), endAt: Date.now(),
   };
+  if(start.rec) kbResumeEnd(start.rec, !!start.intercept && !start.noFocus); // Rev 2.32.433 (KB-RESUME)
   if(start.done){ if(e.cancelable) e.preventDefault(); return; } // Rev 2.32.311 (KB-TAP): фокус уже поставлено на touchstart
   const dx = t.clientX - start.x;
   const dy = t.clientY - start.y;
@@ -22899,6 +22957,7 @@ function kbTapEnd(e, t, start){ // Rev 2.32.307 (KB-SWITCH-FINAL): рішенн�
     kbSheetOpen: kbSheetActive,
     moved: moved,
     durationMs: durationMs,
+    noFocus: !!start.noFocus, // Rev 2.32.433 (KB-RESUME): variant native при неактивному вікні на touchstart — не перехоплювати
   });
   if(!intercept){
     // Rev 2.23.15 (6D.184) — клавіатура вже відкрита: тап по ІНШОМУ полю

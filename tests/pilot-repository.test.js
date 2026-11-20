@@ -6012,7 +6012,7 @@ test('ЗАХИСНИЙ реєстр: постачальний TEST_VARIANTS пр
   const ctx = ex.buildSandbox({}, ['TEST_VARIANTS']);
   const reg = JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(TEST_VARIANTS)'));
   assert.deepEqual(validateTestRegistry(reg), []);
-  assert.deepEqual(reg.map(function(t){ return t.id; }), [], 'Rev 2.32.432 (TEST-CLEAN): усі експерименти завершені (motion-intensity, card-reveal, button-style, dashboard-replay, edit-label, autofill-guard, login-arrows); раніше активний лише autofill-guard');
+  assert.deepEqual(reg.map(function(t){ return t.id; }), ['kb-resume'], 'Rev 2.32.432 (TEST-CLEAN): усі експерименти завершені (motion-intensity, card-reveal, button-style, dashboard-replay, edit-label, autofill-guard, login-arrows); раніше активний лише autofill-guard');
 });
 test('ЗАХИСНИЙ реєстр: валідатор ловить усі порушення (4 активних, відсутні поля, <2 варіантів, дубль key, defaultVariant, checkSteps, не kebab-case)', () => {
   const ok = makeTestRegistry();
