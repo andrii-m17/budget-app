@@ -1,0 +1,105 @@
+diff --git a/index.html b/index.html
+index 79a54c7..929b164 100644
+--- a/index.html
++++ b/index.html
+@@ -21796,6 +21796,18 @@ function kbResumeAbortActive(){ try{ if(kbResumeCancel){ const f = kbResumeCance
+ function kbResumeStillValid(target, drawerEl){ try{ return !!(target && target.isConnected && drawerEl && drawerEl.classList.contains('open') && !drawerEl.hasAttribute('inert')); }catch(e){ return false; } } // шторку не закрито між дотиком і фокусом
+ function kbResumeProxyPrepare(field, x, y){
+   kbResumeAbortActive();
++  if(window.__kbLabelMode){ // ЕКСПЕРИМЕНТ: прозорий <label for=kb-focus-proxy> під пальцем; сам замінник одразу вгорі видимої області
++    try{
++      const proxy = getOrCreateKbProxyEl();
++      configureKbProxy(proxy, field);
++      if(proxy.parentNode !== document.body) document.body.appendChild(proxy);
++      proxy.style.cssText = proxyCaretStyle() + 'position:fixed; left:8px; top:calc(env(safe-area-inset-top, 0px) + 8px); width:44px; height:44px; pointer-events:auto; z-index:2147483000;';
++      let lab = document.getElementById('kb-resume-label');
++      if(!lab){ lab = document.createElement('label'); lab.id = 'kb-resume-label'; lab.setAttribute('for', 'kb-focus-proxy'); document.body.appendChild(lab); }
++      lab.style.cssText = 'position:fixed; left:' + Math.round(x - 22) + 'px; top:' + Math.round(y - 22) + 'px; width:44px; height:44px; z-index:2147483001; background:transparent; display:block;';
++    }catch(e){}
++    return;
++  }
+   try{
+     const proxy = getOrCreateKbProxyEl();
+     configureKbProxy(proxy, field);
+@@ -21803,7 +21815,7 @@ function kbResumeProxyPrepare(field, x, y){
+     proxy.style.cssText = proxyCaretStyle() + 'position:fixed; left:' + Math.round(x - 22) + 'px; top:' + Math.round(y - 22) + 'px; width:44px; height:44px; pointer-events:auto; z-index:2147483000;';
+   }catch(e){}
+ }
+-function kbResumeProxyReset(){ try{ const p = getOrCreateKbProxyEl(); p.style.cssText = proxyCaretStyle(); }catch(e){} }
++function kbResumeProxyReset(){ try{ const p = getOrCreateKbProxyEl(); p.style.cssText = proxyCaretStyle(); const lab = document.getElementById('kb-resume-label'); if(lab) lab.style.display = 'none'; }catch(e){} }
+ function kbResumeProxyArm(start, target, drawerEl){
+   const proxy = getOrCreateKbProxyEl(), rec = start.rec;
+   proxy.style.top = 'calc(env(safe-area-inset-top, 0px) + 8px)'; proxy.style.left = '8px'; // угору видимої області: фокус iOS не зсуває сторінку
+@@ -21856,6 +21868,7 @@ function kbResumeCleanup(start){
+   }catch(e){}
+ }
+ function kbResumeTapEnd(start, target, drawerEl, moved){
++  if(start.resumeMode === 'native-exp') return;
+   if(start.scrolling || start.resumeMoved || moved || !target || !drawerEl){ kbResumeCleanup(start); return; }
+   if(start.resumeMode === 'proxy-tap') kbResumeProxyArm(start, target, drawerEl); else kbResumeRoArm(start, target, drawerEl);
+ }
+@@ -21988,6 +22001,19 @@ function enterKbSheet(drawerEl, fieldEl){
+     }, 700);
+   }
+   kbMotionVar('--sheet-max-h', maxH + 'px');
++  window.__kbEarlyInfo = null;
++  if(window.__kbLiftEarly && window.__kbNativePending && window.__kbNativePending.field === fieldEl && Date.now() - window.__kbNativePending.at < 1500){ // ЕКСПЕРИМЕНТ: підйом на focusin
++    const src = storedH ? 'store' : (typeof keyboardHeightCache[orientKey][kbSheetFieldKind] === 'number' ? 'cache' : 'estimate');
++    const early = computeSheetLift({ innerH: window.innerHeight, vvH: baseVh - estimate, vvTop: 0, restBottom: restBottom, gap: kbSheetGapPt() });
++    window.__kbEarlyInfo = { target: Math.round(early), src: src, kbH: estimate };
++    if(window.__kbLayoutLift && early > 1 && drawerEl.classList.contains('drawer')){
++      // підйом РОЗМІТКОЮ: bottom збільшується одразу на цілу величину (розмітковий прямокутник поля одразу над лінією клавіатури), а візуально — FLIP: translateY(+lift) → 0
++      const cur = parseFloat(getComputedStyle(drawerEl).bottom) || 0;
++      drawerEl.style.bottom = (cur + early) + 'px';
++      window.__kbLayoutLiftEl = drawerEl;
++      try{ drawerEl.animate([{ transform: 'translate3d(0,' + early + 'px,0)' }, { transform: 'translate3d(0,0,0)' }], { duration: 320, easing: 'cubic-bezier(.22,1,.36,1)' }); }catch(e){}
++    }else if(early > 1){ kbSheetCurrentLift = early; kbSetLift(early); }
++  }
+   if(drawerEl.style.willChange) drawerEl.style.willChange = '';
+   if(shouldPromoteLayer({ isCard: drawerEl.classList && drawerEl.classList.contains('app-modal'), phase: 'open' })){ // Rev 2.32.11: шар готовий ДО першого закриття
+     drawerEl.style.willChange = 'transform';
+@@ -22117,7 +22143,8 @@ function kbLiftCommit(el){
+   }catch(e){}
+ }
+ // Rev 2.32.273 (KB-19): одна нова нога замінює стару в тому самому кадрі (скасування й animate в одному завданні, без перекриття, без LEAD/таймера скасування). Початок нової ноги — положення наступного кадру старої (не за ціллю), тривалість і крива єдині (KB_MOTION_*). Замінює гілки KB-12/KB-16 (швидкість, нахил, immediate). Ризик: різка зміна швидкості на розвороті (Face ID); альтернатива — зберігати нахил, але це давало проліт цілі на 6–15 пт (KB-16).
+-function kbSetLift(target, boost, fromAbs){ // fromAbs (KB-36): початкове положення (утримання при повторному фокусі під час закриття); boost — компенсація зсуву сторінки (kbMotionPan): додається до початкового положення
++function kbSetLift(target, boost, fromAbs){
++  if(window.__kbLayoutLift && window.__kbLayoutLiftEl && window.__kbLayoutLiftEl === kbSheetDrawerEl) return; // ЕКСПЕРИМЕНТ: підйом розміткою (bottom) + FLIP // fromAbs (KB-36): початкове положення (утримання при повторному фокусі під час закриття); boost — компенсація зсуву сторінки (kbMotionPan): додається до початкового положення
+   const root = document.documentElement, el = kbSheetDrawerEl, now = performance.now();
+   const inFlight = !!(kbLiftAnim && kbLiftActive && (now - kbLiftAnim.t0 < kbLiftAnim.dur));
+   if(fromAbs === undefined) kbHoldOn = false;
+@@ -22953,12 +22980,32 @@ document.addEventListener('touchstart', function(e){
+         // Rev 2.32.327 (LOGIN-FORM-2): виняток платформи для прямого дотику (2.32.322) прибрано: звіт MT-1117-3640: власний фокус iOS давав intercept-miss і pan-corrected 361; поля входу знову йдуть шляхом першого дотику (перехоплення / focus-proxy)
+         // Rev 2.32.433 (KB-RESUME, C), Rev 2.32.434 (KB-RESUME-2): перший дотик по полю шторки: запис у самописець (усі варіанти); гілка експерименту kb-resume лише при document.hasFocus() === false (proxy-tap / ro-tap: дотик нативний, без preventDefault); інакше (і в control) шлях без змін
+         const resumeTap = !!(field && field !== active && isFieldInsideDrawer(field));
+-        const resumeMode = resumeTap ? kbResumeDecide(kbResumeVariant(), document.hasFocus()) : 'none';
++        const resumeMode = (resumeTap && window.__kbResumeNative && !document.hasFocus()) ? 'native-exp' : (resumeTap ? kbResumeDecide(kbResumeVariant(), document.hasFocus()) : 'none'); // ЕКСПЕРИМЕНТ KB-RESUME-3 (лише worktree)
+         if(resumeTap){
+           entry.rec = kbResumeBegin(document.hasFocus(), kbSheetHostOf(field));
+           if(resumeMode !== 'none'){
+             entry.noFocus = true; entry.resumeMode = resumeMode; entry.resumeField = field;
+-            if(resumeMode === 'proxy-tap') kbResumeProxyPrepare(field, t.clientX, t.clientY); else kbResumeRoPrepare(field);
++            if(resumeMode === 'native-exp'){
++              window.__kbNativePending = { field: field, at: Date.now() };
++              if(window.__kbPreLift){ // ЕКСПЕРИМЕНТ: підйом на touchstart (до нативного фокуса): розміткою (bottom) + FLIP
++                try{
++                  const drawerEl0 = kbSheetHostOf(field);
++                  const baseVh0 = getBaseViewportHeight(), orientKey0 = viewportOrientationKey(window.innerWidth, window.innerHeight);
++                  const kind0 = kbCacheKindForField(field);
++                  const h0 = kbHeightFromStore(orientKey0, kind0) || estimateKeyboardHeight(baseVh0, kind0, keyboardHeightCache[orientKey0]);
++                  const rest0 = kbRestBottomLayout(drawerEl0);
++                  const lift0 = computeSheetLift({ innerH: window.innerHeight, vvH: baseVh0 - h0, vvTop: 0, restBottom: rest0.bottom, gap: 0 });
++                  window.__kbPreInfo = { lift: Math.round(lift0), kbH: h0 };
++                  if(lift0 > 1){
++                    const cur0 = parseFloat(getComputedStyle(drawerEl0).bottom) || 0;
++                    drawerEl0.style.bottom = (cur0 + lift0) + 'px';
++                    window.__kbLayoutLiftEl = drawerEl0; window.__kbLayoutLift = true;
++                    drawerEl0.animate([{ transform: 'translate3d(0,' + lift0 + 'px,0)' }, { transform: 'translate3d(0,0,0)' }], { duration: 320, delay: 200, fill: 'backwards', easing: 'cubic-bezier(.22,1,.36,1)' }); // затримка 200 мс: поле лишається візуально під пальцем, поки триває дотик і нативний фокус
++                  }
++                }catch(errP){}
++              }
++            }
++            else if(resumeMode === 'proxy-tap') kbResumeProxyPrepare(field, t.clientX, t.clientY); else kbResumeRoPrepare(field);
+           }
+         }
+         if(resumeTap && resumeMode === 'none' && shouldInterceptFirstFocus({ field: field, kbSheetOpen: false, moved: false, durationMs: 0 })){
