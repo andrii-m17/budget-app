@@ -47,6 +47,7 @@ async function main(){
     const map = await L.calibrate(d);
     await L.toWeb(d);
     if (VARIANT === 'skip') await d.execute(() => { window.__kbResumeSkip = true; });
+    if (process.env.SIM_APPVARIANT) await d.execute(v => { setVariant('kb-resume', v); }, process.env.SIM_APPVARIANT); // справжній перемикач застосунку (Rev 2.32.434): control | proxy-tap | ro-tap; hasFocus після повернення на симуляторі true, тож усі мають бути ідентичні
     if (process.env.SIM_FAKEFOCUS) await d.execute(() => { window.__realHasFocus = document.hasFocus.bind(document); document.hasFocus = () => false; }); // імітація «вікно ще не активне»: лише змінює відповідь hasFocus() для коду застосунку, вікно iOS лишається активним
     await d.execute(() => { // хронологія фокуса вікна навколо повернення (власні слухачі: самописець у симуляторі може бути вимкнений)
       window.__wl = [];

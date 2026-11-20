@@ -1,8 +1,8 @@
-// KB-RESUME (Rev 2.32.433, C): експеримент kb-resume. Підміна document.hasFocus() імітує «вікно неактивне» (на симуляторі й у Playwright вікно завжди активне). Мок; дані вигадані.
-// Перевіряємо: control — без змін; win-focus — window.focus() до перехоплення, шлях той самий; native — перший дотик не перехоплюється; при hasFocus true — жодної різниці; подія kb-resume записується.
+// KB-RESUME-2 (Rev 2.32.434, C): експеримент kb-resume (control | proxy-tap | ro-tap). Підміна document.hasFocus() імітує «вікно неактивне» (у Playwright і на симуляторі вікно завжди активне); нативне фокусування замінника/поля імітуємо викликом focus() (синтетичні дотики його не дають). Мок; дані вигадані.
 const { test, expect, devices } = require('@playwright/test');
 const { installClock } = require('./clock');
 const PORT = process.env.E2E_PORT || 8935;
+const FIELD = '#cdd-balance';
 
 async function open(browser, variant, hasFocus){
   const ctx = await browser.newContext({ ...devices['iPhone 14'], serviceWorkers: 'block', baseURL: 'http://127.0.0.1:' + PORT });
@@ -18,73 +18,166 @@ async function open(browser, variant, hasFocus){
     Object.defineProperty(vv, 'offsetTop', { configurable: true, get(){ return window.__vv.top; } });
     if (v) setVariant('kb-resume', v);
     if (hf === false) document.hasFocus = () => false;
-    window.__wfc = 0; window.focus = () => { window.__wfc++; };
     recBuf.length = 0; switchTab('accounting'); openCardDebtEditor(0);
   }, [variant, hasFocus]);
   await page.waitForTimeout(900);
   return { ctx, page };
 }
-// синтетичний дотик (як у keyboard.spec): повертає, чи погашено touchstart/touchend
-async function tapField(page, sel, kbAfterMs){
-  return page.evaluate(async ({ sel, kbAfterMs }) => {
-    const el = document.querySelector(sel); const r = el.getBoundingClientRect();
-    const x = r.left + r.width / 2, y = r.top + r.height / 2;
-    const mk = (type) => { const ev = new Event(type, { bubbles: true, cancelable: true }); const tt = [{ clientX: x, clientY: y, identifier: 1, target: el }]; Object.defineProperty(ev, 'touches', { value: type === 'touchend' ? [] : tt }); Object.defineProperty(ev, 'changedTouches', { value: tt }); return ev; };
-    const st = mk('touchstart'); el.dispatchEvent(st);
-    await new Promise(res => setTimeout(res, 80));
-    const en = mk('touchend'); el.dispatchEvent(en);
-    if (kbAfterMs != null) { await new Promise(res => setTimeout(res, kbAfterMs)); window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); }
-    return { startPrevented: st.defaultPrevented, endPrevented: en.defaultPrevented, active: document.activeElement && document.activeElement.id, wfc: window.__wfc };
-  }, { sel, kbAfterMs });
-}
+const touch = (page, type, sel) => page.evaluate(({ type, sel }) => {
+  const el = document.querySelector(sel); const r = el.getBoundingClientRect();
+  if (type === 'touchstart') window.__tt = { el, x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  const { x, y } = window.__tt;
+  const ev = new Event(type, { bubbles: true, cancelable: true }); const tt = [{ clientX: x, clientY: y, identifier: 1, target: window.__tt.el }];
+  Object.defineProperty(ev, 'touches', { value: type === 'touchend' ? [] : tt }); Object.defineProperty(ev, 'changedTouches', { value: tt });
+  window.__tt.el.dispatchEvent(ev);
+  return { prevented: ev.defaultPrevented, x, y };
+}, { type, sel });
+const showKeyboard = (page) => page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
+const proxyInfo = (page) => page.evaluate(() => { const p = document.getElementById('kb-focus-proxy'); if (!p) return null; const r = p.getBoundingClientRect(), cs = getComputedStyle(p); return { left: r.left, top: r.top, w: r.width, h: r.height, pe: cs.pointerEvents, pos: cs.position, display: cs.display, fs: cs.fontSize, parent: p.parentNode && p.parentNode.tagName }; });
 const events = (page) => page.evaluate(() => recBuf.filter(e => e.type === 'kb-resume'));
+const state = (page) => page.evaluate(() => ({ active: document.activeElement && document.activeElement.id, ro: document.querySelector('#cdd-balance').readOnly, roAttr: document.querySelector('#cdd-balance').getAttribute('data-kb-resume-ro') }));
 
-test('control при hasFocus false: перехоплення як зараз, window.focus не викликається; подія kb-resume з hasFocus false і intercept true', async ({ browser }) => {
+test('control при hasFocus false: перехоплення як зараз; замінника і readonly нема; подія branch none, intercept true', async ({ browser }) => {
   const { ctx, page } = await open(browser, null, false);
   try {
-    expect(await page.evaluate(() => getVariant('kb-resume'))).toBe('control');
-    const r = await tapField(page, '#cdd-balance', 250);
-    expect(r.startPrevented).toBe(true); expect(r.endPrevented).toBe(true); expect(r.wfc).toBe(0);
-    await page.waitForTimeout(1300);
+    const s = await touch(page, 'touchstart', FIELD); const e = await touch(page, 'touchend', FIELD);
+    expect(s.prevented).toBe(true); expect(e.prevented).toBe(true);
+    expect((await state(page)).ro).toBe(false);
+    await page.waitForTimeout(1200);
     const ev = await events(page);
-    expect(ev.length).toBe(1);
-    expect(ev[0]).toMatchObject({ variant: 'control', hasFocusStart: false, hasFocusEnd: false, intercept: true });
-    expect(ev[0].kbShownMs).toBeGreaterThan(150); expect(ev[0].kbShownMs).toBeLessThan(700);
-    expect(Object.keys(ev[0]).filter(k => typeof ev[0][k] === 'string' && k !== 'type' && k !== 'variant')).toEqual([]); // лише числа й булеві (variant — назва варіанта)
+    expect(ev.length).toBe(1); expect(ev[0]).toMatchObject({ variant: 'control', branch: 'none', hasFocusStart: false, intercept: true });
   } finally { await ctx.close(); }
 });
 
-test('win-focus при hasFocus false: window.focus() до перехоплення, далі шлях той самий (дотик перехоплено)', async ({ browser }) => {
-  const { ctx, page } = await open(browser, 'win-focus', false);
+test('proxy-tap (hasFocus false): замінник 44×44 під дотиком на touchstart (без preventDefault), угорі на touchend; після focusin замінника — фокус на цільовому полі, шторку піднято; branch proxy-focus', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'proxy-tap', false);
   try {
-    const r = await tapField(page, '#cdd-balance', null);
-    expect(r.wfc).toBe(1); expect(r.startPrevented).toBe(true); expect(r.endPrevented).toBe(true);
-    await page.waitForTimeout(1300);
+    const s = await touch(page, 'touchstart', FIELD);
+    expect(s.prevented).toBe(false);
+    let p = await proxyInfo(page);
+    expect(p.parent).toBe('BODY'); expect(p.pos).toBe('fixed'); expect(p.pe).toBe('auto'); expect(p.w).toBe(44); expect(p.h).toBe(44); expect(parseFloat(p.fs)).toBeGreaterThanOrEqual(16);
+    expect(Math.abs(p.left + 22 - s.x)).toBeLessThanOrEqual(1); expect(Math.abs(p.top + 22 - s.y)).toBeLessThanOrEqual(1);
+    const e = await touch(page, 'touchend', FIELD);
+    expect(e.prevented).toBe(false);
+    p = await proxyInfo(page);
+    expect(p.top).toBeLessThan(80); expect(p.left).toBeLessThan(30); // угорі видимої області
+    // нативний дотик фокусує замінник (імітуємо), потім з'являється клавіатура
+    await page.evaluate(() => document.getElementById('kb-focus-proxy').focus());
+    await page.waitForTimeout(150);
+    await showKeyboard(page);
+    await page.waitForTimeout(900);
+    const st = await state(page);
+    expect(st.active, 'фокус перенесено на цільове поле').toBe('cdd-balance');
+    expect(await page.evaluate(() => document.documentElement.classList.contains('kb-sheet') || document.body.classList.contains('kb-open'))).toBe(true);
+    expect((await proxyInfo(page)).top).toBeLessThan(2000); // замінник повернено до нейтрального стану (стиль за замовчуванням)
+    await page.waitForTimeout(500);
     const ev = await events(page);
-    expect(ev[0]).toMatchObject({ variant: 'win-focus', hasFocusStart: false, intercept: true }); expect(ev[0].kbShownMs == null, 'null у самописці = ключ відсутній').toBe(true);
+    expect(ev.length).toBe(1); expect(ev[0]).toMatchObject({ variant: 'proxy-tap', branch: 'proxy-focus', hasFocusStart: false, intercept: false });
+    expect(typeof ev[0].transferMs).toBe('number'); expect(ev[0].transferMs).toBeGreaterThan(100);
   } finally { await ctx.close(); }
 });
 
-test('native при hasFocus false: перший дотик не перехоплюється (ні touchstart, ні touchend), подія з intercept false', async ({ browser }) => {
-  const { ctx, page } = await open(browser, 'native', false);
+test('proxy-tap: фокус на замінник не прийшов за 400 мс — замінник сховано, нічого не змінено; branch proxy-miss', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'proxy-tap', false);
   try {
-    const r = await tapField(page, '#cdd-balance', null);
-    expect(r.startPrevented).toBe(false); expect(r.endPrevented).toBe(false); expect(r.wfc).toBe(0);
-    await page.waitForTimeout(1300);
-    const ev = await events(page);
-    expect(ev[0]).toMatchObject({ variant: 'native', hasFocusStart: false, intercept: false });
+    await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
+    await page.waitForTimeout(250);
+    expect((await proxyInfo(page)).display).not.toBe('none');
+    await page.waitForTimeout(300);
+    expect((await proxyInfo(page)).display).toBe('none');
+    expect((await state(page)).active).not.toBe('cdd-balance');
+    await page.waitForTimeout(800);
+    expect((await events(page))[0]).toMatchObject({ variant: 'proxy-tap', branch: 'proxy-miss' });
   } finally { await ctx.close(); }
 });
 
-for (const v of ['control', 'win-focus', 'native']) {
-  test('hasFocus true: ' + v + ' ідентичний control (перехоплено, window.focus не викликано), подія записується з hasFocus true', async ({ browser }) => {
+test('ro-tap (hasFocus false): readonly на touchstart (без preventDefault); focus знімає readonly, blur і звичайний шлях — поле у фокусі; branch ro-focus', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'ro-tap', false);
+  try {
+    const s = await touch(page, 'touchstart', FIELD);
+    expect(s.prevented).toBe(false);
+    expect(await state(page)).toMatchObject({ ro: true, roAttr: '1' });
+    const e = await touch(page, 'touchend', FIELD);
+    expect(e.prevented).toBe(false);
+    await page.evaluate(() => document.querySelector('#cdd-balance').focus()); // нативний дотик фокусує readonly-поле
+    await page.waitForTimeout(500);
+    const st = await state(page);
+    expect(st).toMatchObject({ ro: false, roAttr: null, active: 'cdd-balance' });
+    await page.waitForTimeout(800);
+    expect((await events(page))[0]).toMatchObject({ variant: 'ro-tap', branch: 'ro-focus', hasFocusStart: false, intercept: false });
+  } finally { await ctx.close(); }
+});
+
+test('ro-tap: ні focus, ні click за 300 мс — readonly знято і звичайний шлях; branch ro-timeout', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'ro-tap', false);
+  try {
+    await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
+    await page.waitForTimeout(200);
+    expect((await state(page)).ro).toBe(true);
+    await page.waitForTimeout(500);
+    expect(await state(page)).toMatchObject({ ro: false, roAttr: null, active: 'cdd-balance' });
+    await page.waitForTimeout(700);
+    expect((await events(page))[0]).toMatchObject({ variant: 'ro-tap', branch: 'ro-timeout' });
+  } finally { await ctx.close(); }
+});
+
+for (const v of ['control', 'proxy-tap', 'ro-tap']) {
+  test('hasFocus true: ' + v + ' ідентичний control — перехоплено, замінника й readonly нема, branch none', async ({ browser }) => {
     const { ctx, page } = await open(browser, v, true);
     try {
-      const r = await tapField(page, '#cdd-balance', 250);
-      expect(r.startPrevented).toBe(true); expect(r.endPrevented).toBe(true); expect(r.wfc).toBe(0);
-      await page.waitForTimeout(1300);
-      const ev = await events(page);
-      expect(ev[0]).toMatchObject({ variant: v, hasFocusStart: true, hasFocusEnd: true, intercept: true });
+      const s = await touch(page, 'touchstart', FIELD);
+      expect(s.prevented).toBe(true);
+      expect(await page.evaluate(() => { const p = document.getElementById('kb-focus-proxy'); return !p || p.parentNode.tagName !== 'BODY' || getComputedStyle(p).pointerEvents === 'none'; })).toBe(true);
+      expect((await state(page)).ro).toBe(false);
+      const e = await touch(page, 'touchend', FIELD); expect(e.prevented).toBe(true);
+      await page.waitForTimeout(1200);
+      expect((await events(page))[0]).toMatchObject({ variant: v, branch: 'none', hasFocusStart: true, intercept: true });
     } finally { await ctx.close(); }
   });
 }
+
+test('proxy-tap: два швидкі дотики — активний лише останній сеанс (перший таймер не ховає замінник), один перенос фокусу', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'proxy-tap', false);
+  try {
+    await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
+    await page.waitForTimeout(200);
+    await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
+    await page.waitForTimeout(300); // 500 мс від першого дотику: його таймер (400) не має спрацювати
+    expect((await proxyInfo(page)).display).not.toBe('none');
+    await page.evaluate(() => document.getElementById('kb-focus-proxy').focus());
+    await page.waitForTimeout(150); await showKeyboard(page); await page.waitForTimeout(900);
+    expect((await state(page)).active).toBe('cdd-balance');
+    await page.waitForTimeout(500);
+    const ev = await events(page);
+    expect(ev.filter(e => e.branch === 'proxy-focus').length).toBe(1);
+  } finally { await ctx.close(); }
+});
+
+test('ro-tap і proxy-tap: шторку закрито між дотиком і фокусом — фокус не ставиться, readonly знято', async ({ browser }) => {
+  for (const v of ['ro-tap', 'proxy-tap']) {
+    const { ctx, page } = await open(browser, v, false);
+    try {
+      await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
+      await page.evaluate(() => { document.getElementById('card-debt-drawer').classList.remove('open'); document.getElementById('card-debt-drawer').setAttribute('inert', ''); });
+      if (v === 'proxy-tap') await page.evaluate(() => document.getElementById('kb-focus-proxy').focus());
+      await page.waitForTimeout(600);
+      const st = await state(page);
+      expect(st.ro, v).toBe(false); expect(st.active, v).not.toBe('cdd-balance');
+    } finally { await ctx.close(); }
+  }
+});
+
+test('ro-tap і proxy-tap: рух пальця понад 10 pt (прокрутка) — readonly/замінник знімаються без фокусу', async ({ browser }) => {
+  for (const v of ['ro-tap', 'proxy-tap']) {
+    const { ctx, page } = await open(browser, v, false);
+    try {
+      await touch(page, 'touchstart', FIELD);
+      await page.evaluate(() => { const el = window.__tt.el; const tt = [{ clientX: window.__tt.x, clientY: window.__tt.y - 30, identifier: 1, target: el }]; const ev = new Event('touchmove', { bubbles: true, cancelable: true }); Object.defineProperty(ev, 'touches', { value: tt }); Object.defineProperty(ev, 'changedTouches', { value: tt }); el.dispatchEvent(ev); });
+      const st = await state(page);
+      expect(st.ro, v).toBe(false);
+      if (v === 'proxy-tap') expect((await proxyInfo(page)).display).toBe('none');
+      await touch(page, 'touchend', FIELD); await page.waitForTimeout(700);
+      expect((await state(page)).active, v).not.toBe('cdd-balance');
+    } finally { await ctx.close(); }
+  }
+});

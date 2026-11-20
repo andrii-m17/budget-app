@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.433"><link rel="stylesheet" href="./css/app.css?v=2.32.433"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.434"><link rel="stylesheet" href="./css/app.css?v=2.32.434"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -875,7 +875,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.433</div>
+  <div class="version-footer">Money Tree · Rev 2.32.434</div>
 </div>
   </div>
 </div>
@@ -1663,16 +1663,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.433"></script>
-<script src="./js/util-date.js?v=2.32.433"></script>
-<script src="./js/util-safe.js?v=2.32.433"></script>
-<script src="./js/util-misc.js?v=2.32.433"></script>
-<script src="./js/diag.js?v=2.32.433"></script>
-<script src="./js/shell.js?v=2.32.433"></script>
-<script src="./js/structure.js?v=2.32.433"></script>
-<script src="./js/analytics.js?v=2.32.433"></script>
-<script src="./js/payments.js?v=2.32.433"></script>
-<script src="./js/sheets.js?v=2.32.433"></script>
+<script src="./js/util-format.js?v=2.32.434"></script>
+<script src="./js/util-date.js?v=2.32.434"></script>
+<script src="./js/util-safe.js?v=2.32.434"></script>
+<script src="./js/util-misc.js?v=2.32.434"></script>
+<script src="./js/diag.js?v=2.32.434"></script>
+<script src="./js/shell.js?v=2.32.434"></script>
+<script src="./js/structure.js?v=2.32.434"></script>
+<script src="./js/analytics.js?v=2.32.434"></script>
+<script src="./js/payments.js?v=2.32.434"></script>
+<script src="./js/sheets.js?v=2.32.434"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6829,7 +6829,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.433';
+const APP_VERSION = '2.32.434';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -16171,24 +16171,24 @@ purgeLegacyKeyboardKeys();
 const TEST_VARIANTS_LS_KEY = 'budget_variants_v1';
 // Rev 2.32.0 (F): реєстр порожній — motion-intensity («Стандартна», ×1) і card-reveal («Стандартно», 420/40) зафіксовано константами; pruneVariants() прибирає їхні старі ключі з localStorage.
 // Rev 2.32.8 (A): реєстр порожній — edit-label завершено (no-for); pruneVariants() прибирає його ключ із localStorage.
-// Rev 2.32.433 (KB-RESUME, C): експеримент kb-resume. Звіт MT-1120-4439 (Safari 27.2): після повернення з іншого застосунку iOS ще раз ненадовго забирає фокус у вікна (hasFocus false), перший дотик по полю шторки застосунок перехоплює й ставить фокус програмно, а iOS при неактивному вікні клавіатуру з програмного фокуса не піднімає; клавіатура є лише з другого дотику. На симуляторі цього вікна нема, тож варіанти перевіряються на телефоні (docs/reports/KB-RESUME-step0.md). При hasFocus true всі варіанти ідентичні control.
+// Rev 2.32.433 (KB-RESUME, C): експеримент kb-resume; Rev 2.32.434 (KB-RESUME-2, C): варіанти win-focus і native прибрано (звіт MT-1120-7070: window.focus() повертає hasFocus, але клавіатури нема; native дає зсув сторінки 319 pt), додано proxy-tap і ro-tap. Причина (WebKit bug 329895): після повернення з фону сторінка неактивна, focus() із жесту подію фокуса пригнічує, клавіатура не піднімається. При hasFocus true всі варіанти ідентичні control.
 const TEST_VARIANTS = [
   {
     id: 'kb-resume',
     title: 'Клавіатура після повернення в застосунок (експеримент)',
-    what: 'Чи піднімається клавіатура з першого дотику по полю шторки після повернення з іншого застосунку і чи не стрибає форма. Журнал записує, чи вікно було активне в момент дотику (hasFocus), чи перехоплено дотик, за скільки мс піднялась клавіатура і зсув сторінки.',
+    what: 'Чи піднімається клавіатура з першого дотику по полю шторки після повернення з іншого застосунку і чи не стрибає форма. Лише коли вікно неактивне (hasFocus false) на початку дотику: proxy-tap — дотик іде в прозорий замінник під пальцем, фокус потім переходить на справжнє поле; ro-tap — поле на мить лише для читання, нативний дотик, далі звичайний шлях. Журнал записує гілку, час переносу, зсув сторінки, час появи клавіатури і стрибок шторки.',
     variants: [
       { key: 'control', label: 'Як зараз', hint: 'перший дотик перехоплюється, фокус ставить застосунок' },
-      { key: 'win-focus', label: 'Активувати вікно', hint: 'якщо вікно неактивне в момент дотику, спершу window.focus(), далі звичайний шлях' },
-      { key: 'native', label: 'Віддати дотик iOS', hint: 'якщо вікно неактивне, перший дотик не перехоплюється: нативний фокус (можливий стрибок форми)' },
+      { key: 'proxy-tap', label: 'Замінник під дотиком', hint: 'при неактивному вікні: прозорий замінник під пальцем, потім перенос фокусу на поле' },
+      { key: 'ro-tap', label: 'Поле лише для читання', hint: 'при неактивному вікні: поле на мить readonly, нативний дотик, далі звичайний шлях' },
     ],
     defaultVariant: 'control',
-    addedIn: 'Rev 2.32.433 (KB-RESUME)',
+    addedIn: 'Rev 2.32.434 (KB-RESUME-2)',
     cleanupBy: 'після перевірки на iPhone: лишити переможця як поведінку або прибрати разом із кодом kbResume*',
     checkSteps: [
-      'Оберіть варіант. Відкрийте Облік, картку боргу, торкніться поля (клавіатура відкрилась), перейдіть в інший застосунок.',
+      'Оберіть варіант. Облік, картка боргу, торкніться поля (клавіатура відкрилась), перейдіть в інший застосунок.',
       'Поверніться й одразу торкніться поля: чи є клавіатура з першого дотику, чи не стрибнула форма. Три рази для кожного варіанта.',
-      'Після трьох разів натисніть «Записати лог із цим варіантом» і надішліть код звіту (події kb-resume).',
+      'Після трьох разів натисніть «Записати лог із цим варіантом» і надішліть код звіту (події kb-resume: branch, transferMs, panMax, jumpMax).',
     ],
   },
 ];
@@ -16249,29 +16249,34 @@ function getVariantsSnapshot(){
 }
 // </test-variants-module>
 pruneVariants();
-// Rev 2.32.433 (KB-RESUME, C): експеримент kb-resume. Чиста функція рішення для ПЕРШОГО дотику по полю шторки (клавіатура закрита): що робити, коли вікно неактивне (document.hasFocus() === false). hasFocus true або control — нічого нового (поведінка ідентична поточній).
+// Rev 2.32.433 (KB-RESUME, C), Rev 2.32.434 (KB-RESUME-2): експеримент kb-resume. Чиста функція рішення для ПЕРШОГО дотику по полю шторки (клавіатура закрита): 'none' (шлях без змін) або гілка експерименту, але лише коли вікно неактивне (document.hasFocus() === false); hasFocus true або control — завжди 'none'.
+const KB_RESUME_PROXY_MS = 400; // страховка proxy-tap: фокус на замінник не прийшов — сховати замінник, нічого не робити
+const KB_RESUME_RO_MS = 300;    // страховка ro-tap: ні focus, ні click — зняти readonly і звичайний перехоплений шлях
 function kbResumeVariant(){ try{ return getVariant('kb-resume') || 'control'; }catch(e){ return 'control'; } }
 function kbResumeDecide(variant, hasFocus){
-  if(hasFocus !== false) return { focusWindow: false, skipIntercept: false };
-  if(variant === 'win-focus') return { focusWindow: true, skipIntercept: false };
-  if(variant === 'native') return { focusWindow: false, skipIntercept: true };
-  return { focusWindow: false, skipIntercept: false };
+  if(hasFocus !== false) return 'none';
+  if(variant === 'proxy-tap' || variant === 'ro-tap') return variant;
+  return 'none';
 }
-// Самописець (клас A, усі варіанти): запис першого дотику по полю шторки: variant, hasFocusStart (touchstart), hasFocusEnd (touchend), intercept (так/ні), kbShownMs (до першого помітного стиснення visualViewport ≥ 100 pt, null через 1 с), panMax (макс. visualViewport.offsetTop за 600 мс). Лише числа й булеві.
-function kbResumeBegin(hasFocus){
-  const rec = { variant: kbResumeVariant(), hasFocusStart: hasFocus, hasFocusEnd: null, intercept: false, kbShownMs: null, panMax: 0, t0: performance.now(), h0: 0 };
+// Самописець (клас A, усі варіанти): запис першого дотику по полю шторки: variant, branch (proxy-focus | proxy-miss | ro-click | ro-focus | ro-timeout | none), hasFocusStart/hasFocusEnd, intercept, transferMs (від touchstart до перенесення фокусу), kbShownMs (до стиснення visualViewport ≥ 100 pt; null через 1 с), panMax (макс. visualViewport.offsetTop за 600 мс), jumpMax (макс. зміна видимого верху шторки між кадрами за 600 мс: підйом під клавіатуру плавний, стрибок сторінки великий). Лише числа, булеві й назви.
+function kbResumeBegin(hasFocus, drawerEl){
+  const rec = { variant: kbResumeVariant(), branch: 'none', hasFocusStart: hasFocus, hasFocusEnd: null, intercept: false, transferMs: null, kbShownMs: null, panMax: 0, jumpMax: 0, t0: performance.now(), h0: 0 };
   try{
     const vv = window.visualViewport;
     rec.h0 = vv ? vv.height : window.innerHeight;
+    let lastTop = null;
     (function tick(){
       try{
         const el = performance.now() - rec.t0, v = window.visualViewport;
         if(v){
           if(rec.kbShownMs === null && rec.h0 - v.height >= 100) rec.kbShownMs = Math.round(el);
-          if(el <= 600 && v.offsetTop > rec.panMax) rec.panMax = Math.round(v.offsetTop);
+          if(el <= 600){
+            if(v.offsetTop > rec.panMax) rec.panMax = Math.round(v.offsetTop);
+            if(drawerEl){ const top = drawerEl.getBoundingClientRect().top - v.offsetTop; if(lastTop !== null && Math.abs(top - lastTop) > rec.jumpMax) rec.jumpMax = Math.round(Math.abs(top - lastTop)); lastTop = top; }
+          }
         }
         if(el < 1000){ requestAnimationFrame(tick); return; }
-        if(typeof pushDebugEvent === 'function') pushDebugEvent({ type: 'kb-resume', variant: rec.variant, hasFocusStart: rec.hasFocusStart, hasFocusEnd: rec.hasFocusEnd, intercept: rec.intercept, kbShownMs: rec.kbShownMs, panMax: rec.panMax });
+        if(typeof pushDebugEvent === 'function') pushDebugEvent({ type: 'kb-resume', variant: rec.variant, branch: rec.branch, hasFocusStart: rec.hasFocusStart, hasFocusEnd: rec.hasFocusEnd, intercept: rec.intercept, transferMs: rec.transferMs, kbShownMs: rec.kbShownMs, panMax: rec.panMax, jumpMax: rec.jumpMax });
       }catch(e){}
     })();
   }catch(e){}
@@ -21704,6 +21709,7 @@ function focusCardField(input){
 }
 function beginKbFocusProxy(target, drawerEl, onTransferred, opts){
   const auto = !!(opts && opts.auto); // Rev 2.32.294 (KB-39, A): відкриття з автофокусом
+  const nativeProxy = !!(opts && opts.nativeProxy); // Rev 2.32.434 (KB-RESUME-2): замінник уже сфокусовано нативним дотиком (proxy-tap): без placeKbProxyAtField і proxy.focus()
   // Rev 2.23.13 (6D.182) — вимірюємо ДО будь-яких змін класів (тут,
   // усередині перехопленого touchend-обробника, ще ДО proxy.focus(), а
   // отже ще ДО того, як focusin додасть body.kb-open) — промт явно вимагав
@@ -21723,13 +21729,14 @@ function beginKbFocusProxy(target, drawerEl, onTransferred, opts){
     proxy.style.cssText = proxyCaretStyle() + 'position:fixed; left:8px; top:8px;';
     proxyDist = 0;
     kbAutoOpenAt = Date.now();
-  }else proxyDist = placeKbProxyAtField(proxy, target);
+  }else if(nativeProxy){ proxyDist = 0; }
+  else proxyDist = placeKbProxyAtField(proxy, target);
   kbProxyActive = true;
   kbFocusFlowMode = 'proxy';
   const startedAt = Date.now();
   captureDebugGeometry('focus-proxy', { drawerId: kbSheetLabel(drawerEl), proxyActive: true, proxyCaretColor: getComputedStyle(proxy).caretColor, proxyDistToField: proxyDist });
-  proxy.focus({ preventScroll: true });
-  if(auto){ kbLastFocusedField = target; enterKbSheet(drawerEl, target); } // проксі поза листом: сесію листа відкриваємо явно (рання ціль, виїзд одним рухом)
+  if(!nativeProxy) proxy.focus({ preventScroll: true });
+  if(auto || nativeProxy){ kbLastFocusedField = target; enterKbSheet(drawerEl, target); } // проксі поза листом: сесію листа відкриваємо явно (рання ціль, виїзд одним рухом)
 
   let settled = false, autoBy = null;
   let rafId = null;
@@ -21781,6 +21788,76 @@ function beginKbFocusProxy(target, drawerEl, onTransferred, opts){
   }
   if(window.visualViewport) window.visualViewport.addEventListener('resize', onVvResize);
   rafId = requestAnimationFrame(poll);
+}
+// Rev 2.32.434 (KB-RESUME-2, C): гілки експерименту kb-resume (лише при document.hasFocus() === false на touchstart; див. kbResumeDecide). Спільне: touchstart/touchend БЕЗ preventDefault (нативний дотик), обробка в kbTapEnd.
+// proxy-tap: на touchstart прозорий замінник (kb-focus-proxy) 44x44 під точкою дотику, поверх поля; на touchend синхронно угору (safe-area + 8); нативний дотик фокусує замінник, iOS піднімає клавіатуру; на його focusin — наявний шлях передачі фокусу на справжнє поле (beginKbFocusProxy з nativeProxy). Не прийшов фокус за KB_RESUME_PROXY_MS — замінник ховається.
+let kbResumeCancel = null; // єдиний активний сеанс гілки (proxy-tap/ro-tap): новий дотик скасовує попередній (таймер, слухачі, readonly, замінник); перевірка рев'ю 2.32.434
+function kbResumeAbortActive(){ try{ if(kbResumeCancel){ const f = kbResumeCancel; kbResumeCancel = null; f(); } }catch(e){} }
+function kbResumeStillValid(target, drawerEl){ try{ return !!(target && target.isConnected && drawerEl && drawerEl.classList.contains('open') && !drawerEl.hasAttribute('inert')); }catch(e){ return false; } } // шторку не закрито між дотиком і фокусом
+function kbResumeProxyPrepare(field, x, y){
+  kbResumeAbortActive();
+  try{
+    const proxy = getOrCreateKbProxyEl();
+    configureKbProxy(proxy, field);
+    if(proxy.parentNode !== document.body) document.body.appendChild(proxy);
+    proxy.style.cssText = proxyCaretStyle() + 'position:fixed; left:' + Math.round(x - 22) + 'px; top:' + Math.round(y - 22) + 'px; width:44px; height:44px; pointer-events:auto; z-index:2147483000;';
+  }catch(e){}
+}
+function kbResumeProxyReset(){ try{ const p = getOrCreateKbProxyEl(); p.style.cssText = proxyCaretStyle(); }catch(e){} }
+function kbResumeProxyArm(start, target, drawerEl){
+  const proxy = getOrCreateKbProxyEl(), rec = start.rec;
+  proxy.style.top = 'calc(env(safe-area-inset-top, 0px) + 8px)'; proxy.style.left = '8px'; // угору видимої області: фокус iOS не зсуває сторінку
+  let done = false, timer = null;
+  kbResumeCancel = function(){ done = true; clearTimeout(timer); proxy.removeEventListener('focusin', onFocus); kbResumeProxyReset(); proxy.style.display = 'none'; };
+  function onFocus(){
+    if(done) return; done = true; clearTimeout(timer); proxy.removeEventListener('focusin', onFocus); kbResumeCancel = null;
+    if(!kbResumeStillValid(target, drawerEl)){ kbResumeProxyReset(); proxy.style.display = 'none'; if(rec) rec.branch = 'proxy-miss'; return; }
+    if(rec) rec.branch = 'proxy-focus';
+    beginKbFocusProxy(target, drawerEl, function(){ if(rec) rec.transferMs = Math.round(performance.now() - rec.t0); kbResumeProxyReset(); }, { nativeProxy: true });
+  }
+  proxy.addEventListener('focusin', onFocus);
+  timer = setTimeout(function(){
+    if(done) return; done = true; proxy.removeEventListener('focusin', onFocus); kbResumeCancel = null;
+    if(rec) rec.branch = 'proxy-miss';
+    kbResumeProxyReset(); proxy.style.display = 'none';
+  }, KB_RESUME_PROXY_MS);
+  if(document.activeElement === proxy) onFocus();
+}
+// ro-tap: на touchstart поле readonly; нативний дотик; на focus/click readonly знімається, blur() і звичайний перехоплений шлях фокусу (kbResumeInterceptFocus) у межах жесту; страховка KB_RESUME_RO_MS.
+function kbResumeRoPrepare(field){ kbResumeAbortActive(); try{ field.readOnly = true; field.setAttribute('data-kb-resume-ro', '1'); }catch(e){} }
+function kbResumeRoRelease(field){ try{ if(field && field.getAttribute('data-kb-resume-ro')){ field.readOnly = false; field.removeAttribute('data-kb-resume-ro'); } }catch(e){} }
+function kbResumeInterceptFocus(target, drawerEl){ // той самий перехоплений шлях, що й у kbTapEnd
+  if(kbCanFocusDirect(target, drawerEl)){ startKbFramesSampler(); kbLastInterceptAt = Date.now(); focusWithoutScrollIfSupported(target, drawerEl.id); return; }
+  startKbFramesSampler(); beginKbFocusProxy(target, drawerEl);
+}
+function kbResumeRoArm(start, target, drawerEl){
+  const rec = start.rec;
+  let done = false, timer = null;
+  kbResumeCancel = function(){ done = true; clearTimeout(timer); target.removeEventListener('click', onClick); target.removeEventListener('focus', onFocusEv); kbResumeRoRelease(target); };
+  function go(branch){
+    if(done) return; done = true; clearTimeout(timer); kbResumeCancel = null;
+    target.removeEventListener('click', onClick); target.removeEventListener('focus', onFocusEv);
+    if(rec) rec.branch = branch;
+    kbResumeRoRelease(target);
+    try{ if(document.activeElement === target) target.blur(); }catch(e){}
+    if(kbResumeStillValid(target, drawerEl)) kbResumeInterceptFocus(target, drawerEl); // шторку закрито між дотиком і фокусом — фокус не ставимо
+  }
+  function onClick(){ go('ro-click'); }
+  function onFocusEv(){ go('ro-focus'); }
+  target.addEventListener('click', onClick); target.addEventListener('focus', onFocusEv);
+  timer = setTimeout(function(){ go('ro-timeout'); }, KB_RESUME_RO_MS);
+  if(document.activeElement === target) go('ro-focus');
+}
+function kbResumeCleanup(start){
+  kbResumeAbortActive();
+  try{
+    if(start.resumeMode === 'ro-tap') kbResumeRoRelease(start.resumeField);
+    else if(start.resumeMode === 'proxy-tap'){ kbResumeProxyReset(); const p = getOrCreateKbProxyEl(); p.style.display = 'none'; }
+  }catch(e){}
+}
+function kbResumeTapEnd(start, target, drawerEl, moved){
+  if(start.scrolling || start.resumeMoved || moved || !target || !drawerEl){ kbResumeCleanup(start); return; }
+  if(start.resumeMode === 'proxy-tap') kbResumeProxyArm(start, target, drawerEl); else kbResumeRoArm(start, target, drawerEl);
 }
 // Rev 2.23.14 (6D.183) — kb-frames: покадровий (requestAnimationFrame, БЕЗ
 // читань розмітки) запис [t, vvH, vvOffsetTop, innerH, scrollY] від
@@ -22874,15 +22951,17 @@ document.addEventListener('touchstart', function(e){
         // Rev 2.32.310 (KB-FINAL, C): клавіатура закрита: дотик у межах 12 пт від текстового поля шторки (input, підпис, заголовок поряд) — preventDefault одразу, фокус на touchend цього ж дотику (шлях першого фокуса: прямий або через допоміжне поле)
         const field = resolveTapField(raw) || resolveTapFieldNear(raw, t.clientX, t.clientY) || resolveTapFieldInSheet(raw, t.clientX, t.clientY);
         // Rev 2.32.327 (LOGIN-FORM-2): виняток платформи для прямого дотику (2.32.322) прибрано: звіт MT-1117-3640: власний фокус iOS давав intercept-miss і pan-corrected 361; поля входу знову йдуть шляхом першого дотику (перехоплення / focus-proxy)
-        // Rev 2.32.433 (KB-RESUME, C): перший дотик по полю шторки: запис у самописець (усі варіанти) і гілка експерименту kb-resume лише при document.hasFocus() === false; інакше (і в control) шлях без змін
+        // Rev 2.32.433 (KB-RESUME, C), Rev 2.32.434 (KB-RESUME-2): перший дотик по полю шторки: запис у самописець (усі варіанти); гілка експерименту kb-resume лише при document.hasFocus() === false (proxy-tap / ro-tap: дотик нативний, без preventDefault); інакше (і в control) шлях без змін
         const resumeTap = !!(field && field !== active && isFieldInsideDrawer(field));
-        const resumeDec = resumeTap ? kbResumeDecide(kbResumeVariant(), document.hasFocus()) : null;
-        if(resumeDec){
-          entry.rec = kbResumeBegin(document.hasFocus());
-          if(resumeDec.focusWindow){ try{ window.focus(); }catch(errF){} }
-          if(resumeDec.skipIntercept) entry.noFocus = true;
+        const resumeMode = resumeTap ? kbResumeDecide(kbResumeVariant(), document.hasFocus()) : 'none';
+        if(resumeTap){
+          entry.rec = kbResumeBegin(document.hasFocus(), kbSheetHostOf(field));
+          if(resumeMode !== 'none'){
+            entry.noFocus = true; entry.resumeMode = resumeMode; entry.resumeField = field;
+            if(resumeMode === 'proxy-tap') kbResumeProxyPrepare(field, t.clientX, t.clientY); else kbResumeRoPrepare(field);
+          }
         }
-        if(resumeTap && !(resumeDec && resumeDec.skipIntercept) && shouldInterceptFirstFocus({ field: field, kbSheetOpen: false, moved: false, durationMs: 0 })){
+        if(resumeTap && resumeMode === 'none' && shouldInterceptFirstFocus({ field: field, kbSheetOpen: false, moved: false, durationMs: 0 })){
           entry.field = field; entry.intercept = true; entry.first = true; entry.scroller = kbTouchScroller(field);
           if(e.cancelable) e.preventDefault();
         }
@@ -22896,6 +22975,7 @@ document.addEventListener('touchmove', function(e){
   const list = e.changedTouches || [];
   for(let i = 0; i < list.length; i++){
     const t = list[i], en = kbTouches.get(t.identifier);
+    if(en && en.resumeMode && !en.resumeMoved && Math.sqrt((t.clientX - en.x) * (t.clientX - en.x) + (t.clientY - en.y) * (t.clientY - en.y)) >= 10){ en.resumeMoved = true; kbResumeCleanup(en); } // Rev 2.32.434 (KB-RESUME-2): це прокрутка, не дотик — замінник/readonly знімаються
     if(!en || !en.intercept) continue;
     if(!en.scrolling && Math.sqrt((t.clientX - en.x) * (t.clientX - en.x) + (t.clientY - en.y) * (t.clientY - en.y)) >= 10) en.scrolling = true;
     if(en.scrolling && en.scroller) en.scroller.scrollTop += en.lastY - t.clientY;
@@ -22909,6 +22989,7 @@ document.addEventListener('touchcancel', function(e){
     const id = list[i].identifier, en = kbTouches.get(id);
     if(!en) continue;
     kbTouches.delete(id);
+    if(en.resumeMode) kbResumeCleanup(en); // Rev 2.32.434 (KB-RESUME-2)
     if(en.intercept) captureDebugGeometry('touch-cancel', { to: en.field ? (en.field.id || null) : null, durationMs: Math.round(Date.now() - en.time), drawerId: kbSheetLabel(kbSheetHostOf(en.field)) });
   }
 }, { passive: true });
@@ -22950,6 +23031,7 @@ function kbTapEnd(e, t, start){ // Rev 2.32.307 (KB-SWITCH-FINAL): рішенн�
   const target = (start.intercept && start.field) ? start.field : (resolveTapField(rawTarget) || resolveTapFieldNear(rawTarget, t.clientX, t.clientY)); // Rev 2.32.306 (KB-SWITCH-FIX, C); Rev 2.32.310: ціль, визначена на touchstart, не перераховується
   const viaLabel = !!target && rawTarget !== target && !!(rawTarget.closest && rawTarget.closest('label'));
   const drawerEl = kbSheetHostOf(target);
+  if(start.resumeMode){ kbResumeTapEnd(start, target || start.resumeField, drawerEl || kbSheetHostOf(start.resumeField), moved); return; } // Rev 2.32.434 (KB-RESUME-2): гілка експерименту; touchend без preventDefault
   // Rev 2.32.310 (KB-FINAL, C): перший фокус, ухвалений на touchstart (start.first): за будь-якої тривалості, лише без зсуву; зсув = прокрутка, фокус не ставимо
   if(start.first && (start.scrolling || moved || !target)) return;
   const intercept = (start.first && !!target) ? true : shouldInterceptFirstFocus({

@@ -10,7 +10,7 @@ const { buildSandbox } = require('./extract');
 const SRC = require('./extract').readIndexWithCss();
 const SW = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
 
-const NOW = Date.parse('2026-11-13T12:00:00Z');
+const NOW = Date.now(); // Rev 2.32.434: було фіксовану дату 2026-11-13: за 7 днів вона перестала проходити межу «старші за 7 днів» (код порівнює з Date.now())
 const DAY = 86400000;
 const uuid = function (n) { return '00000000-0000-4000-8000-' + String(n).padStart(12, '0'); };
 const item = function (n, ageMs, o) { return Object.assign({ push_id: uuid(n), received_at: new Date(NOW - (ageMs || 0)).toISOString(), shown_at: new Date(NOW - (ageMs || 0) + 900).toISOString(), cold_start: true, idle_s: 5, app_state: 'closed' }, o || {}); };
