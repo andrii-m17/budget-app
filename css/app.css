@@ -1700,6 +1700,8 @@
      перевизначає той самий custom property меншим значенням, успадкованим
      усіма .drawer нижче по дереву, без потреби дублювати саме правило. */
   body.kb-open{ --drawer-bottom-base:8px; }
+  /* Rev 2.32.435 (KB-RESUME-4): варіант keep-lift: шторка лишається піднятою після виходу з застосунку без клавіатури; під нею той самий фон шторки: чотири копії фону зі зсувом ¼, ½, ¾ і повним підйомом (box-shadow не обрізається overflow шторки, нових елементів нема; одна копія з повним зсувом лишала б щілину, коли шторка нижча за підйом) */
+  html.kb-keep .drawer.open{ box-shadow:var(--shadow-lg), 0 calc(var(--sheet-lift, 0) * .25px) 0 0 var(--surface), 0 calc(var(--sheet-lift, 0) * .5px) 0 0 var(--surface), 0 calc(var(--sheet-lift, 0) * .75px) 0 0 var(--surface), 0 calc(var(--sheet-lift, 0) * 1px) 0 0 var(--surface); }
   .drawer{ position:fixed; z-index:91; background:var(--surface); box-shadow:var(--shadow-lg);
     /* Rev #30 (6D.16) — 6D.15 дав виміряні ≈25.5px, попрошено 20px;
        -5px від обох доданків (105→100, 85→80) за тією ж пропорцією зсуву. */
