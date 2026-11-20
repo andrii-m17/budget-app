@@ -7,24 +7,44 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = require('./extract').readIndexWithCss();
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const c = buildSandbox({}, ['MONO_ERROR_TEXTS', 'monoErrorMessage', 'monoConnectionState', 'MONO_MONTHS_GEN', 'formatLastEvent', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail']);
+const c = buildSandbox({}, ['MONO_ERROR_TEXTS', 'monoErrorMessage', 'monoConnectionState', 'MONO_PENDING_FRESH_MS', 'MONO_MONTHS_GEN', 'formatLastEvent', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail']);
 
 test('monoErrorMessage: усі 9 кодів сервера мають зрозумілий текст; мережа й невідоме — теж', function(){
   const codes = ['invalid_token_format', 'invalid_token', 'rate_limited', 'bank_rate_limited', 'bank_error', 'bank_unreachable', 'webhook_failed', 'server_key_error', 'db_error'];
   codes.forEach(function(k){ const t = c.monoErrorMessage(k); assert.ok(t && t.length > 5 && !/_/.test(t), k); });
   assert.equal(c.monoErrorMessage('invalid_token'), 'Токен недійсний. Перевірте й спробуйте ще раз');
-  assert.equal(c.monoErrorMessage('rate_limited'), 'Зачекайте хвилину й повторіть');
-  assert.equal(c.monoErrorMessage('webhook_failed'), 'Не вдалося з\'єднатися з банком. Спробуйте пізніше');
-  assert.equal(c.monoErrorMessage('db_error'), 'Сталася помилка. Спробуйте пізніше');
+  assert.equal(c.monoErrorMessage('rate_limited'), 'Банк дозволяє одну спробу на хвилину. Спробуйте за хвилину'); // Rev 2.32.428 (MONO-PENDING)
+  assert.equal(c.monoErrorMessage('webhook_failed'), 'Не вдалося підключити. Спробуйте ще раз за хвилину');
+  assert.equal(c.monoErrorMessage('bank_error'), 'Не вдалося підключити. Спробуйте ще раз за хвилину');
+  assert.equal(c.monoErrorMessage('db_error'), 'Не вдалося підключити. Спробуйте ще раз за хвилину');
   assert.equal(c.monoErrorMessage('network'), 'Немає зв\'язку');
   assert.equal(c.monoErrorMessage('щось_нове'), 'Сталася помилка. Спробуйте пізніше');
 });
-test('monoConnectionState: немає запису / disconnected → none; active/pending → connected; error → error', function(){
+test('monoConnectionState: none / active / pending (свіжий, старий, невідомий, із connected_at) / error / disconnected (MONO-PENDING)', function(){
+  const NOW = Date.parse('2026-11-20T12:00:00Z'), iso = function(msAgo){ return new Date(NOW - msAgo).toISOString(); };
   assert.equal(c.monoConnectionState(null), 'none');
+  assert.equal(c.monoConnectionState({}), 'none');
   assert.equal(c.monoConnectionState({ status: 'disconnected' }), 'none');
-  assert.equal(c.monoConnectionState({ status: 'active' }), 'connected');
-  assert.equal(c.monoConnectionState({ status: 'pending' }), 'connected');
+  assert.equal(c.monoConnectionState({ status: 'active', connected_at: iso(1000) }), 'connected');
+  assert.equal(c.monoConnectionState({ status: 'active' }), 'connected', 'active без connected_at лишається «Підключено»');
+  assert.equal(c.monoConnectionState({ status: 'pending', connected_at: iso(5000) }), 'connected', 'pending із connected_at — як раніше');
+  assert.equal(c.monoConnectionState({ status: 'pending', updated_at: iso(30000) }, { now: NOW }), 'connecting', 'pending без connected_at, спроба 30 с тому');
+  assert.equal(c.monoConnectionState({ status: 'pending', updated_at: iso(119999) }, { now: NOW }), 'connecting', 'межа 2 хв: ще в дорозі');
+  assert.equal(c.monoConnectionState({ status: 'pending', updated_at: iso(120000) }, { now: NOW }), 'incomplete', 'рівно 2 хв — вже не в дорозі');
+  assert.equal(c.monoConnectionState({ status: 'pending', updated_at: iso(3 * 3600 * 1000) }, { now: NOW }), 'incomplete', 'старий pending');
+  assert.equal(c.monoConnectionState({ status: 'pending' }, { now: NOW }), 'incomplete', 'час спроби невідомий (колонка не читається, запиту на цьому пристрої нема)');
+  assert.equal(c.monoConnectionState({ status: 'pending' }), 'incomplete');
+  assert.equal(c.monoConnectionState({ status: 'pending' }, { now: NOW, lastAttemptAt: NOW - 20000 }), 'connecting', 'запит на цьому пристрої 20 с тому');
+  assert.equal(c.monoConnectionState({ status: 'pending' }, { now: NOW, lastAttemptAt: NOW - 200000 }), 'incomplete');
+  assert.equal(c.monoConnectionState({ status: 'pending' }, { now: NOW, lastAttemptAt: null }), 'incomplete', 'відповідь на запит уже прийшла');
+  assert.equal(c.monoConnectionState({ status: 'pending', updated_at: iso(-5000) }, { now: NOW }), 'incomplete', 'час у майбутньому (розбіжність годинників) не вважається свіжим');
   assert.equal(c.monoConnectionState({ status: 'error' }), 'error');
+});
+test('екран Monobank: стани connecting/incomplete у розмітці; запит читає лише видані колонки (без updated_at)', function(){
+  assert.match(SRC, /st === 'incomplete' \? \{ label: 'Підключення не завершено', dot: 'err' \}/);
+  assert.match(SRC, /st === 'connecting' \? \{ label: 'Стан', detail: 'Підключаю…', dot: true \}/);
+  assert.match(SRC, /if\(st === 'error' \|\| st === 'incomplete'\) stateRows\.push\(monoRowHtml\(\{ label: 'Оновити токен', action: 'refresh-token'/);
+  assert.equal((SRC.match(/from\('mono_connections'\)\.select\('([^']*)'\)/g) || []).every(function(x){ return x.indexOf('updated_at') === -1 && x.indexOf('created_at') === -1; }), true, 'ролі authenticated не видано SELECT(updated_at): запит із ним зламав би весь екран');
 });
 test('formatLastEvent: сьогодні, HH:MM / вчора / дата / немає', function(){
   const now = new Date(2026, 9, 12, 18, 0);

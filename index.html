@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.427"><link rel="stylesheet" href="./css/app.css?v=2.32.427"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.428"><link rel="stylesheet" href="./css/app.css?v=2.32.428"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -875,7 +875,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.427</div>
+  <div class="version-footer">Money Tree · Rev 2.32.428</div>
 </div>
   </div>
 </div>
@@ -1661,16 +1661,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.427"></script>
-<script src="./js/util-date.js?v=2.32.427"></script>
-<script src="./js/util-safe.js?v=2.32.427"></script>
-<script src="./js/util-misc.js?v=2.32.427"></script>
-<script src="./js/diag.js?v=2.32.427"></script>
-<script src="./js/shell.js?v=2.32.427"></script>
-<script src="./js/structure.js?v=2.32.427"></script>
-<script src="./js/analytics.js?v=2.32.427"></script>
-<script src="./js/payments.js?v=2.32.427"></script>
-<script src="./js/sheets.js?v=2.32.427"></script>
+<script src="./js/util-format.js?v=2.32.428"></script>
+<script src="./js/util-date.js?v=2.32.428"></script>
+<script src="./js/util-safe.js?v=2.32.428"></script>
+<script src="./js/util-misc.js?v=2.32.428"></script>
+<script src="./js/diag.js?v=2.32.428"></script>
+<script src="./js/shell.js?v=2.32.428"></script>
+<script src="./js/structure.js?v=2.32.428"></script>
+<script src="./js/analytics.js?v=2.32.428"></script>
+<script src="./js/payments.js?v=2.32.428"></script>
+<script src="./js/sheets.js?v=2.32.428"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6827,7 +6827,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.427';
+const APP_VERSION = '2.32.428';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -16686,24 +16686,32 @@ async function notifFlush(trigger){
 const MONO_ERROR_TEXTS = {
   invalid_token_format: 'Токен недійсний. Перевірте й спробуйте ще раз',
   invalid_token: 'Токен недійсний. Перевірте й спробуйте ще раз',
-  rate_limited: 'Зачекайте хвилину й повторіть',
-  bank_rate_limited: 'Зачекайте хвилину й повторіть',
-  bank_error: 'Не вдалося з\'єднатися з банком. Спробуйте пізніше',
+  rate_limited: 'Банк дозволяє одну спробу на хвилину. Спробуйте за хвилину', // Rev 2.32.428 (MONO-PENDING)
+  bank_rate_limited: 'Банк дозволяє одну спробу на хвилину. Спробуйте за хвилину',
+  bank_error: 'Не вдалося підключити. Спробуйте ще раз за хвилину', // Rev 2.32.428 (MONO-PENDING)
   bank_unreachable: 'Не вдалося з\'єднатися з банком. Спробуйте пізніше',
-  webhook_failed: 'Не вдалося з\'єднатися з банком. Спробуйте пізніше',
+  webhook_failed: 'Не вдалося підключити. Спробуйте ще раз за хвилину',
   server_key_error: 'Сталася помилка. Спробуйте пізніше',
-  db_error: 'Сталася помилка. Спробуйте пізніше',
+  db_error: 'Не вдалося підключити. Спробуйте ще раз за хвилину',
   no_family: 'Сталася помилка. Спробуйте пізніше',
   unauthorized: 'Сталася помилка. Спробуйте пізніше',
   network: 'Немає зв\'язку',
 };
 function monoErrorMessage(code){ return MONO_ERROR_TEXTS[code] || 'Сталася помилка. Спробуйте пізніше'; }
-// Стан підключення: 'none' (немає запису чи disconnected) | 'connected' (active/pending) | 'error'
-function monoConnectionState(conn){
+// Стан підключення: 'none' (немає запису чи disconnected) | 'connected' (active; pending із connected_at) | 'error' | 'connecting' (pending без connected_at, запит ще в дорозі: менше MONO_PENDING_FRESH_MS від останньої спроби) | 'incomplete' (pending без connected_at, спроба давня чи невідома: підключення не завершилось).
+// Rev 2.32.428 (MONO-PENDING): mono-connect при збої запису рахунків лишає pending без вебхука й карток; раніше це показувалось як «Підключено» без підстави. Час спроби: conn.updated_at (якщо колонка читається; зараз для ролі authenticated не видана, тож у select її нема) або ctx.lastAttemptAt (початок запиту на цьому пристрої; null, коли відповідь уже прийшла); ctx.now — для тестів.
+const MONO_PENDING_FRESH_MS = 120000;
+function monoConnectionState(conn, ctx){
   if(!conn || !conn.status || conn.status === 'disconnected') return 'none';
   if(conn.status === 'error') return 'error';
+  if(conn.status === 'pending' && !conn.connected_at){
+    const now = ctx && ctx.now != null ? ctx.now : Date.now();
+    const at = conn.updated_at ? Date.parse(conn.updated_at) : (ctx && ctx.lastAttemptAt != null ? ctx.lastAttemptAt : NaN);
+    return (isFinite(at) && now - at >= 0 && now - at < MONO_PENDING_FRESH_MS) ? 'connecting' : 'incomplete';
+  }
   return 'connected';
 }
+function monoStateCtx(){ return { lastAttemptAt: monoState.busy ? monoState.lastAttemptAt : null }; }
 const MONO_MONTHS_GEN = ['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня'];
 // «сьогодні, 14:32» / «вчора» / «12 жовтня» / «немає»
 function formatLastEvent(date, now){
@@ -16812,7 +16820,7 @@ function monoTokenFormHtml(){
     (monoState.error ? '<div class="mono-error" role="alert">' + escapeHtml(monoState.error) + '</div>' : '') +
     '<div class="mono-hint">Токен створюється на api.monobank.ua. Він шифрується й нікому не показується.</div></div>' +
     '<div class="mono-section"><div class="mono-group">' + monoRowHtml({ label: 'Де взяти токен', action: 'help', link: true, external: true }) + '</div></div>' +
-    '<button type="button" class="mono-primary" data-mono-action="connect"' + (monoState.busy ? ' disabled' : '') + '>' + (monoState.busy ? 'Підключаю…' : (monoConnectionState(monoState.connection) === 'error' ? 'Оновити токен' : 'Підключити')) + '</button>';
+    '<button type="button" class="mono-primary" data-mono-action="connect"' + (monoState.busy ? ' disabled' : '') + '>' + (monoState.busy ? 'Підключаю…' : (['error', 'incomplete'].indexOf(monoConnectionState(monoState.connection, monoStateCtx())) !== -1 ? 'Оновити токен' : 'Підключити')) + '</button>';
 }
 function renderMonoScreen(){
   const body = document.getElementById('mono-body');
@@ -16822,15 +16830,16 @@ function renderMonoScreen(){
     body.innerHTML = cloudGateNote(monoState.gate, 'Підключення Monobank доступне лише онлайн.', 'Спершу увійдіть у Cloud (іконка профілю), щоб підключити Monobank.'); // Rev 2.32.89 (SYNCUI-1)
     return;
   }
-  const st = monoConnectionState(monoState.connection);
+  const st = monoConnectionState(monoState.connection, monoStateCtx());
   const parts = [];
   if(st === 'none' || monoState.showTokenForm){
     parts.push(monoTokenFormHtml());
   }else{
     const conn = monoState.connection;
-    const stateRows = [ monoRowHtml(st === 'error' ? { label: 'Помилка підключення', dot: 'err' } : { label: 'Стан', detail: 'Підключено', dot: true }) ];
-    if(st === 'error') stateRows.push(monoRowHtml({ label: 'Оновити токен', action: 'refresh-token', link: true, chevron: true }));
-    else stateRows.push(monoRowHtml({ label: 'Остання операція', detail: formatLastEvent(conn.last_event_at, new Date()) }));
+    // Rev 2.32.428 (MONO-PENDING): pending без connected_at — не «Підключено»: «Підключаю…» (запит у дорозі) або «Підключення не завершено» (червона крапка, «Оновити токен»)
+    const stateRows = [ monoRowHtml(st === 'error' ? { label: 'Помилка підключення', dot: 'err' } : st === 'incomplete' ? { label: 'Підключення не завершено', dot: 'err' } : st === 'connecting' ? { label: 'Стан', detail: 'Підключаю…', dot: true } : { label: 'Стан', detail: 'Підключено', dot: true }) ];
+    if(st === 'error' || st === 'incomplete') stateRows.push(monoRowHtml({ label: 'Оновити токен', action: 'refresh-token', link: true, chevron: true }));
+    else if(st === 'connected') stateRows.push(monoRowHtml({ label: 'Остання операція', detail: formatLastEvent(conn.last_event_at, new Date()) }));
     parts.push('<div class="mono-section"><div class="mono-group">' + stateRows.join('') + '</div></div>');
     if(monoState.accounts.length){
       const accRows = monoState.accounts.map(function(a){
@@ -16892,7 +16901,7 @@ async function onMonoConnectTap(){
   if(!raw){ monoState.error = monoErrorMessage('invalid_token_format'); renderMonoScreen(); return; }
   if(blockedByReadOnly()) return; // Rev 2.32.78 (KIT-1)
   if(!monoReady()){ monoState.error = monoErrorMessage('network'); renderMonoScreen(); return; }
-  monoState.busy = true; renderMonoScreen();
+  monoState.busy = true; monoState.lastAttemptAt = Date.now(); renderMonoScreen();
   let res;
   try{ res = await getSupabaseClient().functions.invoke('mono-connect', { body: { action: 'connect', token: raw } }); }
   catch(e){ res = { error: e }; }
