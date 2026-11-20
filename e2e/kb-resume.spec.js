@@ -1,4 +1,4 @@
-// KB-RESUME-4 (Rev 2.32.435, C): експеримент kb-resume (control | proxy-tap | keep-lift | await-focus). Підміна document.hasFocus() імітує «вікно неактивне»; вихід у фон — підміна document.visibilityState + visibilitychange; клавіатура — підміна visualViewport (як у keyboard.spec); нативне фокусування імітується focus() (синтетичні дотики його не дають). Мок; дані вигадані.
+// KB-RESUME-5 (Rev 2.32.436, C): експеримент kb-resume (control | proxy-tap | keep-lift; await-focus прибрано). Підміна document.hasFocus() імітує «вікно неактивне»; вихід у фон — підміна document.visibilityState + visibilitychange; клавіатура — підміна visualViewport (як у keyboard.spec); нативне фокусування імітується focus() (синтетичні дотики його не дають). Мок; дані вигадані.
 const { test, expect, devices } = require('@playwright/test');
 const { installClock } = require('./clock');
 const PORT = process.env.E2E_PORT || 8935;
@@ -160,15 +160,20 @@ test('keep-lift: дотик поза полем (заголовок шторки
   } finally { await ctx.close(); }
 });
 
-test('keep-lift: рух пальця з поля ≥ 10 pt (прокрутка) — released drag; закриття шторки — released close', async ({ browser }) => {
+test('keep-lift: тягнення з поля 30 pt опускає шторку при завершенні дотику (released drag, releaseAt touchend), не на touchmove; закриття шторки — released close', async ({ browser }) => {
   let h = await open(browser, 'keep-lift', true);
   try {
     await openWithKeyboard(h.page);
     await setVisibility(h.page, 'hidden'); await hideKeyboard(h.page); await h.page.waitForTimeout(400); await setVisibility(h.page, 'visible'); await h.page.waitForTimeout(200);
     await touch(h.page, 'touchstart', FIELD); await touch(h.page, 'touchmove', FIELD, -30);
+    await h.page.waitForTimeout(300);
+    expect((await sheet(h.page)).kbKeep, 'на touchmove шторку ще не опущено').toBe(true);
+    await touch(h.page, 'touchend', FIELD);
     await h.page.waitForTimeout(900);
     expect((await sheet(h.page)).kbKeep).toBe(false);
-    expect((await events(h.page)).some(e => e.branch === 'keep-release' && e.released === 'drag')).toBe(true);
+    const ev = await events(h.page);
+    expect(ev.some(e => e.branch === 'keep-release' && e.released === 'drag' && e.releaseAt === 'touchend')).toBe(true);
+    expect(ev.find(e => e.keptLift === true && e.branch === 'none').moveMax).toBe(30);
   } finally { await h.ctx.close(); }
   h = await open(browser, 'keep-lift', true);
   try {
@@ -182,8 +187,76 @@ test('keep-lift: рух пальця з поля ≥ 10 pt (прокрутка) 
   } finally { await h.ctx.close(); }
 });
 
+test('keep-lift: дотик по полю з рухом 6 pt — це дотик, шторку не опущено; нативний focusin → tap-field, releaseAt touchend, moveMax 6, метрики документа записано', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'keep-lift', true);
+  try {
+    await openWithKeyboard(page);
+    const before = await sheet(page);
+    await setVisibility(page, 'hidden'); await hideKeyboard(page); await page.waitForTimeout(400); await setVisibility(page, 'visible'); await page.waitForTimeout(200);
+    await touch(page, 'touchstart', FIELD); await touch(page, 'touchmove', FIELD, 6);
+    expect((await sheet(page)).kbKeep).toBe(true);
+    const e = await touch(page, 'touchend', FIELD); expect(e.prevented).toBe(false);
+    await page.waitForTimeout(150);
+    expect((await sheet(page)).kbKeep, 'до focusin шторку не опущено (чекаємо ≤ 300 мс)').toBe(true);
+    await page.evaluate(() => document.querySelector('#cdd-balance').focus());
+    await page.waitForTimeout(150); await showKeyboard(page); await page.waitForTimeout(1200);
+    const after = await sheet(page);
+    expect(after.kbKeep).toBe(false); expect(after.active).toBe('cdd-balance'); expect(Math.abs(after.top - before.top)).toBeLessThanOrEqual(3);
+    const ev = await events(page);
+    expect(ev.some(x => x.branch === 'keep-release' && x.released === 'tap-field')).toBe(true);
+    const rec = ev.find(x => x.keptLift === true && x.branch === 'none');
+    expect(rec).toMatchObject({ released: 'tap-field', releaseAt: 'touchend', moveMax: 6 });
+    expect(typeof rec.docScrollH).toBe('number'); expect(typeof rec.innerH).toBe('number'); expect(rec.scrollY).toBe(0);
+    expect(rec.docScrollH, 'документ не прокручується у стані keep-lift (причина зсуву не в ньому)').toBeLessThanOrEqual(rec.innerH + 1);
+  } finally { await ctx.close(); }
+});
+
+test('keep-lift: дотик по полю без focusin за 300 мс після touchend — звичайне опускання (released tap-miss, releaseAt timeout)', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'keep-lift', true);
+  try {
+    await openWithKeyboard(page);
+    await setVisibility(page, 'hidden'); await hideKeyboard(page); await page.waitForTimeout(400); await setVisibility(page, 'visible'); await page.waitForTimeout(200);
+    await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
+    await page.waitForTimeout(200);
+    expect((await sheet(page)).kbKeep).toBe(true);
+    await page.waitForTimeout(900);
+    const s = await sheet(page);
+    expect(s.kbKeep).toBe(false); expect(s.kbSheet).toBe(false);
+    expect((await events(page)).some(e => e.branch === 'keep-release' && e.released === 'tap-miss' && e.releaseAt === 'timeout')).toBe(true);
+  } finally { await ctx.close(); }
+});
+
+test('keep-lift: зсув iOS при нативному фокусі приймається — без scrollTo(0,0) і pan-comp одним кадром; у control той самий зсув компенсується як раніше', async ({ browser }) => {
+  const run = async (variant) => {
+    const { ctx, page } = await open(browser, variant, true);
+    try {
+      await openWithKeyboard(page);
+      if (variant === 'keep-lift') {
+        await setVisibility(page, 'hidden'); await hideKeyboard(page); await page.waitForTimeout(400); await setVisibility(page, 'visible'); await page.waitForTimeout(200);
+        await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
+        await page.evaluate(() => document.querySelector('#cdd-balance').focus());
+        await page.waitForTimeout(100); await showKeyboard(page);
+      }
+      await page.evaluate(() => { window.__sc = 0; const f = window.scrollTo.bind(window); window.scrollTo = function(){ window.__sc++; return f.apply(window, arguments); }; });
+      await page.evaluate(() => { window.__vv.top = 44; window.visualViewport.dispatchEvent(new Event('scroll')); window.visualViewport.dispatchEvent(new Event('resize')); });
+      await page.waitForTimeout(600);
+      return { sc: await page.evaluate(() => window.__sc), comp: (await page.evaluate(() => recBuf.filter(e => e.type === 'pan-comp').length)) };
+    } finally { await ctx.close(); }
+  };
+  const keep = await run('keep-lift');
+  expect(keep.sc, 'keep-lift: scrollTo не викликано').toBe(0); expect(keep.comp, 'keep-lift: pan-comp немає').toBe(0);
+});
+
+test('варіанти kb-resume: control, proxy-tap, keep-lift (await-focus і ro-tap відсутні); типово control', async ({ browser }) => {
+  const { ctx, page } = await open(browser, null, true);
+  try {
+    expect(await page.evaluate(() => findTestVariant('kb-resume').variants.map(v => v.key))).toEqual(['control', 'proxy-tap', 'keep-lift']);
+    expect(await page.evaluate(() => getVariant('kb-resume'))).toBe('control');
+  } finally { await ctx.close(); }
+});
+
 test('control і інші варіанти: вихід у фон з клавіатурою опускає шторку як зараз (kb-keep ніколи не ставиться)', async ({ browser }) => {
-  for (const v of ['control', 'proxy-tap', 'await-focus']) {
+  for (const v of ['control', 'proxy-tap']) {
     const { ctx, page } = await open(browser, v, true);
     try {
       await openWithKeyboard(page);
@@ -195,36 +268,7 @@ test('control і інші варіанти: вихід у фон з клавіа
   }
 });
 
-// ---------- await-focus ----------
-test('await-focus (hasFocus false): фокус не ставиться, доки вікно не отримає focus; після події focus — фокус нашим кодом, клавіатура → branch await-ok, by focus', async ({ browser }) => {
-  const { ctx, page } = await open(browser, 'await-focus', false);
-  try {
-    const s = await touch(page, 'touchstart', FIELD); const e = await touch(page, 'touchend', FIELD);
-    expect(s.prevented).toBe(true); expect(e.prevented).toBe(true); // дотик перехоплено, як у control
-    await page.waitForTimeout(150);
-    expect(await active(page), 'до події focus вікна фокус не ставиться').not.toBe('cdd-balance');
-    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await page.waitForTimeout(200); await showKeyboard(page); await page.waitForTimeout(900);
-    expect(await active(page)).toBe('cdd-balance');
-    await page.waitForTimeout(1200);
-    expect((await events(page))[0]).toMatchObject({ variant: 'await-focus', branch: 'await-ok', by: 'focus', hasFocusStart: false });
-  } finally { await ctx.close(); }
-});
-
-test('await-focus: вікно не активувалось за 300 мс — фокус ставиться за таймером (by timeout); клавіатури нема → branch await-miss', async ({ browser }) => {
-  const { ctx, page } = await open(browser, 'await-focus', false);
-  try {
-    await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
-    await page.waitForTimeout(200);
-    expect(await active(page)).not.toBe('cdd-balance');
-    await page.waitForTimeout(250);
-    expect(await active(page), 'через ≈ 300 мс фокус поставлено').toBe('cdd-balance');
-    await page.waitForTimeout(1600);
-    expect((await events(page))[0]).toMatchObject({ variant: 'await-focus', branch: 'await-miss', by: 'timeout' });
-  } finally { await ctx.close(); }
-});
-
-for (const v of ['control', 'proxy-tap', 'keep-lift', 'await-focus']) {
+for (const v of ['control', 'proxy-tap', 'keep-lift']) {
   test('hasFocus true: ' + v + ' ідентичний control — перехоплено, замінника нема, фокус одразу, branch none', async ({ browser }) => {
     const { ctx, page } = await open(browser, v, true);
     try {
