@@ -1,0 +1,34 @@
+diff --git a/index.html b/index.html
+index 9b0aaec..66cd596 100644
+--- a/index.html
++++ b/index.html
+@@ -10359,6 +10359,21 @@ function closeProfileMenu(){
+ // Rev 2.32.299 (LOGIN-RET): Return у формі входу. Пароль: Return = вхід (як кнопка «Увійти»). Пошта: Return → пароль лише там, де клавіатурний модуль не активний
+ // (iPad без режиму, десктоп); якщо kbHintsApply уже поставив data-kb-enter, обробник виходить і перехід робить перевірений kbEnterKey (iPhone без змін; два обробники
+ // ніколи не спрацюють разом). Без <form>: атрибути автозаповнення (Face ID) і розмітка не змінюються; автозаповнення keydown Enter не генерує. Клавіатурний модуль не чіпається.
++// ЕКСПЕРИМЕНТ LOGIN-ARROWS (б), лише у worktree: поле входу без курсора — readonly (iOS робить стрілки панелі неактивними й не веде фокус «вниз/вгору» туди); прямий дотик (touchstart/pointerdown/mousedown) і програмний focus знімають readonly до фокусу.
++(function(){
++  function init(){
++    const em = document.getElementById('cldfielda1'), pw = document.getElementById('cloud-password');
++    if(!em || !pw || em.getAttribute('data-ro-guard')) return;
++    em.setAttribute('data-ro-guard', '1');
++    [[em, pw], [pw, em]].forEach(function(pair){
++      const self = pair[0], other = pair[1];
++      self.addEventListener('focus', function(){ self.readOnly = false; other.readOnly = true; });
++      ['touchstart', 'pointerdown', 'mousedown'].forEach(function(ev){ self.addEventListener(ev, function(){ self.readOnly = false; }, { capture: true, passive: true }); });
++      self.addEventListener('blur', function(){ setTimeout(function(){ const a = document.activeElement; if(a !== em && a !== pw){ em.readOnly = false; pw.readOnly = false; } }, 0); });
++    });
++  }
++  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
++})();
+ function loginEnterKey(e){
+   if(!e || e.key !== 'Enter' || e.isComposing || e.defaultPrevented || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+   const t = e.target;
+@@ -22179,6 +22194,7 @@ function kbStartFieldScroll(drawerEl, field){
+ // Rev 2.32.279 (KB-24, C): FLIP-компенсація зсуву сторінки: нова нога стартує з поточного положення + зсув (видиме положення не змінюється), далі до цілі.
+ function kbMotionPan(shift, preTop, preSy){
+   if(!kbSheetActive || !kbSheetDrawerEl) return;
++  if(window.__loginNoPanComp && kbIsPlatformField(document.activeElement)) return; // ЕКСПЕРИМЕНТ LOGIN-ARROWS (в): лише у worktree
+   // Rev 2.32.296 (KB-40, C): звіт MT-1112-8689: у центрованій формі (.app-modal, підйом рахується з vv.offsetTop) ціль, обчислена під час зсуву (offsetTop 154), була на 154 пт нижча; після повернення сторінки форма їхала вниз до неї (166 пт) і знову вгору. Після повернення сторінки (scrollTo(0,0), offsetTop 0) ціль перераховується без зсуву: видиме положення в кадрі компенсації не змінюється, далі рух лише до справжньої цілі. Ризик: якщо клавіатура не відкрита (vv без клавіатури), лишається стара ціль.
+   try{
+     const vv = window.visualViewport;
