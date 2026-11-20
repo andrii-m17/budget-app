@@ -1,0 +1,30 @@
+diff --git a/index.html b/index.html
+index 3c8fcad..1bd8c89 100644
+--- a/index.html
++++ b/index.html
+@@ -22944,7 +22944,9 @@ document.addEventListener('touchstart', function(e){
+         // Rev 2.32.310 (KB-FINAL, C): клавіатура закрита: дотик у межах 12 пт від текстового поля шторки (input, підпис, заголовок поряд) — preventDefault одразу, фокус на touchend цього ж дотику (шлях першого фокуса: прямий або через допоміжне поле)
+         const field = resolveTapField(raw) || resolveTapFieldNear(raw, t.clientX, t.clientY) || resolveTapFieldInSheet(raw, t.clientX, t.clientY);
+         // Rev 2.32.327 (LOGIN-FORM-2): виняток платформи для прямого дотику (2.32.322) прибрано: звіт MT-1117-3640: власний фокус iOS давав intercept-miss і pan-corrected 361; поля входу знову йдуть шляхом першого дотику (перехоплення / focus-proxy)
+-        if(field && field !== active && isFieldInsideDrawer(field) && shouldInterceptFirstFocus({ field: field, kbSheetOpen: false, moved: false, durationMs: 0 })){
++        // ЕКСПЕРИМЕНТ KB-RESUME (лише worktree): вікно неактивне (document.hasFocus() === false) — перший дотик не перехоплюємо, фокус нативний
++        if(window.__kbResumeSkip && !document.hasFocus()) entry.noFocus = true;
++        if(field && field !== active && isFieldInsideDrawer(field) && !entry.noFocus && shouldInterceptFirstFocus({ field: field, kbSheetOpen: false, moved: false, durationMs: 0 })){
+           entry.field = field; entry.intercept = true; entry.first = true; entry.scroller = kbTouchScroller(field);
+           if(e.cancelable) e.preventDefault();
+         }
+@@ -23013,12 +23015,12 @@ function kbTapEnd(e, t, start){ // Rev 2.32.307 (KB-SWITCH-FINAL): рішенн
+   const drawerEl = kbSheetHostOf(target);
+   // Rev 2.32.310 (KB-FINAL, C): перший фокус, ухвалений на touchstart (start.first): за будь-якої тривалості, лише без зсуву; зсув = прокрутка, фокус не ставимо
+   if(start.first && (start.scrolling || moved || !target)) return;
+-  const intercept = (start.first && !!target) ? true : shouldInterceptFirstFocus({
++  const intercept = (start.first && !!target) ? true : (start.noFocus ? false : shouldInterceptFirstFocus({
+     field: target,
+     kbSheetOpen: kbSheetActive,
+     moved: moved,
+     durationMs: durationMs,
+-  });
++  }));
+   if(!intercept){
+     // Rev 2.23.15 (6D.184) — клавіатура вже відкрита: тап по ІНШОМУ полю
+     // шторки перехоплюємо й фокусимо з preventScroll (нативне перемикання
