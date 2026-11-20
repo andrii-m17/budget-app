@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.429"><link rel="stylesheet" href="./css/app.css?v=2.32.429"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.430"><link rel="stylesheet" href="./css/app.css?v=2.32.430"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -875,7 +875,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.429</div>
+  <div class="version-footer">Money Tree · Rev 2.32.430</div>
 </div>
   </div>
 </div>
@@ -1661,16 +1661,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.429"></script>
-<script src="./js/util-date.js?v=2.32.429"></script>
-<script src="./js/util-safe.js?v=2.32.429"></script>
-<script src="./js/util-misc.js?v=2.32.429"></script>
-<script src="./js/diag.js?v=2.32.429"></script>
-<script src="./js/shell.js?v=2.32.429"></script>
-<script src="./js/structure.js?v=2.32.429"></script>
-<script src="./js/analytics.js?v=2.32.429"></script>
-<script src="./js/payments.js?v=2.32.429"></script>
-<script src="./js/sheets.js?v=2.32.429"></script>
+<script src="./js/util-format.js?v=2.32.430"></script>
+<script src="./js/util-date.js?v=2.32.430"></script>
+<script src="./js/util-safe.js?v=2.32.430"></script>
+<script src="./js/util-misc.js?v=2.32.430"></script>
+<script src="./js/diag.js?v=2.32.430"></script>
+<script src="./js/shell.js?v=2.32.430"></script>
+<script src="./js/structure.js?v=2.32.430"></script>
+<script src="./js/analytics.js?v=2.32.430"></script>
+<script src="./js/payments.js?v=2.32.430"></script>
+<script src="./js/sheets.js?v=2.32.430"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6827,7 +6827,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.429';
+const APP_VERSION = '2.32.430';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10373,6 +10373,41 @@ function loginEnterKey(e){
   }
   // Rev 2.32.326 (LOGIN-FORM): Return у паролі тепер подає форму штатно (submit → loginFormSubmit); тут лише перехід пошта → пароль
 }
+// Rev 2.32.430 (LOGIN-ARROWS, C): варіант `login-arrows` = `readonly` (типово `control`: нічого не робить і знімає власні позначки). Поле входу без курсора — readonly (iOS робить стрілки панелі неактивними й не веде фокус туди), поки фокус в іншому полі входу. Знімають readonly: прямий дотик (touchstart/pointerdown/mousedown до фокуса), Return із пошти (програмний перехід на пароль), будь-яке автозаповнення (input з inputType insertReplacementText або в полі без фокуса): обидва поля вільні на 2 с. Лише поля входу (#cldfielda1, #cloud-password); клавіатурний модуль і kbNavLock не чіпаються (делеговані слухачі document, capture, passive). Подія самописця login-ro: ev = set | unset-touch | unset-return | unset-autofill, field = email | password. Ризик: чи заповнює iOS readonly-поле — перевіряється на телефоні.
+const LOGIN_RO_IDS = ['cldfielda1', 'cloud-password'];
+const LOGIN_RO_AUTOFILL_MS = 2000;
+let loginRoHoldUntil = 0, loginRoEnterAt = 0, loginRoTimer = null;
+function loginRoActive(){ try{ return getVariant('login-arrows') === 'readonly'; }catch(e){ return false; } }
+function loginRoFields(){ return LOGIN_RO_IDS.map(function(id){ return document.getElementById(id); }).filter(Boolean); }
+function loginRoRec(ev, el){ try{ if(typeof pushDebugEvent === 'function') pushDebugEvent({ type: 'login-ro', ev: ev, field: el && el.id === 'cldfielda1' ? 'email' : 'password' }); }catch(e){} }
+function loginRoSet(el){ if(!el || el.getAttribute('data-login-ro')) return; el.readOnly = true; el.setAttribute('data-login-ro', '1'); loginRoRec('set', el); }
+function loginRoUnset(el, why){ if(!el || !el.getAttribute('data-login-ro')) return false; el.readOnly = false; el.removeAttribute('data-login-ro'); if(why) loginRoRec(why, el); return true; }
+// Розставляє readonly: варіант активний, фокус в одному з полів входу, вікна автозаповнення нема → друге поле readonly; інакше обидва вільні
+function loginRoRefresh(){
+  const fs = loginRoFields(), a = document.activeElement;
+  const on = loginRoActive() && Date.now() >= loginRoHoldUntil && fs.indexOf(a) !== -1;
+  fs.forEach(function(f){ if(on && f !== a) loginRoSet(f); else loginRoUnset(f, null); });
+}
+function loginRoIsField(t){ return !!t && LOGIN_RO_IDS.indexOf(t.id) !== -1; }
+document.addEventListener('keydown', function(e){ if(e && e.key === 'Enter' && loginRoIsField(e.target)) loginRoEnterAt = Date.now(); }, { capture: true, passive: true });
+['touchstart', 'pointerdown', 'mousedown'].forEach(function(ev){
+  document.addEventListener(ev, function(e){ if(loginRoActive() && loginRoIsField(e.target)) loginRoUnset(e.target, 'unset-touch'); }, { capture: true, passive: true });
+});
+document.addEventListener('focusin', function(e){
+  const t = e.target;
+  if(!loginRoIsField(t)) return;
+  if(loginRoActive() && t.getAttribute('data-login-ro')) loginRoUnset(t, Date.now() - loginRoEnterAt < 800 ? 'unset-return' : 'unset-touch'); // програмний перехід (Return) чи дотик без touchstart (клік)
+  loginRoRefresh();
+}, { capture: true, passive: true });
+document.addEventListener('focusout', function(e){ if(loginRoIsField(e.target)) setTimeout(loginRoRefresh, 0); }, { capture: true, passive: true });
+document.addEventListener('input', function(e){
+  const t = e.target;
+  if(!loginRoActive() || !loginRoIsField(t)) return;
+  if(!(e.inputType === 'insertReplacementText' || document.activeElement !== t)) return; // звичайний друк у полі з фокусом — не автозаповнення
+  loginRoHoldUntil = Date.now() + LOGIN_RO_AUTOFILL_MS;
+  loginRoFields().forEach(function(f){ loginRoUnset(f, 'unset-autofill'); });
+  clearTimeout(loginRoTimer); loginRoTimer = setTimeout(loginRoRefresh, LOGIN_RO_AUTOFILL_MS + 50);
+}, { capture: true, passive: true });
 // Rev 2.32.326 (LOGIN-FORM, C): форма входу й вхід за автозаповненням. Факти: після автозаповнення (Face ID) еталонні застосунки ховають клавіатуру, і вхід іде сам (iOS подає форму); у нас поля в <div>, кнопка type=button, тож iOS подавати було нічого. Тепер <form id="cloud-login-form-el"> з кнопкою type=submit; submit: preventDefault, blur активного поля, signInCloudAccount() (cloudSignInBusy гарантує один вхід). Додатково: коли обидва поля заповнено автозаповненням (input без inputType / insertReplacementText / :-webkit-autofill) і після заповнення не було ні keydown, ні дотику по полях — один form.requestSubmit() на заповнення; не повторюється для тих самих значень після помилки входу. Самописець: login-submit by: button | return | autofill | ios.
 let loginLock = false, loginLockTimer = null;
 // Rev 2.32.329 (LOGIN-FORM-4, C): стан «входимо» (MT-1117-7227: за 1,6 с форма 5 разів змінювала положення, слідуючи за висотою клавіатури 388 → 311 → 388 → 415 → закрито, а iOS прокручував сторінку на 1–3 пт і наш код відповідав 5 pan-comp). Вмикається на першому change у полі входу з :-webkit-autofill; поки діє, конвеєр клавіатури для шторки входу не міняє положення й висоту (kb-vv-resize, прокрутка сторінки, перекидання фокуса iOS, pan-comp / pan-corrected). Вимикається: форма закрилась (closed), вхід завершився (submitted), або за 1000 мс друге поле не заповнилось (timeout). Самописець: login-lock on / off + reason.
@@ -16189,6 +16224,24 @@ const TEST_VARIANTS = [
       'Оберіть варіант і ПОВНІСТЮ закрийте застосунок (змахнути з перемикача), потім відкрийте знову.',
       'Облік → ОЧ → «Тест треш G3» (поле «Назва» не торкатись); Структура → «Додати категорію»; після цього торкніться цифрового поля — чи видно панель «Автозаповнити контакт»?',
       'Повторіть для кожного з чотирьох варіантів; запишіть, у якому панелі немає. «Перепис полів екрана» покаже активний варіант (autofillGuard) і кількість форм.',
+    ],
+  },
+  // Rev 2.32.430 (LOGIN-ARROWS, C): експеримент із полями входу (docs/reports/LOGIN-ARROWS-step0.md). На симуляторі readonly на полі без курсора прибирає стрибок шторки при стрілках «Попереднє/Наступне» (112/50 pt → 0, стрілки неактивні), але чи заповнює QuickType/Face ID таке поле, перевірити можна лише на телефоні (збережені паролі прив’язані до адреси).
+  {
+    id: 'login-arrows',
+    title: 'Вхід: друге поле лише для читання (експеримент)',
+    what: 'Чи зникає стрибок форми входу при стрілках над клавіатурою, якщо поле без курсора — лише для читання (прямий дотик, Return і автозаповнення знімають це) і чи автозаповнення пароля (QuickType, Face ID) усе ще заповнює обидва поля.',
+    variants: [
+      { key: 'control', label: 'Як зараз', hint: 'обидва поля входу звичайні; стрілки активні (стрибок форми 112/50 pt)' },
+      { key: 'readonly', label: 'Друге поле лише для читання', hint: 'поле без курсора — readonly; стрілки неактивні; дотик, Return і автозаповнення знімають readonly' },
+    ],
+    defaultVariant: 'control',
+    addedIn: 'Rev 2.32.430 (LOGIN-ARROWS)',
+    cleanupBy: 'після перевірки на iPhone: прийняти (readonly стає звичайною поведінкою) або прибрати разом із кодом login-ro',
+    checkSteps: [
+      'Оберіть «Друге поле лише для читання», закрийте застосунок повністю й відкрийте знову. Вийдіть із хмари й відкрийте «Вхід». 1) Торкніться «Email»: стрілки над клавіатурою неактивні, форма не стрибає.',
+      '2) Підказка «Паролі» над клавіатурою заповнює Email і Пароль однією дією. 3) Вхід через Face ID / менеджер паролів, потім Return у паролі й повторний вхід.',
+      '4) Прямий дотик по іншому полю й Return «Далі» на пошті працюють; 5) друк у обидва поля працює. Потім «Записати лог із цим варіантом» (події login-ro) і надішліть код звіту.',
     ],
   },
 ];
