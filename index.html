@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.431"><link rel="stylesheet" href="./css/app.css?v=2.32.431"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.432"><link rel="stylesheet" href="./css/app.css?v=2.32.432"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -875,7 +875,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.431</div>
+  <div class="version-footer">Money Tree · Rev 2.32.432</div>
 </div>
   </div>
 </div>
@@ -1172,20 +1172,16 @@
     </div>
     <button class="drawer-close" onclick="closeTestingDrawer()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
-  <!-- Rev 2.32.431 (LOGIN-ARROWS-FIX): контейнер карток варіантів (renderTestingDrawer) зник у Rev 2.32.260 (REC-1) разом зі старою розміткою «Тестування», тому картки (autofill-guard, login-arrows) не показувались ніде; повернуто -->
-  <div class="chk-label">Варіанти для перевірки</div>
-  <div id="testing-variants-list"></div>
-  <!-- Rev 2.32.323 (LOGIN-LAB): діагностична сторінка входу без коду застосунку -->
-  <div class="chk-label">Лабораторія входу</div>
-  <div class="chk-card">
-    <a class="chk-row" href="login-lab.html" id="login-lab-link"><span>Тест автозаповнення входу (без нашого коду)</span><span class="chk-end chk-mut">відкрити</span></a>
-  </div>
   <div class="chk-label">Самописець</div>
   <div class="chk-card">
     <div class="chk-row" id="rec-status-row">
       <span>Записує постійно</span>
       <span class="chk-mut">останні 2 хв</span>
     </div>
+    <button type="button" class="chk-row" id="rec-report-row" onclick="openRecReport()">
+      <span>Повідомити про проблему</span>
+      <span class="chk-end chk-mut"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    </button>
     <button type="button" class="chk-row" id="rec-sent-btn" aria-expanded="false" onclick="toggleRecSent()">
       <span>Надіслані звіти</span>
       <span class="chk-end chk-mut"><span id="rec-sent-count">0</span><svg class="chk-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
@@ -1196,7 +1192,7 @@
       <span class="chk-end chk-mut"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9.667A2.667 2.667 0 0 1 9.667 7h8.666A2.667 2.667 0 0 1 21 9.667v8.666A2.667 2.667 0 0 1 18.333 21H9.667A2.667 2.667 0 0 1 7 18.333z"/><path d="M4.012 16.737A2.005 2.005 0 0 1 3 15V5c0-1.1.9-2 2-2h10c.75 0 1.158.385 1.5 1"/></svg></span>
     </button>
   </div>
-  <div class="chk-label">Сповіщення</div>
+  <div class="chk-label">Діагностика</div>
   <div class="chk-card">
     <!-- Rev 2.32.103 (NOTIF-3 Rev 2): режим розробника для діагностики сповіщень (журнал доставки, журнал помилок JS в IndexedDB); за замовчуванням вимкнено. Rev 2.32.260: рядок лишено — вмикає збір, який більше ніде не вмикається. -->
     <div class="chk-row">
@@ -1212,6 +1208,9 @@
       <span class="chk-end chk-mut"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
     </button>
   </div>
+  <!-- Rev 2.32.432 (TEST-CLEAN): група «Експерименти» показується лише тоді, коли в TEST_VARIANTS є хоча б один активний експеримент (renderTestingDrawer); зараз реєстр порожній, тож групи немає -->
+  <div class="chk-label hidden" id="testing-variants-label">Експерименти</div>
+  <div id="testing-variants-list"></div>
   <!-- Rev 2.32.75 (K3): середовище (лише поза робочим origin): «Мок» ↔ «Реальна база · лише читання» -->
   <div class="chk-label" id="cloud-env-label">Середовище</div>
   <button type="button" class="submit-btn pill secondary" id="cloud-env-btn" style="margin-bottom:10px;" onclick="toggleCloudEnv()">Середовище</button>
@@ -1664,16 +1663,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.431"></script>
-<script src="./js/util-date.js?v=2.32.431"></script>
-<script src="./js/util-safe.js?v=2.32.431"></script>
-<script src="./js/util-misc.js?v=2.32.431"></script>
-<script src="./js/diag.js?v=2.32.431"></script>
-<script src="./js/shell.js?v=2.32.431"></script>
-<script src="./js/structure.js?v=2.32.431"></script>
-<script src="./js/analytics.js?v=2.32.431"></script>
-<script src="./js/payments.js?v=2.32.431"></script>
-<script src="./js/sheets.js?v=2.32.431"></script>
+<script src="./js/util-format.js?v=2.32.432"></script>
+<script src="./js/util-date.js?v=2.32.432"></script>
+<script src="./js/util-safe.js?v=2.32.432"></script>
+<script src="./js/util-misc.js?v=2.32.432"></script>
+<script src="./js/diag.js?v=2.32.432"></script>
+<script src="./js/shell.js?v=2.32.432"></script>
+<script src="./js/structure.js?v=2.32.432"></script>
+<script src="./js/analytics.js?v=2.32.432"></script>
+<script src="./js/payments.js?v=2.32.432"></script>
+<script src="./js/sheets.js?v=2.32.432"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6830,7 +6829,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.431';
+const APP_VERSION = '2.32.432';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7908,8 +7907,7 @@ function showProfileLoginForm(){
   openProfileLoginDrawer();
 }
 function openProfileLoginDrawer(){
-  mountCloudLoginFields();
-  try{ loginAutoReset(); }catch(e){} // Rev 2.32.327 (LOGIN-FORM-2): нове відкриття форми — keydown скинуто // Rev 2.32.47 (AG): у cloud-lazy поля входу створюються лише тут
+  try{ loginAutoReset(); }catch(e){} // Rev 2.32.327 (LOGIN-FORM-2): нове відкриття форми — keydown скинуто
   lastFocusedBeforeDialog = document.activeElement;
   document.getElementById('profile-backdrop').removeAttribute('inert');
   document.getElementById('profile-drawer').removeAttribute('inert');
@@ -7935,7 +7933,6 @@ function closeProfileLoginDrawer(){
   drawer.setAttribute('inert','');
   restoreFocus();
   unlockBackgroundScroll();
-  unmountCloudLoginFields(); // Rev 2.32.47 (AG): …і прибираються при закритті
 }
 
 // Rev #30 (6D.54) — раніше SDK підвантажувався ЛІШЕ при відкритті "Сервісу"/
@@ -10376,41 +10373,7 @@ function loginEnterKey(e){
   }
   // Rev 2.32.326 (LOGIN-FORM): Return у паролі тепер подає форму штатно (submit → loginFormSubmit); тут лише перехід пошта → пароль
 }
-// Rev 2.32.430 (LOGIN-ARROWS, C): варіант `login-arrows` = `readonly` (типово `control`: нічого не робить і знімає власні позначки). Поле входу без курсора — readonly (iOS робить стрілки панелі неактивними й не веде фокус туди), поки фокус в іншому полі входу. Знімають readonly: прямий дотик (touchstart/pointerdown/mousedown до фокуса), Return із пошти (програмний перехід на пароль), будь-яке автозаповнення (input з inputType insertReplacementText або в полі без фокуса): обидва поля вільні на 2 с. Лише поля входу (#cldfielda1, #cloud-password); клавіатурний модуль і kbNavLock не чіпаються (делеговані слухачі document, capture, passive). Подія самописця login-ro: ev = set | unset-touch | unset-return | unset-autofill, field = email | password. Ризик: чи заповнює iOS readonly-поле — перевіряється на телефоні.
-const LOGIN_RO_IDS = ['cldfielda1', 'cloud-password'];
-const LOGIN_RO_AUTOFILL_MS = 2000;
-let loginRoHoldUntil = 0, loginRoEnterAt = 0, loginRoTimer = null;
-function loginRoActive(){ try{ return getVariant('login-arrows') === 'readonly'; }catch(e){ return false; } }
-function loginRoFields(){ return LOGIN_RO_IDS.map(function(id){ return document.getElementById(id); }).filter(Boolean); }
-function loginRoRec(ev, el){ try{ if(typeof pushDebugEvent === 'function') pushDebugEvent({ type: 'login-ro', ev: ev, field: el && el.id === 'cldfielda1' ? 'email' : 'password' }); }catch(e){} }
-function loginRoSet(el){ if(!el || el.getAttribute('data-login-ro')) return; el.readOnly = true; el.setAttribute('data-login-ro', '1'); loginRoRec('set', el); }
-function loginRoUnset(el, why){ if(!el || !el.getAttribute('data-login-ro')) return false; el.readOnly = false; el.removeAttribute('data-login-ro'); if(why) loginRoRec(why, el); return true; }
-// Розставляє readonly: варіант активний, фокус в одному з полів входу, вікна автозаповнення нема → друге поле readonly; інакше обидва вільні
-function loginRoRefresh(){
-  const fs = loginRoFields(), a = document.activeElement;
-  const on = loginRoActive() && Date.now() >= loginRoHoldUntil && fs.indexOf(a) !== -1;
-  fs.forEach(function(f){ if(on && f !== a) loginRoSet(f); else loginRoUnset(f, null); });
-}
-function loginRoIsField(t){ return !!t && LOGIN_RO_IDS.indexOf(t.id) !== -1; }
-document.addEventListener('keydown', function(e){ if(e && e.key === 'Enter' && loginRoIsField(e.target)) loginRoEnterAt = Date.now(); }, { capture: true, passive: true });
-['touchstart', 'pointerdown', 'mousedown'].forEach(function(ev){
-  document.addEventListener(ev, function(e){ if(loginRoActive() && loginRoIsField(e.target)) loginRoUnset(e.target, 'unset-touch'); }, { capture: true, passive: true });
-});
-document.addEventListener('focusin', function(e){
-  const t = e.target;
-  if(!loginRoIsField(t)) return;
-  if(loginRoActive() && t.getAttribute('data-login-ro')) loginRoUnset(t, Date.now() - loginRoEnterAt < 800 ? 'unset-return' : 'unset-touch'); // програмний перехід (Return) чи дотик без touchstart (клік)
-  loginRoRefresh();
-}, { capture: true, passive: true });
-document.addEventListener('focusout', function(e){ if(loginRoIsField(e.target)) setTimeout(loginRoRefresh, 0); }, { capture: true, passive: true });
-document.addEventListener('input', function(e){
-  const t = e.target;
-  if(!loginRoActive() || !loginRoIsField(t)) return;
-  if(!(e.inputType === 'insertReplacementText' || document.activeElement !== t)) return; // звичайний друк у полі з фокусом — не автозаповнення
-  loginRoHoldUntil = Date.now() + LOGIN_RO_AUTOFILL_MS;
-  loginRoFields().forEach(function(f){ loginRoUnset(f, 'unset-autofill'); });
-  clearTimeout(loginRoTimer); loginRoTimer = setTimeout(loginRoRefresh, LOGIN_RO_AUTOFILL_MS + 50);
-}, { capture: true, passive: true });
+// Rev 2.32.432 (TEST-CLEAN): варіант login-arrows (readonly на полі без курсора, Rev 2.32.430) прибрано: звіт MT-1120-6447 показав, що з readonly QuickType і Face ID заповнюють лише одне поле (вхід у дві дії). Лишається control: обидва поля звичайні, стрілки активні (FIX-1119 п.11 закрито як свідомий компроміс заради входу однією дією).
 // Rev 2.32.326 (LOGIN-FORM, C): форма входу й вхід за автозаповненням. Факти: після автозаповнення (Face ID) еталонні застосунки ховають клавіатуру, і вхід іде сам (iOS подає форму); у нас поля в <div>, кнопка type=button, тож iOS подавати було нічого. Тепер <form id="cloud-login-form-el"> з кнопкою type=submit; submit: preventDefault, blur активного поля, signInCloudAccount() (cloudSignInBusy гарантує один вхід). Додатково: коли обидва поля заповнено автозаповненням (input без inputType / insertReplacementText / :-webkit-autofill) і після заповнення не було ні keydown, ні дотику по полях — один form.requestSubmit() на заповнення; не повторюється для тих самих значень після помилки входу. Самописець: login-submit by: button | return | autofill | ios.
 let loginLock = false, loginLockTimer = null;
 // Rev 2.32.329 (LOGIN-FORM-4, C): стан «входимо» (MT-1117-7227: за 1,6 с форма 5 разів змінювала положення, слідуючи за висотою клавіатури 388 → 311 → 388 → 415 → закрито, а iOS прокручував сторінку на 1–3 пт і наш код відповідав 5 pan-comp). Вмикається на першому change у полі входу з :-webkit-autofill; поки діє, конвеєр клавіатури для шторки входу не міняє положення й висоту (kb-vv-resize, прокрутка сторінки, перекидання фокуса iOS, pan-comp / pan-corrected). Вимикається: форма закрилась (closed), вхід завершився (submitted), або за 1000 мс друге поле не заповнилось (timeout). Самописець: login-lock on / off + reason.
@@ -10483,7 +10446,7 @@ async function signInCloudAccount(){
 async function signInCloudAccountRun(){
   const errEl = document.getElementById('cloud-auth-error');
   errEl.textContent = '';
-  const emailEl = document.getElementById('cldfielda1'), pwEl = document.getElementById('cloud-password'); // Rev 2.32.47 (AG): у cloud-lazy полів може не бути в DOM
+  const emailEl = document.getElementById('cldfielda1'), pwEl = document.getElementById('cloud-password');
   if(!emailEl || !pwEl) return;
   const email = emailEl.value.trim();
   const password = pwEl.value;
@@ -16208,46 +16171,7 @@ purgeLegacyKeyboardKeys();
 const TEST_VARIANTS_LS_KEY = 'budget_variants_v1';
 // Rev 2.32.0 (F): реєстр порожній — motion-intensity («Стандартна», ×1) і card-reveal («Стандартно», 420/40) зафіксовано константами; pruneVariants() прибирає їхні старі ключі з localStorage.
 // Rev 2.32.8 (A): реєстр порожній — edit-label завершено (no-for); pruneVariants() прибирає його ключ із localStorage.
-const TEST_VARIANTS = [
-  // Rev 2.32.47 (AG) — порівняльний експеримент: що прибирає панель iOS «Автозаповнити контакт» (панель виникає попри autocomplete=off, після першої появи — у кожному полі, тобто це схоже на стан сторінки). Змінюється лише розмітка, не вигляд. Варіант застосовується при СТАРТІ — після вибору повністю закрийте застосунок і відкрийте знову.
-  {
-    id: 'autofill-guard',
-    title: 'Автозаповнення контактів: експеримент',
-    what: 'Який варіант прибирає панель «Автозаповнити контакт»: поля входу в хмару не існують у DOM, доки не відкрито «Вхід» (cloud-lazy); усі текстові поля — type="search" без системних значків (search-type); обидва разом (combined).',
-    variants: [
-      { key: 'control', label: 'Як зараз', hint: 'поля входу в DOM від старту, type=text' },
-      { key: 'cloud-lazy', label: 'Вхід на вимогу', hint: 'поля email/пароль створюються лише при відкритті «Входу»' },
-      { key: 'search-type', label: 'type=search', hint: 'усі текстові поля — type=search, без лупи й хрестика' },
-      { key: 'combined', label: 'Обидва', hint: 'вхід на вимогу + type=search' },
-    ],
-    defaultVariant: 'control',
-    addedIn: 'Rev 2.32.47 (AG)',
-    cleanupBy: 'після вибору на iPhone (ревізія зафіксує обраний варіант й прибере тест)',
-    checkSteps: [
-      'Оберіть варіант і ПОВНІСТЮ закрийте застосунок (змахнути з перемикача), потім відкрийте знову.',
-      'Облік → ОЧ → «Тест треш G3» (поле «Назва» не торкатись); Структура → «Додати категорію»; після цього торкніться цифрового поля — чи видно панель «Автозаповнити контакт»?',
-      'Повторіть для кожного з чотирьох варіантів; запишіть, у якому панелі немає. «Перепис полів екрана» покаже активний варіант (autofillGuard) і кількість форм.',
-    ],
-  },
-  // Rev 2.32.430 (LOGIN-ARROWS, C): експеримент із полями входу (docs/reports/LOGIN-ARROWS-step0.md). На симуляторі readonly на полі без курсора прибирає стрибок шторки при стрілках «Попереднє/Наступне» (112/50 pt → 0, стрілки неактивні), але чи заповнює QuickType/Face ID таке поле, перевірити можна лише на телефоні (збережені паролі прив’язані до адреси).
-  {
-    id: 'login-arrows',
-    title: 'Вхід: друге поле лише для читання (експеримент)',
-    what: 'Чи зникає стрибок форми входу при стрілках над клавіатурою, якщо поле без курсора — лише для читання (прямий дотик, Return і автозаповнення знімають це) і чи автозаповнення пароля (QuickType, Face ID) усе ще заповнює обидва поля.',
-    variants: [
-      { key: 'control', label: 'Як зараз', hint: 'обидва поля входу звичайні; стрілки активні (стрибок форми 112/50 pt)' },
-      { key: 'readonly', label: 'Друге поле лише для читання', hint: 'поле без курсора — readonly; стрілки неактивні; дотик, Return і автозаповнення знімають readonly' },
-    ],
-    defaultVariant: 'control',
-    addedIn: 'Rev 2.32.430 (LOGIN-ARROWS)',
-    cleanupBy: 'після перевірки на iPhone: прийняти (readonly стає звичайною поведінкою) або прибрати разом із кодом login-ro',
-    checkSteps: [
-      'Оберіть «Друге поле лише для читання», закрийте застосунок повністю й відкрийте знову. Вийдіть із хмари й відкрийте «Вхід». 1) Торкніться «Email»: стрілки над клавіатурою неактивні, форма не стрибає.',
-      '2) Підказка «Паролі» над клавіатурою заповнює Email і Пароль однією дією. 3) Вхід через Face ID / менеджер паролів, потім Return у паролі й повторний вхід.',
-      '4) Прямий дотик по іншому полю й Return «Далі» на пошті працюють; 5) друк у обидва поля працює. Потім «Записати лог із цим варіантом» (події login-ro) і надішліть код звіту.',
-    ],
-  },
-];
+const TEST_VARIANTS = []; // Rev 2.32.432 (TEST-CLEAN): активних експериментів немає (autofill-guard і login-arrows завершено, рішення власника 20.11); механізм (getVariant/setVariant/device.variants) лишається для майбутніх
 function readTestVariantsMap(){
   try{
     const raw = localStorage.getItem(TEST_VARIANTS_LS_KEY);
@@ -16305,49 +16229,7 @@ function getVariantsSnapshot(){
 }
 // </test-variants-module>
 pruneVariants();
-// Rev 2.32.47 (AG) — застосування варіанта autofill-guard при старті (див. запис у реєстрі вище).
-let cloudLoginFieldsTemplate = null;
-function autofillGuardVariant(){ try{ return getVariant('autofill-guard') || 'control'; }catch(e){ return 'control'; } }
-function autofillGuardFlags(variant){ return { cloudLazy: variant === 'cloud-lazy' || variant === 'combined', searchType: variant === 'search-type' || variant === 'combined' }; }
-function mountCloudLoginFields(){
-  const box = document.getElementById('cloud-login-fields');
-  if(box && cloudLoginFieldsTemplate !== null && !box.firstElementChild) box.innerHTML = cloudLoginFieldsTemplate;
-}
-function unmountCloudLoginFields(){
-  const box = document.getElementById('cloud-login-fields');
-  if(box && cloudLoginFieldsTemplate !== null) box.innerHTML = '';
-}
-// Текстове поле → type="search" (без системного значка: див. CSS html[data-autofill-guard~="search"]); inputmode/enterkeyhint зберігаються, autocomplete/autocorrect/spellcheck вимкнені.
-function toSearchField(el){
-  if(!el || el.tagName !== 'INPUT') return;
-  if((el.getAttribute('type') || 'text').toLowerCase() !== 'text') return;
-  el.setAttribute('type', 'search');
-  el.setAttribute('autocomplete', 'off');
-  el.setAttribute('autocorrect', 'off');
-  el.setAttribute('spellcheck', 'false');
-}
-function applyAutofillGuard(){
-  const flags = autofillGuardFlags(autofillGuardVariant());
-  const root = document.documentElement;
-  const parts = [];
-  if(flags.cloudLazy){
-    const box = document.getElementById('cloud-login-fields');
-    if(box && cloudLoginFieldsTemplate === null){ cloudLoginFieldsTemplate = box.innerHTML; box.innerHTML = ''; parts.push('lazy'); }
-  }
-  if(flags.searchType){
-    parts.push('search');
-    document.querySelectorAll('input[type="text"]').forEach(toSearchField);
-    new MutationObserver(function(muts){
-      muts.forEach(function(m){ m.addedNodes.forEach(function(n){
-        if(n.nodeType !== 1) return;
-        if(n.tagName === 'INPUT') toSearchField(n);
-        else if(n.querySelectorAll) n.querySelectorAll('input[type="text"]').forEach(toSearchField);
-      }); });
-    }).observe(document.body, { childList: true, subtree: true });
-  }
-  if(parts.length) root.setAttribute('data-autofill-guard', parts.join(' '));
-}
-applyAutofillGuard(); // Rev 2.32.47 (AG)
+// Rev 2.32.432 (TEST-CLEAN): експеримент автозаповнення контактів (Rev 2.32.47) завершено: лишається типовий варіант «поля входу в DOM від старту, type=text»; решту варіантів (вхід на вимогу, type=search, обидва) і їхній код прибрано.
 initSegments(); // Rev 2.26.0 (M3): ковзні індикатори сегментів (.struct-tabs, .theme-toggle, .n-days)
 // Rev 2.23.22 (6D.191) — UI "Тестування" (бейдж, шторка, картки). Значення
 // варіантів — лише через getVariant()/setVariant() модуля вище.
@@ -16375,10 +16257,9 @@ function renderTestingDrawer(){
   const list = document.getElementById('testing-variants-list');
   if(!list) return;
   list.textContent = '';
-  if(!TEST_VARIANTS.length){
-    list.appendChild(testingEl('div', 'drawer-empty', 'Активних тестів немає'));
-    return;
-  }
+  const lab = document.getElementById('testing-variants-label');
+  if(lab) lab.classList.toggle('hidden', !TEST_VARIANTS.length); // Rev 2.32.432 (TEST-CLEAN): «Експерименти» — лише коли є хоча б один активний
+  if(!TEST_VARIANTS.length) return;
   TEST_VARIANTS.forEach(function(t){
     const cur = getVariant(t.id);
     const curVariant = t.variants.find(function(v){ return v.key === cur; }) || t.variants[0];

@@ -5964,7 +5964,7 @@ test('у коді НЕМАЄ жодного читання видалених к
   ['getKbMode', 'setKbMode', 'getKbFocusMode', 'getKbArrowsMode', 'getKbCaretVariant', 'kb-mode-b', 'KB_MODE_LS_KEY', 'KB_ARROWS_LS_KEY', 'KB_CARET_LS_KEY', 'KB_FOCUS_MODE_LS_KEY'].forEach(function(id){
     assert.equal(src.indexOf(id), -1, id + ' має бути видалено');
   });
-  assert.equal((src.match(/Експеримент/g) || []).length, 0, 'Rev 2.32.261 (REC-1): блок «Експеримент» прибрано з екрана');
+  assert.equal((src.match(/>Експеримент[^<]*</g) || []).length, 1, 'Rev 2.32.432 (TEST-CLEAN): єдиний підпис — прихована група «Експерименти» (з’являється лише за активних експериментів); старого блоку «Експеримент» нема');
 });
 // Rev 2.23.22 (6D.191) — реєстр тестових варіантів (TEST_VARIANTS, docs/TESTING.md).
 function validateTestRegistry(reg){
@@ -6012,7 +6012,7 @@ test('ЗАХИСНИЙ реєстр: постачальний TEST_VARIANTS пр
   const ctx = ex.buildSandbox({}, ['TEST_VARIANTS']);
   const reg = JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(TEST_VARIANTS)'));
   assert.deepEqual(validateTestRegistry(reg), []);
-  assert.deepEqual(reg.map(function(t){ return t.id; }), ['autofill-guard', 'login-arrows'], 'motion-intensity, card-reveal (F), button-style (M4b), dashboard-replay (M4c), edit-label (A) завершені; Rev 2.32.47 (AG): активний лише autofill-guard');
+  assert.deepEqual(reg.map(function(t){ return t.id; }), [], 'Rev 2.32.432 (TEST-CLEAN): усі експерименти завершені (motion-intensity, card-reveal, button-style, dashboard-replay, edit-label, autofill-guard, login-arrows); раніше активний лише autofill-guard');
 });
 test('ЗАХИСНИЙ реєстр: валідатор ловить усі порушення (4 активних, відсутні поля, <2 варіантів, дубль key, defaultVariant, checkSteps, не kebab-case)', () => {
   const ok = makeTestRegistry();
@@ -6071,7 +6071,7 @@ test('getVariantsSnapshot: усі id → обраний варіант (для d
   ctx.setVariant('sample-test', 'b');
   assert.deepEqual(JSON.parse(JSON.stringify(ctx.getVariantsSnapshot())), { 'sample-test': 'b' });
 });
-test('у коді немає прямого читання budget_variants_v1 поза модулем; ключ не в BACKUP_LS_KEYS; device.variants; слово "Експерименти" відсутнє', () => {
+test('у коді немає прямого читання budget_variants_v1 поза модулем; ключ не в BACKUP_LS_KEYS; device.variants; підпис «Експерименти» лише в прихованій групі', () => {
   const src = require('./extract').readIndexWithCss();
   const start = src.indexOf('// <test-variants-module>');
   const end = src.indexOf('// </test-variants-module>');
@@ -6089,7 +6089,7 @@ test('у коді немає прямого читання budget_variants_v1 п
   const backup = src.slice(src.indexOf('const BACKUP_LS_KEYS = ['), src.indexOf('];', src.indexOf('const BACKUP_LS_KEYS = [')));
   assert.equal(backup.indexOf('budget_variants'), -1);
   assert.ok(/variants:\s*getVariantsSnapshot\(\)/.test(src), 'device.variants заповнюється з реєстру');
-  assert.equal((src.match(/Експеримент/g) || []).length, 0); // Rev 2.32.261 (REC-1): блок прибрано
+  assert.equal((src.match(/>Експеримент[^<]*</g) || []).length, 1); // Rev 2.32.432 (TEST-CLEAN): лише прихована група «Експерименти»; Rev 2.32.261 (REC-1): старий блок прибрано
 });
 test('sheet-anim: подія несе phase/jumpMaxPx/gapNoLayoutMs/drawerHeightRest/drawerHeightKb', () => {
   const { ctx, debugEvents } = kbSheetSandbox();

@@ -1323,9 +1323,6 @@
   .mono-switch > span{ position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,.3); transition:transform var(--t-s); }
   .mono-switch[aria-checked="true"] > span{ transform:translateX(20px); }
   /* Rev 2.32.28 (MB-4) — «Вхідні» Monobank: другий підекран (над «Monobank»), рядки в розмітці Журналу (.expense-row-swipe), мітка «з банку». */
-  /* Rev 2.32.47 (AG) — варіант search-type тесту autofill-guard: type=search без системного вигляду (лупа, хрестик, внутрішні відступи). Діє лише коли html[data-autofill-guard] містить search. */
-  html[data-autofill-guard~="search"] input[type="search"]{ -webkit-appearance:none; appearance:none; }
-  html[data-autofill-guard~="search"] input[type="search"]::-webkit-search-cancel-button, html[data-autofill-guard~="search"] input[type="search"]::-webkit-search-decoration, html[data-autofill-guard~="search"] input[type="search"]::-webkit-search-results-button, html[data-autofill-guard~="search"] input[type="search"]::-webkit-search-results-decoration{ display:none; -webkit-appearance:none; }
   .mono-inbox-screen{ z-index:19; } /* Rev 2.32.38 (B): було 20 = z-index таббара, а екран іде в DOM після нього й перекривав таббар; 19 + порядок у DOM → над «Monobank», під таббаром */
   /* Rev 2.32.38 (B) — дзвіночок і архів сповіщень. Рядок: іконка за типом, заголовок, текст, час (без крапок). Непрочитані: заголовок основним кольором, напівжирний (600), текст яскравіший, іконка повної яскравості; прочитані: вторинний сірий, звичайний шрифт (400), іконка приглушена (~0,5). */
   .gear-btn.notif-bell-btn{ position:relative; overflow:visible; }
@@ -1530,6 +1527,7 @@
   .chk-badge{ min-width:24px; height:24px; border-radius:var(--r-s); background:var(--ui-success-strong, var(--accent)); color:#fff; font-size:var(--fs-footnote); display:inline-flex; align-items:center; justify-content:center; padding:0 var(--sp-2); box-sizing:border-box; }
   .chk-badge.hidden{ display:none; }
   .chk-label{ font-size:var(--fs-caption1); color:var(--text-2); margin:var(--sp-5) var(--sp-1) var(--sp-2); }
+  .chk-label.hidden{ display:none; } /* Rev 2.32.432 (TEST-CLEAN): група «Експерименти» у «Для розробника» прихована, поки немає активних експериментів (у проєкті .hidden задається окремо в кожного компонента) */
   .chk-box{ padding:0; }
   .chk-box:not(:empty){ padding:var(--sp-3) var(--sp-4); }
   .chk-box.hidden{ display:none; }

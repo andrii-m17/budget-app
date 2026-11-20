@@ -1,6 +1,6 @@
 // LOGIN-ARROWS (Крок 0): рух шторки входу при натисканні стрілок «Попереднє/Наступне» над клавіатурою; кандидати вмикаються ін'єкцією в сторінку (код застосунку не змінюється;
 // (в) потребує прапорця у worktree-копії kbMotionPan). Реальні дотики на симуляторі (Appium + XCUITest, мок хмари).
-// Запуск: SIM_VARIANT=base|a1|a2|b|c|g|app node e2e/ios/login-arrows.mjs --trials 10   (SIM_OUT — тека знімків; SIM_DUMP=1 — лише список кнопок)
+// Запуск: SIM_VARIANT=base|a1|a2|b|c|g node e2e/ios/login-arrows.mjs --trials 10   (SIM_OUT — тека знімків; SIM_DUMP=1 — лише список кнопок)
 import fs from 'node:fs';
 import path from 'node:path';
 import * as L from './lib.mjs';
@@ -33,8 +33,6 @@ const INJECT = {
   },
   // (в) без компенсації pan-comp для полів входу (прапорець читає worktree-копія kbMotionPan)
   c: () => { window.__loginNoPanComp = true; },
-  // Rev 2.32.430: справжній варіант застосунку login-arrows = readonly (перемикач у «Тестуванні»)
-  app: () => { setVariant('login-arrows', 'readonly'); },
   // (г) поля впритул під заголовком: без блоку «Ви не увійшли»
   g: () => {
     const s = document.createElement('style');

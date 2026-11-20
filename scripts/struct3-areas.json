@@ -412,8 +412,6 @@
 "autoSyncStale":"service",
 "autoSyncTimer":"service",
 "autocategorize":"expenses",
-"autofillGuardFlags":"service",
-"autofillGuardVariant":"service",
 "awaitCloudGate":"monobank",
 "backfillExpenseAuthors":"sync",
 "backupArrayCount":"storage",

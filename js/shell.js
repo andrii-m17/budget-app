@@ -234,7 +234,7 @@ function unformatAmountFocus(el){
 // як власна логіка поля (checkInstallmentDivergence, saveExpenseDraft тощо)
 // прочитає el.value.
 function isAmountField(el){
-  return !!el && el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'search') && el.getAttribute('inputmode') === 'numeric'; // Rev 2.32.47 (AG): search-type варіант тесту autofill-guard
+  return !!el && el.tagName === 'INPUT' && el.type === 'text' && el.getAttribute('inputmode') === 'numeric'; // Rev 2.32.432 (TEST-CLEAN): варіант search-type прибрано
 }
 
 // Rev 2.32.206 (KB-SYNC-RENDER): перемальовування, спричинене синхронізацією (pull чужих змін, злиття конфлікту), не має зсувати екран, поки відкрита клавіатура з полем у фокусі: його відкладено до закриття поля (focusout), одним викликом; поза клавіатурою — як раніше, зі збереженням прокручування документа.
@@ -929,7 +929,7 @@ function fieldsCensusNow(){
 }
 function recordFieldsCensus(){
   const lines = fieldsCensusNow();
-  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'fields-census', fieldsCount: lines.length, fields: lines.slice(0, 80), formsCount: document.querySelectorAll('form').length, hasLoginFields: !!document.querySelector('input[type="email"], input[type="password"]'), autofillGuard: autofillGuardVariant() }); // Rev 2.32.47 (AG)
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'fields-census', fieldsCount: lines.length, fields: lines.slice(0, 80), formsCount: document.querySelectorAll('form').length, hasLoginFields: !!document.querySelector('input[type="email"], input[type="password"]') });
   return lines;
 }
 function recordFieldsCensusFromTesting(){
