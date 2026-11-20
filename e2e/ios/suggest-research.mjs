@@ -10,11 +10,35 @@ const VARIANT = process.env.SIM_VARIANT || 'base';
 const OUT = path.join(process.env.SIM_OUT || '/tmp/bs', VARIANT);
 fs.mkdirSync(OUT, { recursive: true });
 const pause = ms => new Promise(r => setTimeout(r, ms));
-const W1 = 'qwertyu', W2 = 'asdfghjklz';
+const UA = process.env.SIM_LANG === 'uk';
+const W1 = UA ? 'студент' : 'qwertyu', W2 = UA ? 'програміст' : 'asdfghjklz'; // 7 і 10 літер
+const SETTLE = UA ? 500 : 900; // пауза між набором і дотиком: автовиправлення й прогнози встигають з'явитися
 
+// Для SIM_LANG=uk: предикат XCUITest з кирилицею ненадійний, тож клавіші шукаємо за іменами з дерева (name → елемент); розкладку перемикаємо кнопкою «Наступна клавіатура» доти, доки не з'явиться «ї»
+async function keyMap(d){
+  const els = await d.$$('-ios predicate string:type == "XCUIElementTypeKey"');
+  const m = {}; for(const e of els){ const n = await e.getAttribute('name'); if(n) m[n.normalize('NFC').toLowerCase()] = e; }
+  return m;
+}
+async function ensureLayout(d){
+  if(!UA) return;
+  for(let i = 0; i < 4; i++){
+    const km0 = await keyMap(d); if(process.env.SIM_DEBUG) console.log('LAYOUT', i, Object.keys(km0).join('')); if(km0['ї'.normalize('NFC')]) return; // імена клавіш у нижньому регістрі (великі після автокапіталізації — той самий елемент)
+    const g = await d.$('-ios predicate string:name CONTAINS[c] "Next keyboard" OR name CONTAINS[c] "Наступна клавіатура"');
+    if(!(await g.isExisting())) throw new Error('Немає ні української розкладки, ні кнопки перемикання клавіатури');
+    await g.click(); await pause(900);
+  }
+  throw new Error('Не вдалось увімкнути українську розкладку');
+}
 async function typeKeys(d, word){
   await L.toNative(d);
-  for(const ch of word){ const key = await d.$('-ios predicate string:name ==[c] "' + ch + '" AND type == "XCUIElementTypeKey"'); await key.click(); await pause(180); }
+  await ensureLayout(d);
+  const km = UA ? await keyMap(d) : null;
+  for(const ch of word){
+    const key = UA ? km[ch.normalize('NFC').toLowerCase()] : await d.$('-ios predicate string:name ==[c] "' + ch + '" AND type == "XCUIElementTypeKey"');
+    if(!key) throw new Error('Немає клавіші ' + ch);
+    await key.click(); await pause(180);
+  }
   await L.toWeb(d);
 }
 async function backspaceAll(d){
@@ -49,7 +73,7 @@ async function main(){
   L.bootSim(dev); L.ensureSimClip(dev);
   await L.startServers('/tmp/sim-suggest');
   const d = await L.openSession(dev, 'PORTRAIT');
-  const res = { variant: VARIANT, device: dev.name + ' ' + dev.runtime, trials: [] };
+  const res = { lang: UA ? 'uk' : 'en', variant: VARIANT, device: dev.name + ' ' + dev.runtime, trials: [] };
   try{
     try{ await L.launchPwa(d); }catch(e){ await pause(2000); await L.launchPwa(d); }
     await L.loadApp(d);
@@ -68,7 +92,7 @@ async function main(){
       await d.execute(() => { const f = document.getElementById('expfielda7'); f.blur(); f.value = ''; try{ hideNameSuggestions(); }catch(e){} suggestSuppressed = false; });
       await pause(700);
       await L.tapSelector(d, map, '#expfielda7'); await pause(1200);
-      await typeKeys(d, W1); await pause(900);
+      await typeKeys(d, W1); await pause(SETTLE);
       // вибір 1
       const c0 = await cnt(d);
       await L.shot(d, path.join(OUT, 't' + k + '-1-before-pick1'));
@@ -78,11 +102,15 @@ async function main(){
       await L.tapSelector(d, map, '#expfielda7'); await pause(900);
       if(VARIANT !== 'noselect'){
         const r = await d.execute(() => { const b = document.getElementById('expfielda7').getBoundingClientRect(); return { x: b.left + b.width * 0.3, y: b.top + b.height / 2 }; });
-        await L.toNative(d); await d.execute('mobile: doubleTap', { x: Math.round(map.ox + r.x * map.kx), y: Math.round(map.oy + r.y * map.ky) }); await pause(700); await L.toWeb(d);
+        await L.toNative(d);
+        if(UA){ const x = Math.round(map.ox + r.x * map.kx), y = Math.round(map.oy + r.y * map.ky); // два дотики, початки з інтервалом 180 мс
+          await d.performActions([{ type: 'pointer', id: 'f1', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x, y }, { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 40 }, { type: 'pointerUp', button: 0 }, { type: 'pause', duration: 140 }, { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 40 }, { type: 'pointerUp', button: 0 }] }]); await d.releaseActions();
+        }else await d.execute('mobile: doubleTap', { x: Math.round(map.ox + r.x * map.kx), y: Math.round(map.oy + r.y * map.ky) });
+        await pause(700); await L.toWeb(d);
       }
       await L.shot(d, path.join(OUT, 't' + k + '-2-after-select'));
       await backspaceAll(d); await pause(500);
-      await typeKeys(d, W2); await pause(1000);
+      await typeKeys(d, W2); await pause(UA ? 500 : 1000);
       tr.typed2 = await d.execute(() => ({ len: document.getElementById('expfielda7').value.length, list: !!document.querySelector('#name-suggest-list.show .name-suggest-item') }));
       // вибір 2: до 3 спроб із паузою 1 с
       for(let a = 1; a <= 3 && !tr.ok2; a++){
