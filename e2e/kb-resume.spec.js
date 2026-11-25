@@ -116,11 +116,11 @@ test('keep-lift: вихід у фон з відкритою клавіатуро
     await page.waitForTimeout(900); // довше за 40/250 мс звичайних таймерів опускання
     const after = await sheet(page);
     expect(after.kbKeep).toBe(true); expect(after.kbSheet).toBe(true); expect(after.kbOpen).toBe(true);
-    expect(after.lift).toBe(before.lift); expect(Math.abs(after.top - before.top)).toBeLessThanOrEqual(1);
+    expect(after.lift, 'KB-RESUME-7: у фоні шторка в спокої (без переходу)').toBe(0); expect(after.top).toBeGreaterThan(before.top + 50);
     expect(after.active).not.toBe('cdd-balance'); // поле втратило фокус (наступний дотик дасть нативний фокус)
-    await setVisibility(page, 'visible'); await page.waitForTimeout(300);
+    await setVisibility(page, 'visible'); await page.waitForTimeout(900);
     const back = await sheet(page);
-    expect(back.kbKeep).toBe(true); expect(Math.abs(back.top - before.top)).toBeLessThanOrEqual(1);
+    expect(back.kbKeep).toBe(true); expect(back.lift).toBe(before.lift); expect(Math.abs(back.top - before.top)).toBeLessThanOrEqual(1);
     const ev = await events(page);
     expect(ev.some(e => e.branch === 'keep-enter' && e.keptLift === true && e.liftTarget > 50)).toBe(true);
   } finally { await ctx.close(); }
@@ -311,6 +311,145 @@ test('keep-lift (KB-RESUME-6): перемикання на інше поле с�
     expect(await h.page.evaluate(() => document.getElementById('card-debt-drawer').style.minHeight), 'у control висоту не чіпаємо').toBe('');
     expect((await sheet(h.page)).kbKeep).toBe(false);
   } finally { await h.ctx.close(); }
+});
+
+const winBlur = (page) => page.evaluate(() => { window.dispatchEvent(new Event('blur')); });
+const winFocus = (page) => page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
+const leaveBySwitcher = async (page, hiddenAfterMs) => { await winBlur(page); await hideKeyboard(page); await page.waitForTimeout(hiddenAfterMs); await setVisibility(page, 'hidden'); await page.waitForTimeout(300); };
+
+test('keep-lift (KB-RESUME-7): перемикач застосунків — blur, vvH повна, hidden через 800 мс: keptLift за знімком (eligibleBy blur-snap), kbHSource і kbHUsed записано, шторка в спокої без sheet-close', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'keep-lift', true);
+  try {
+    await openWithKeyboard(page);
+    const before = await sheet(page);
+    await leaveBySwitcher(page, 800);
+    const s = await sheet(page);
+    expect(s.kbKeep).toBe(true); expect(s.kbSheet).toBe(true); expect(s.lift).toBe(0);
+    const en = (await events(page)).find(e => e.branch === 'keep-enter');
+    expect(en).toMatchObject({ eligibleBy: 'blur-snap', keptLift: true });
+    expect(['store-kind', 'store-text', 'snapshot']).toContain(en.kbHSource); expect(en.kbHUsed).toBeGreaterThan(150);
+    expect(en.blurToHiddenMs).toBeGreaterThanOrEqual(790); expect(['numeric', 'text', 'email', 'password']).toContain(en.kbKind);
+    expect(await page.evaluate(() => document.documentElement.classList.contains('kb-sheet-closing'))).toBe(false);
+    await setVisibility(page, 'visible'); await page.waitForTimeout(900);
+    const back = await sheet(page);
+    expect(back.lift).toBe(before.lift); expect(Math.abs(back.top - before.top)).toBeLessThanOrEqual(1);
+    expect(await page.evaluate(() => document.documentElement.classList.contains('kb-sheet-closing'))).toBe(false);
+  } finally { await ctx.close(); }
+});
+
+test('keep-lift (KB-RESUME-7): знімок старший за 3000 мс, window focus між blur і hidden, чужа шторка — звичайний шлях (kb-bg-reset), подія keep-skip з eligibleBy none', async ({ browser }) => {
+  for (const mode of ['old', 'focus']) {
+    const { ctx, page } = await open(browser, 'keep-lift', true);
+    try {
+      await openWithKeyboard(page);
+      await winBlur(page); await hideKeyboard(page);
+      if (mode === 'old') await page.waitForTimeout(3150); else { await page.waitForTimeout(300); await winFocus(page); await page.waitForTimeout(100); }
+      await setVisibility(page, 'hidden'); await page.waitForTimeout(900);
+      const s = await sheet(page);
+      expect(s.kbKeep, mode).toBe(false);
+      const ev = await events(page);
+      expect(ev.some(e => e.branch === 'keep-skip' && e.eligibleBy === 'none'), mode).toBe(true);
+      expect(ev.some(e => e.branch === 'keep-enter'), mode).toBe(false);
+    } finally { await ctx.close(); }
+  }
+});
+
+test('keep-lift (KB-RESUME-7): після visible шторка плавно піднімається 0 -> ціль: kb-resume-lift ms 200–350, frames ≥ 10, jumpMax ≤ 100 (headless), без sheet-close; щит прозорий і знятий ≤ 500 мс', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'keep-lift', true);
+  try {
+    await openWithKeyboard(page);
+    const before = await sheet(page);
+    await leaveBySwitcher(page, 400);
+    await setVisibility(page, 'visible');
+    await page.waitForTimeout(40);
+    const sh = await page.evaluate(() => { const e = document.querySelector('[data-kb-keep-shield]'); if (!e) return null; const cs = getComputedStyle(e); return { bg: cs.backgroundColor, pos: cs.position, pe: cs.pointerEvents }; });
+    expect(sh, 'щит є одразу після visible').not.toBeNull(); expect(sh.pos).toBe('fixed'); expect(sh.bg === 'rgba(0, 0, 0, 0)' || sh.bg === 'transparent').toBe(true);
+    await page.waitForTimeout(700);
+    expect(await page.evaluate(() => !!document.querySelector('[data-kb-keep-shield]')), 'щит знято до 500 мс після старту').toBe(false);
+    const lf = (await page.evaluate(() => recBuf.filter(e => e.type === 'kb-resume-lift')));
+    expect(lf.length).toBe(1);
+    expect(lf[0].from).toBe(0); expect(lf[0].to).toBe(Math.round(before.lift));
+    expect(lf[0].ms).toBeGreaterThanOrEqual(200); expect(lf[0].ms).toBeLessThanOrEqual(350); expect(lf[0].frames).toBeGreaterThanOrEqual(10); expect(lf[0].jumpMax, 'крива стандартного підйому: пік ≈ 48 пт/кадр при 275 пт за 250 мс; у headless кадри інколи пропускаються, тому межа тут 100 (критерій X2 ≤ 60 — на телефоні)').toBeLessThanOrEqual(100);
+    expect(await page.evaluate(() => document.documentElement.classList.contains('kb-sheet-closing'))).toBe(false);
+    expect((await sheet(page)).lift).toBe(before.lift);
+  } finally { await ctx.close(); }
+});
+
+test('keep-lift (KB-RESUME-7): дотик під час підйому потрапляє на щит (touchDuringLift 1, click під щитом не виконується), поле не фокусується; наступний дотик — нативний', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'keep-lift', true);
+  try {
+    await openWithKeyboard(page);
+    await leaveBySwitcher(page, 400);
+    await page.evaluate(() => { window.__clicks = 0; document.addEventListener('click', (e) => { if (!e.target.hasAttribute || !e.target.hasAttribute('data-kb-keep-shield')) window.__clicks++; }, true); });
+    await setVisibility(page, 'visible'); await page.waitForTimeout(40);
+    const r = await page.evaluate(() => { const sh = document.querySelector('[data-kb-keep-shield]'); const x = innerWidth / 2, y = innerHeight / 2; const hit = document.elementFromPoint(x, y) === sh;
+      const mk = (type, tl) => { const ev = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(ev, 'touches', { value: tl }); Object.defineProperty(ev, 'changedTouches', { value: [{ clientX: x, clientY: y, identifier: 7, target: sh }] }); sh.dispatchEvent(ev); return ev; };
+      const tt = [{ clientX: x, clientY: y, identifier: 7, target: sh }]; const s = mk('touchstart', tt); const e = mk('touchend', []); return { hit, startPrevented: s.defaultPrevented, endPrevented: e.defaultPrevented }; });
+    expect(r.hit).toBe(true); expect(r.startPrevented, 'touchstart не гасимо').toBe(false); expect(r.endPrevented, 'touchend гасить синтетичний click').toBe(true);
+    await page.waitForTimeout(700);
+    expect(await page.evaluate(() => window.__clicks)).toBe(0);
+    expect((await sheet(page)).active).not.toBe('cdd-balance');
+    await touch(page, 'touchstart', FIELD); await touch(page, 'touchmove', FIELD, 0); const e2 = await touch(page, 'touchend', FIELD); expect(e2.prevented).toBe(false);
+    await page.evaluate(() => document.querySelector('#cdd-balance').focus()); await page.waitForTimeout(100); await showKeyboard(page); await page.waitForTimeout(900);
+    const rec = (await events(page)).find(e => e.keptLift === true && e.branch === 'none');
+    expect(rec.touchDuringLift).toBe(1); expect(typeof rec.visibleToTouchMs).toBe('number'); expect(rec.eligibleBy).toBe('blur-snap'); expect(typeof rec.liftAnimMs).toBe('number');
+  } finally { await ctx.close(); }
+});
+
+test('keep-lift (KB-RESUME-7): orientationchange і pagehide під час підйому знімають щит; повторний hidden до дотику — знову спокій без переходу; закриття шторки знімає щит', async ({ browser }) => {
+  let h = await open(browser, 'keep-lift', true);
+  try {
+    await openWithKeyboard(h.page); await leaveBySwitcher(h.page, 300);
+    await setVisibility(h.page, 'visible'); await h.page.waitForTimeout(40);
+    await h.page.evaluate(() => window.dispatchEvent(new Event('orientationchange'))); await h.page.waitForTimeout(100);
+    expect(await h.page.evaluate(() => !!document.querySelector('[data-kb-keep-shield]'))).toBe(false);
+    expect((await sheet(h.page)).kbKeep).toBe(false);
+  } finally { await h.ctx.close(); }
+  h = await open(browser, 'keep-lift', true);
+  try {
+    await openWithKeyboard(h.page); const before = await sheet(h.page); await leaveBySwitcher(h.page, 300);
+    await setVisibility(h.page, 'visible'); await h.page.waitForTimeout(40);
+    await h.page.evaluate(() => window.dispatchEvent(new Event('pagehide'))); await h.page.waitForTimeout(50);
+    expect(await h.page.evaluate(() => !!document.querySelector('[data-kb-keep-shield]'))).toBe(false);
+    await setVisibility(h.page, 'hidden'); await h.page.waitForTimeout(200);
+    expect((await sheet(h.page)).lift, 'повторний hidden: знову спокій').toBe(0);
+    await setVisibility(h.page, 'visible'); await h.page.waitForTimeout(900);
+    const back = await sheet(h.page); expect(back.lift).toBe(before.lift); expect(back.kbKeep).toBe(true);
+  } finally { await h.ctx.close(); }
+  h = await open(browser, 'keep-lift', true);
+  try {
+    await openWithKeyboard(h.page); await leaveBySwitcher(h.page, 300);
+    await setVisibility(h.page, 'visible'); await h.page.waitForTimeout(40);
+    await h.page.evaluate(() => closeCardDebtEditor()); await h.page.waitForTimeout(900);
+    expect(await h.page.evaluate(() => !!document.querySelector('[data-kb-keep-shield]'))).toBe(false);
+    expect((await sheet(h.page)).kbKeep).toBe(false);
+  } finally { await h.ctx.close(); }
+});
+
+test('keep-lift (KB-RESUME-7): повернення з синхронізацією (pullAllOnResume, renderAll, app-visible) під час підйому не скидає стан keep-lift і не перемальовує шторку', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'keep-lift', true);
+  try {
+    await openWithKeyboard(page);
+    const before = await sheet(page);
+    await page.evaluate(() => { window.__d0 = document.getElementById('card-debt-drawer'); window.__f0 = document.querySelector('#cdd-balance'); });
+    await leaveBySwitcher(page, 300);
+    await setVisibility(page, 'visible'); await page.waitForTimeout(60);
+    await page.evaluate(async () => { try { if (typeof pullAllOnResume === 'function') await pullAllOnResume(); } catch (e) {} try { renderAll(); } catch (e) {} try { if (typeof syncAppVisible === 'function') await syncAppVisible(true); } catch (e) {} try { checkDayRollover('resume'); } catch (e) {} });
+    await page.waitForTimeout(900);
+    const same = await page.evaluate(() => ({ d: window.__d0 === document.getElementById('card-debt-drawer'), f: window.__f0 === document.querySelector('#cdd-balance'), open: document.getElementById('card-debt-drawer').classList.contains('open') }));
+    expect(same).toEqual({ d: true, f: true, open: true });
+    const s = await sheet(page); expect(s.kbKeep).toBe(true); expect(s.lift).toBe(before.lift); expect(Math.abs(s.top - before.top)).toBeLessThanOrEqual(1);
+  } finally { await ctx.close(); }
+});
+
+test('control (KB-RESUME-7, X5): перемикач застосунків без keep-lift — знімка нема, подій keep-* нема, шторка опускається як раніше', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'control', true);
+  try {
+    await openWithKeyboard(page);
+    await leaveBySwitcher(page, 400); await page.waitForTimeout(700);
+    const s = await sheet(page); expect(s.kbKeep).toBe(false);
+    expect((await page.evaluate(() => recBuf.filter(e => e.type === 'kb-resume-lift' || (e.type === 'kb-resume' && /^keep/.test(e.branch || ''))).length))).toBe(0);
+  } finally { await ctx.close(); }
 });
 
 test('варіанти kb-resume: control, proxy-tap, keep-lift (await-focus і ro-tap відсутні); типово control', async ({ browser }) => {

@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.437"><link rel="stylesheet" href="./css/app.css?v=2.32.437"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.438"><link rel="stylesheet" href="./css/app.css?v=2.32.438"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -875,7 +875,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.437</div>
+  <div class="version-footer">Money Tree · Rev 2.32.438</div>
 </div>
   </div>
 </div>
@@ -1663,16 +1663,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.437"></script>
-<script src="./js/util-date.js?v=2.32.437"></script>
-<script src="./js/util-safe.js?v=2.32.437"></script>
-<script src="./js/util-misc.js?v=2.32.437"></script>
-<script src="./js/diag.js?v=2.32.437"></script>
-<script src="./js/shell.js?v=2.32.437"></script>
-<script src="./js/structure.js?v=2.32.437"></script>
-<script src="./js/analytics.js?v=2.32.437"></script>
-<script src="./js/payments.js?v=2.32.437"></script>
-<script src="./js/sheets.js?v=2.32.437"></script>
+<script src="./js/util-format.js?v=2.32.438"></script>
+<script src="./js/util-date.js?v=2.32.438"></script>
+<script src="./js/util-safe.js?v=2.32.438"></script>
+<script src="./js/util-misc.js?v=2.32.438"></script>
+<script src="./js/diag.js?v=2.32.438"></script>
+<script src="./js/shell.js?v=2.32.438"></script>
+<script src="./js/structure.js?v=2.32.438"></script>
+<script src="./js/analytics.js?v=2.32.438"></script>
+<script src="./js/payments.js?v=2.32.438"></script>
+<script src="./js/sheets.js?v=2.32.438"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6829,7 +6829,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.437';
+const APP_VERSION = '2.32.438';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -16268,10 +16268,27 @@ function kbKeepCenterPlan(o){
   const extra = Math.min(want, room);
   return { centerTarget: centerTarget, extra: extra, clamped: want > room + 0.5 };
 }
+// KB-RESUME-7: чисті правила входу в keep-lift. kbOpenNow — клавіатура відкрита зараз; snapAgeMs — вік знімка від window blur (-1: знімка нема); межа 3000 мс: 0..2999 — так, 3000 і більше — ні.
+function kbKeepEntryBy(o){
+  if(!(o.lift > 1) || !o.drawerOpen) return 'none';
+  if(o.kbOpenNow) return 'now';
+  if(o.snapAgeMs >= 0 && o.snapAgeMs < 3000 && o.sameDrawer && o.fieldConnected && o.sameOrientation) return 'blur-snap';
+  return 'none';
+}
+// Висота клавіатури для цілі центру: store за видом поля -> store text -> знімок (або жива, якщо клавіатура відкрита). Результат < 150 або відсутній — invalid (keep-lift не вмикаємо).
+function kbKeepPickKbH(o){
+  const list = [['store-kind', o.storeKind], ['store-text', o.storeText], ['snapshot', o.snapshot]];
+  for(let i = 0; i < list.length; i++){ const v = Number(list[i][1]); if(v > 0) return v < 150 ? { kbH: v, source: 'invalid' } : { kbH: v, source: list[i][0] }; }
+  return { kbH: 0, source: 'invalid' };
+}
+// План підйому після повернення: від 0 до lift, лише коли клавіатура закрита, орієнтація та сама і шторка відкрита.
+function kbKeepLiftPlan(o){ return { animate: !o.kbOpenNow && o.lift > 1 && !!o.sameOrientation && !!o.drawerOpen, from: 0, to: o.lift }; }
+// Скільки живе щит: до кінця анімації + 50 мс, але не більше 500 мс.
+function kbKeepShieldMs(animMs){ return Math.min(500, Math.max(0, Number(animMs) || 0) + 50); }
 function kbKeepOutcome(moveMax, focusin){ return kbKeepTouchKind(moveMax) === 'drag' ? 'drag' : (focusin ? 'tap-field' : 'tap-miss'); }
 // Самописець (клас A, усі варіанти): запис першого дотику по полю шторки: variant, branch (proxy-focus | proxy-miss | keep-enter | keep-release | none), hasFocusStart/hasFocusEnd, intercept, transferMs, kbShownMs (до стиснення visualViewport ≥ 100 pt; null через 1 с), panMax (макс. visualViewport.offsetTop за 600 мс), jumpMax (макс. зміна видимого верху шторки між кадрами за 600 мс), fieldTopAtTouch (верх поля на touchstart), keptLift/liftTarget (шторку лишено піднятою; ціль підйому), released (tap-field | tap-miss | tap-other | drag | close | reset), releaseAt (touchstart | touchend | timeout), moveMax (макс. рух пальця за дотик, pt), docScrollH/innerH/scrollY на focusin піднятої шторки (чи прокручується документ). Лише числа, булеві й назви.
 function kbResumeBegin(hasFocus, drawerEl, field){
-  const rec = { variant: kbResumeVariant(), branch: 'none', hasFocusStart: hasFocus, hasFocusEnd: null, intercept: false, transferMs: null, kbShownMs: null, panMax: 0, jumpMax: 0, keptLift: false, liftTarget: null, centerTarget: null, fieldCenterAtTouch: null, liftMore: null, liftClamped: null, released: null, releaseAt: null, moveMax: null, docScrollH: null, innerH: null, scrollY: null, fieldTopAtTouch: null, t0: performance.now(), h0: 0 };
+  const rec = { variant: kbResumeVariant(), branch: 'none', hasFocusStart: hasFocus, hasFocusEnd: null, intercept: false, transferMs: null, kbShownMs: null, panMax: 0, jumpMax: 0, keptLift: false, liftTarget: null, centerTarget: null, fieldCenterAtTouch: null, liftMore: null, liftClamped: null, eligibleBy: null, blurToHiddenMs: null, kbKind: null, kbHSource: null, kbHUsed: null, liftAnimMs: null, touchDuringLift: null, visibleToTouchMs: null, released: null, releaseAt: null, moveMax: null, docScrollH: null, innerH: null, scrollY: null, fieldTopAtTouch: null, t0: performance.now(), h0: 0 };
   try{
     const vv = window.visualViewport;
     rec.h0 = vv ? vv.height : window.innerHeight;
@@ -16289,7 +16306,7 @@ function kbResumeBegin(hasFocus, drawerEl, field){
           }
         }
         if(el < emitMs){ requestAnimationFrame(tick); return; }
-        if(typeof pushDebugEvent === 'function') pushDebugEvent({ type: 'kb-resume', variant: rec.variant, branch: rec.branch, hasFocusStart: rec.hasFocusStart, hasFocusEnd: rec.hasFocusEnd, intercept: rec.intercept, transferMs: rec.transferMs, kbShownMs: rec.kbShownMs, panMax: rec.panMax, jumpMax: rec.jumpMax, keptLift: rec.keptLift, liftTarget: rec.liftTarget, centerTarget: rec.centerTarget, fieldCenterAtTouch: rec.fieldCenterAtTouch, liftMore: rec.liftMore, liftClamped: rec.liftClamped, released: rec.released, releaseAt: rec.releaseAt, moveMax: rec.moveMax, docScrollH: rec.docScrollH, innerH: rec.innerH, scrollY: rec.scrollY, fieldTopAtTouch: rec.fieldTopAtTouch });
+        if(typeof pushDebugEvent === 'function') pushDebugEvent({ type: 'kb-resume', variant: rec.variant, branch: rec.branch, hasFocusStart: rec.hasFocusStart, hasFocusEnd: rec.hasFocusEnd, intercept: rec.intercept, transferMs: rec.transferMs, kbShownMs: rec.kbShownMs, panMax: rec.panMax, jumpMax: rec.jumpMax, keptLift: rec.keptLift, liftTarget: rec.liftTarget, centerTarget: rec.centerTarget, fieldCenterAtTouch: rec.fieldCenterAtTouch, liftMore: rec.liftMore, liftClamped: rec.liftClamped, eligibleBy: rec.eligibleBy, blurToHiddenMs: rec.blurToHiddenMs, kbKind: rec.kbKind, kbHSource: rec.kbHSource, kbHUsed: rec.kbHUsed, liftAnimMs: rec.liftAnimMs, touchDuringLift: rec.touchDuringLift, visibleToTouchMs: rec.visibleToTouchMs, released: rec.released, releaseAt: rec.releaseAt, moveMax: rec.moveMax, docScrollH: rec.docScrollH, innerH: rec.innerH, scrollY: rec.scrollY, fieldTopAtTouch: rec.fieldTopAtTouch });
       }catch(e){}
     })();
   }catch(e){}
@@ -21850,6 +21867,111 @@ function kbResumeTapEnd(start, target, drawerEl, moved){
 }
 // keep-lift (KB-RESUME-4): коли застосунок іде у фон (visibilitychange hidden) з відкритою клавіатурою в шторці (.drawer, підйом > 1), шторка НЕ опускається: поле втрачає фокус (blur: наступний дотик дасть нативний фокус), але kbSheetActive, kb-sheet, kb-open і --sheet-lift лишаються; геометрію заморожено (updateKbSheetGeometry, vv resize, focusout і handleKeyboardFieldFocusSettle нічого не скидають); нижче шторки той самий фон (html.kb-keep, CSS). Знімається: дотик по полю (focusin → tap-field: шторка нерухома, далі звичайний шлях), дотик поза полем (tap-other, на touchstart), тягнення > KB_KEEP_DRAG_PX з поля (drag, при завершенні дотику), закриття шторки (close, у exitKbSheet), зміна орієнтації чи шторки (reset). KB-RESUME-5: дотик по полю з рухом ≤ 10 pt шторку не опускає: після touchend чекаємо focusin ≤ KB_KEEP_FOCUS_MS (єдиний таймер), нема — tap-miss (звичайне опускання). Зсув iOS (≈ центр поля → C ≈ 253) на нативному фокусі приймається: протягом 900 мс після focusin корекція зсуву сторінки (scrollTo + FLIP) не виконується.
 let kbKeep = null; // { drawerEl, fieldId, kind, lift, orient, rec, obs, waitTimer }
+// KB-RESUME-7: знімок стану клавіатури для виходу через перемикач застосунків (blur -> vvH 894 -> hidden через 0,3-1,5 с): оновлюється у vv resize, поки клавіатура відкрита (лише збережені значення), blurAt ставиться на window blur
+let kbBlurSnap = null; // { drawerEl, field, lift, orient, kbH, blurAt }
+let kbKeepShield = null; // { el, capTimer, endTimer }
+let kbKeepTouchDuring = 0;
+function kbBlurSnapNote(){
+  try{
+    if(kbKeep || !kbSheetActive || !kbSheetDrawerEl || kbProxyActive || kbResumeVariant() !== 'keep-lift') return;
+    if(kbBlurSnap && kbBlurSnap.blurAt) return; // після window blur знімок не підміняємо проміжними кадрами vv resize
+    const vv = window.visualViewport; if(!vv) return;
+    const base = getBaseViewportHeight(); if(!isKeyboardOpen(base, vv.height)) return;
+    const a = document.activeElement; if(!a || a === document.body || !isKeyboardField(a) || kbIsPlatformField(a)) return;
+    kbBlurSnap = { drawerEl: kbSheetDrawerEl, field: a, lift: kbSheetCurrentLift, orient: viewportOrientationKey(window.innerWidth, window.innerHeight), kbH: base - vv.height, blurAt: 0 };
+  }catch(e){}
+}
+function kbBlurSnapOnBlur(){
+  try{
+    if(kbKeep || kbResumeVariant() !== 'keep-lift') return;
+    if(kbKeepEligible()) kbBlurSnapNote();
+    if(kbBlurSnap && kbBlurSnap.drawerEl === kbSheetDrawerEl) kbBlurSnap.blurAt = performance.now();
+  }catch(e){}
+}
+// Щит на час підйому: прозорий, нічого не затемнює, ловить дотики (touchstart не гасимо); touchend гасить синтетичний click, щоб він не потрапив на елементи під щитом.
+function kbKeepShieldOff(){
+  const sh = kbKeepShield; if(!sh) return; kbKeepShield = null;
+  try{ if(sh.capTimer) clearTimeout(sh.capTimer); if(sh.endTimer) clearTimeout(sh.endTimer); }catch(e){}
+  try{ sh.el.remove(); }catch(e){}
+}
+function kbKeepShieldOn(){
+  kbKeepShieldOff();
+  const el = document.createElement('div');
+  el.setAttribute('data-kb-keep-shield', '1');
+  el.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:99999;background:transparent;touch-action:none;';
+  el.addEventListener('touchstart', function(e){ kbKeepTouchDuring++; e.stopPropagation(); }, { passive: true }); // не доходить до document: інакше дотик по щиту опустив би шторку (tap-other)
+  el.addEventListener('touchmove', function(e){ e.stopPropagation(); }, { passive: true });
+  el.addEventListener('touchcancel', function(e){ e.stopPropagation(); }, { passive: true });
+  el.addEventListener('touchend', function(e){ e.stopPropagation(); if(e.cancelable) e.preventDefault(); }, { passive: false });
+  el.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); });
+  document.body.appendChild(el);
+  kbKeepShield = { el: el, capTimer: setTimeout(kbKeepShieldOff, kbKeepShieldMs(1000)), endTimer: null };
+}
+function kbKeepEndRest(el){ try{ if(el) el.style.removeProperty('transition'); }catch(e){} }
+// Спокій без переходу: без transition:none CSS-перехід опускання відтворився б після повернення
+function kbKeepRest(st){
+  try{
+    const el = st.drawerEl;
+    kbLiftStop();
+    el.style.setProperty('transition', 'none');
+    kbMotionVar('--sheet-lift', '0');
+    void el.offsetHeight;
+    st.pendingLift = true; st.visibleAt = 0;
+  }catch(e){}
+}
+function kbKeepOnVisible(){
+  const st = kbKeep; if(!st || !st.pendingLift) return;
+  st.visibleAt = performance.now(); kbKeepTouchDuring = 0;
+  kbKeepShieldOn();
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ kbKeepRunLift(st); }); });
+}
+function kbKeepRunLift(st){
+  if(kbKeep !== st || !st.pendingLift) return;
+  st.pendingLift = false;
+  const el = st.drawerEl, vv = window.visualViewport;
+  const plan = kbKeepLiftPlan({ kbOpenNow: !!vv && isKeyboardOpen(getBaseViewportHeight(), vv.height), lift: st.lift, sameOrientation: viewportOrientationKey(window.innerWidth, window.innerHeight) === st.orient, drawerOpen: !!(kbSheetActive && kbSheetDrawerEl === el && el.isConnected && el.classList.contains('open')) });
+  if(!plan.animate){ kbMotionVar('--sheet-lift', String(Math.round(st.lift * 10) / 10)); kbKeepEndRest(el); kbKeepShieldOff(); kbKeepEmit('keep-lift-skip', {}); return; }
+  const t0 = performance.now(); let frames = 0, prev = el.getBoundingClientRect().top, jump = 0;
+  kbSheetCurrentLift = st.lift;
+  kbSetLift(st.lift);
+  (function tick(){
+    if(kbKeep !== st) return;
+    const top = el.getBoundingClientRect().top, ms = performance.now() - t0;
+    frames++; if(Math.abs(top - prev) > jump) jump = Math.abs(top - prev); prev = top;
+    if(kbLiftActive && ms < 600){ requestAnimationFrame(tick); return; }
+    st.liftAnimMs = Math.round(ms);
+    try{ if(typeof pushDebugEvent === 'function') pushDebugEvent({ type: 'kb-resume-lift', variant: 'keep-lift', from: 0, to: Math.round(st.lift), ms: st.liftAnimMs, frames: frames, jumpMax: Math.round(jump), touchDuringLift: kbKeepTouchDuring }); }catch(e){}
+    kbKeepEndRest(el);
+    if(kbKeepShield){ if(kbKeepShield.capTimer) clearTimeout(kbKeepShield.capTimer); kbKeepShield.capTimer = null; kbKeepShield.endTimer = setTimeout(kbKeepShieldOff, kbKeepShieldMs(0)); }
+  })();
+}
+// hidden повторно в стані keep (піднятий стан ще не торкнуто): знову спокій без переходу, щоб наступне повернення знову піднімало плавно
+function kbKeepBackAgain(){ if(!kbKeep) return; kbKeepShieldOff(); kbKeepRest(kbKeep); }
+function kbKeepFillRec(rec){
+  const st = kbKeep; if(!st || !rec || !st.info) return;
+  rec.eligibleBy = st.info.by; rec.blurToHiddenMs = st.info.blurToHiddenMs; rec.kbKind = st.info.kind; rec.kbHSource = st.info.kbHSource; rec.kbHUsed = Math.round(st.info.kbH);
+  rec.liftAnimMs = st.liftAnimMs === undefined ? null : st.liftAnimMs; rec.touchDuringLift = kbKeepTouchDuring;
+  rec.visibleToTouchMs = st.visibleAt ? Math.round(performance.now() - st.visibleAt) : null;
+}
+// Рішення про вхід на hidden: зараз (now) або за знімком на blur (blur-snap); kbH за ланцюжком store-kind -> store-text -> знімок
+function kbKeepDecide(){
+  const out = { by: 'none', wouldBy: 'none', kbHSource: null, kbH: 0, kind: null, field: null, lift: 0, blurToHiddenMs: null };
+  try{
+    const vv = window.visualViewport; if(!vv || !kbSheetActive || !kbSheetDrawerEl) return out;
+    const base = getBaseViewportHeight(), orient = viewportOrientationKey(window.innerWidth, window.innerHeight), s = kbBlurSnap, now = performance.now();
+    const open = kbKeepEligible(), d = kbSheetDrawerEl, snapOk = !!(s && s.drawerEl === d);
+    const lift = kbSheetCurrentLift > 1 ? kbSheetCurrentLift : (snapOk ? s.lift : 0);
+    const by = kbKeepEntryBy({ kbOpenNow: open, snapAgeMs: snapOk && s.blurAt ? now - s.blurAt : -1, sameDrawer: snapOk, drawerOpen: !!(d.classList.contains('drawer') && d.classList.contains('open') && d.isConnected), fieldConnected: !!(snapOk && s.field && s.field.isConnected), sameOrientation: !!(snapOk && s.orient === orient), lift: lift });
+    out.wouldBy = by; out.lift = lift; out.blurToHiddenMs = snapOk && s.blurAt ? Math.round(now - s.blurAt) : null;
+    if(by === 'none') return out;
+    const field = by === 'now' ? document.activeElement : s.field;
+    if(!field || field === document.body) return out;
+    out.field = field; out.kind = kbCacheKindForField(field);
+    const pick = kbKeepPickKbH({ storeKind: kbHeightFromStore(orient, out.kind), storeText: kbHeightFromStore(orient, 'text'), snapshot: by === 'now' ? base - vv.height : (snapOk ? s.kbH : 0) });
+    out.kbH = pick.kbH; out.kbHSource = pick.source; out.by = pick.source === 'invalid' ? 'none' : by;
+  }catch(e){}
+  return out;
+}
 let kbKeepGrow = null; // KB-RESUME-6: { drawerEl, fieldId, minH, maxH } — вбудовані (inline) мін/макс висота піднятої шторки; живе й після tap-field, поки клавіатура відкрита
 let kbKeepAcceptUntil = 0; // до цього моменту (performance.now) correctPanIfNeeded не компенсує зсув сторінки одним кадром
 function kbKeepEligible(){
@@ -21878,15 +22000,15 @@ function kbKeepGrowApply(drawerEl, field, plan){
   drawerEl.style.minHeight = (h + plan.extra) + 'px'; // низ шторки лишається біля клавіатури (прив’язка знизу), верх і поля піднімаються на extra
   drawerEl.style.maxHeight = Math.max(isNaN(cm) ? 0 : cm, h + plan.extra) + 'px';
 }
-function kbKeepEnter(){
-  const a = document.activeElement;
-  kbKeep = { drawerEl: kbSheetDrawerEl, fieldId: a && a.id ? a.id : null, kind: kbSheetFieldKind, lift: kbSheetCurrentLift, orient: viewportOrientationKey(window.innerWidth, window.innerHeight), rec: null, plan: null };
-  try{ // KB-RESUME-6: ціль підйому за законом центрування (поле запам’ятовуємо до blur)
-    const fr = a && a.getBoundingClientRect ? a.getBoundingClientRect() : null, vv = window.visualViewport, innerH = getBaseViewportHeight();
-    const kbH = kbHeightFromStore(kbKeep.orient, kbSheetCacheKind || kbCacheKindForField(a)) || (vv ? Math.max(0, innerH - vv.height) : 0);
-    if(fr && kbH > 0){
+function kbKeepEnter(info){
+  const a = info.field;
+  kbKeep = { drawerEl: kbSheetDrawerEl, fieldId: a && a.id ? a.id : null, kind: kbSheetFieldKind, lift: info.lift, orient: viewportOrientationKey(window.innerWidth, window.innerHeight), rec: null, plan: null, info: info, pendingLift: false, visibleAt: 0 };
+  kbKeepTouchDuring = 0; kbBlurSnap = null;
+  try{ // KB-RESUME-6/7: ціль підйому за законом центрування (kbH — за видом поля зі знімка, див. kbKeepDecide)
+    const fr = a && a.getBoundingClientRect ? a.getBoundingClientRect() : null, innerH = getBaseViewportHeight();
+    if(fr && info.kbH > 0){
       const dTop = kbSheetDrawerEl.getBoundingClientRect().top, minTop = debugSafeAreaInsets().top + 8;
-      const plan = kbKeepCenterPlan({ innerH: innerH, kbH: kbH, fieldCenter: fr.top + fr.height / 2, drawerTop: dTop, minTop: minTop });
+      const plan = kbKeepCenterPlan({ innerH: innerH, kbH: info.kbH, fieldCenter: fr.top + fr.height / 2, drawerTop: dTop, minTop: minTop });
       kbKeep.plan = { centerTarget: Math.round(plan.centerTarget), liftMore: Math.round(plan.extra), liftClamped: plan.clamped };
       kbKeepGrowApply(kbSheetDrawerEl, a, plan);
     }
@@ -21896,8 +22018,9 @@ function kbKeepEnter(){
     ob.observe(kbSheetDrawerEl, { attributes: true, attributeFilter: ['class'] }); kbKeep.obs = ob;
   }catch(e){}
   document.documentElement.classList.add('kb-keep');
-  kbKeepEmit('keep-enter', kbKeep.plan || {});
+  kbKeepEmit('keep-enter', Object.assign({ eligibleBy: info.by, blurToHiddenMs: info.blurToHiddenMs, kbKind: info.kind, kbHSource: info.kbHSource, kbHUsed: Math.round(info.kbH) }, kbKeep.plan || {}));
   try{ if(a && a !== document.body && typeof a.blur === 'function') a.blur(); }catch(e){}
+  kbKeepRest(kbKeep); // KB-RESUME-7: шторка в спокої без переходу; піднімемо плавно після повернення
 }
 // viaExit: true — шторку не опускаємо (її вже опускає викликач або це дотик по полю)
 function kbKeepTouchEnd(start){
@@ -21913,8 +22036,11 @@ function kbKeepRelease(reason, viaExit){
   const st = kbKeep;
   if(st.waitTimer){ clearTimeout(st.waitTimer); st.waitTimer = null; }
   if(st.rec && !st.rec.releaseAt) st.rec.releaseAt = reason === 'tap-other' ? 'touchstart' : 'touchend';
-  kbKeepEmit('keep-release', { released: reason, releaseAt: st.rec ? st.rec.releaseAt : (reason === 'tap-other' ? 'touchstart' : 'touchend') });
+  kbKeepEmit('keep-release', { touchDuringLift: kbKeepTouchDuring, released: reason, releaseAt: st.rec ? st.rec.releaseAt : (reason === 'tap-other' ? 'touchstart' : 'touchend') });
   if(st.rec) st.rec.released = reason;
+  kbKeepShieldOff();
+  if(st.pendingLift && reason === 'tap-field'){ kbMotionVar('--sheet-lift', String(Math.round(st.lift * 10) / 10)); try{ void st.drawerEl.offsetHeight; }catch(e){} } // KB-RESUME-7: фокус до підйому — повертаємо положення без переходу (transition ще none)
+  kbKeepEndRest(st.drawerEl);
   if(reason === 'tap-field'){ // метрики документа на focusin (причина зсуву iOS): чи прокручується документ у стані keep-lift
     kbKeepAcceptUntil = performance.now() + 900;
     try{ if(st.rec){ st.rec.docScrollH = Math.round(document.documentElement.scrollHeight); st.rec.innerH = Math.round(window.innerHeight); st.rec.scrollY = Math.round(window.scrollY || 0); } }catch(e){}
@@ -21930,9 +22056,9 @@ function kbKeepRelease(reason, viaExit){
 }
 document.addEventListener('visibilitychange', function(){
   if(document.visibilityState !== 'visible' || !kbKeep) return;
-  try{ const same = viewportOrientationKey(window.innerWidth, window.innerHeight) === kbKeep.orient && kbKeep.drawerEl.isConnected && kbKeep.drawerEl.classList.contains('open'); if(!same) kbKeepRelease('reset'); }catch(e){ kbKeepRelease('reset'); }
+  try{ const same = viewportOrientationKey(window.innerWidth, window.innerHeight) === kbKeep.orient && kbKeep.drawerEl.isConnected && kbKeep.drawerEl.classList.contains('open'); if(!same) kbKeepRelease('reset'); else kbKeepOnVisible(); }catch(e){ kbKeepRelease('reset'); }
 });
-window.addEventListener('orientationchange', function(){ kbKeepRelease('reset'); kbKeepGrowClear(); }); // Rev 2.32.437 (KB-RESUME-6): висоту теж повертаємо
+window.addEventListener('orientationchange', function(){ kbBlurSnap = null; kbKeepShieldOff(); kbKeepRelease('reset'); kbKeepGrowClear(); }); // Rev 2.32.437 (KB-RESUME-6): висоту теж повертаємо
 // Rev 2.23.14 (6D.183) — kb-frames: покадровий (requestAnimationFrame, БЕЗ
 // читань розмітки) запис [t, vvH, vvOffsetTop, innerH, scrollY] від
 // перехопленого touchend до +700мс (до 60 вимірів) + підсумок countKbBlips()
@@ -22468,6 +22594,7 @@ function kbRestBottomLayout(el){
 // Rev 2.32.276 (KB-22): скільки різних kbH було до спокою при відкритті (звіти MT-1110: 416 → 389 на полях суми). Подія kb-heights через 700 мс після останньої зміни.
 let kbHSeen = [], kbHTimer = null, kbOpenVia = 'direct';
 function kbNoteKbH(kbH){
+  if(kbKeep) return; // Rev 2.32.438 (KB-RESUME-7): у стані keep-lift і під час підйому kbH не змінюємо
   if(!kbSheetActive || typeof kbH !== 'number') return;
   const v = Math.round(kbH);
   if(v > 0 && kbHSeen.indexOf(v) < 0) kbHSeen.push(v);
@@ -22521,6 +22648,7 @@ const KB_LIFT_SETTLE_MS = 120;
 const KB_PAN_SAME_MS = 150; // Rev 2.32.294 (KB-39, D)
 function applyLiveSheetLift(){
   KB_LIVE.raf = 0;
+  if(kbKeep) return; // Rev 2.32.438 (KB-RESUME-7): положення піднятої шторки не змінюємо
   if(!kbSheetActive || !window.visualViewport) return;
   const vv = window.visualViewport, baseVh = getBaseViewportHeight();
   if(!isKeyboardOpen(baseVh, vv.height)) return;
@@ -22542,6 +22670,7 @@ function applyLiveSheetLift(){
   }
 }
 function scheduleLiveSheetLift(){
+  if(kbKeep) return; // Rev 2.32.438 (KB-RESUME-7)
   const vv = window.visualViewport; if(!vv) return;
   const top = Math.round(vv.offsetTop), unstable = KB_LIVE.lastTop !== null && top !== KB_LIVE.lastTop;
   KB_LIVE.lastTop = top;
@@ -22589,6 +22718,7 @@ function correctPanIfNeeded(){
 // напр. фокус перейшов на "Витрати", клавіатура лишається на екрані).
 const KB_CLOSE_FOLLOW = { raf: 0, frames: 0 };
 function kbVvTopCloseFollow(gen){
+  if(kbKeep) return; // Rev 2.32.438 (KB-RESUME-7)
   KB_CLOSE_FOLLOW.frames = 0;
   if(KB_CLOSE_FOLLOW.raf) return;
   const step = function(){
@@ -22603,6 +22733,7 @@ function kbVvTopCloseFollow(gen){
   KB_CLOSE_FOLLOW.raf = requestAnimationFrame(step);
 }
 function exitKbSheet(removeKbOpen){
+  kbBlurSnap = null; kbKeepShieldOff(); // Rev 2.32.438 (KB-RESUME-7)
   kbKeepGrowClear(); // Rev 2.32.437 (KB-RESUME-6): і без активної шторки збільшену висоту не лишаємо
   if(!kbSheetActive) return;
   if(kbKeep) kbKeepRelease('close', true); // Rev 2.32.435 (KB-RESUME-4): будь-яке опускання шторки (закриття) знімає стан «піднята без клавіатури»
@@ -22962,6 +23093,7 @@ if(window.visualViewport) window.visualViewport.addEventListener('resize', funct
 });
 document.addEventListener('focusout', function(e){
   if(!isKeyboardField(e.target)) return;
+  if(kbBlurSnap && e.target === kbBlurSnap.field && document.hasFocus()) kbBlurSnap = null; // Rev 2.32.438 (KB-RESUME-7): поле втратило фокус не через вікно — знімок недійсний
   if(kbKeep) return; // Rev 2.32.435 (KB-RESUME-4): blur при виході з застосунку не опускає шторку
   { const km = kbMode().mode; if(km === 'never' || (km === 'resize' && !kbSheetActive)) return; } // Rev 2.32.9 (B)
   // Невелика затримка: якщо фокус одразу перескочив на ІНШЕ поле вводу
@@ -23036,8 +23168,8 @@ document.addEventListener('touchstart', function(e){
         const kf = resolveTapField(raw) || resolveTapFieldNear(raw, t.clientX, t.clientY);
         if(kf && kbSheetHostOf(kf) === kbKeep.drawerEl){
           entry.keepNative = true; entry.field = kf; entry.moveMax = 0;
-          entry.rec = kbResumeBegin(document.hasFocus(), kbKeep.drawerEl, kf); entry.rec.variant = 'keep-lift'; entry.rec.keptLift = true; entry.rec.liftTarget = Math.round(kbKeep.lift); if(kbKeep.plan){ entry.rec.centerTarget = kbKeep.plan.centerTarget; entry.rec.liftMore = kbKeep.plan.liftMore; entry.rec.liftClamped = kbKeep.plan.liftClamped; } kbKeep.rec = entry.rec;
-        }else kbKeepRelease('tap-other');
+          entry.rec = kbResumeBegin(document.hasFocus(), kbKeep.drawerEl, kf); entry.rec.variant = 'keep-lift'; entry.rec.keptLift = true; entry.rec.liftTarget = Math.round(kbKeep.lift); if(kbKeep.plan){ entry.rec.centerTarget = kbKeep.plan.centerTarget; entry.rec.liftMore = kbKeep.plan.liftMore; entry.rec.liftClamped = kbKeep.plan.liftClamped; } kbKeep.rec = entry.rec; kbKeepFillRec(entry.rec);
+        }else if(!(kbKeepShield && kbKeepShield.el === raw)) kbKeepRelease('tap-other'); // Rev 2.32.438 (KB-RESUME-7): дотик по щиту під час підйому шторку не опускає
       }
       else if(!kbSheetActive && !kbProxyActive){
         // Rev 2.32.310 (KB-FINAL, C): клавіатура закрита: дотик у межах 12 пт від текстового поля шторки (input, підпис, заголовок поряд) — preventDefault одразу, фокус на touchend цього ж дотику (шлях першого фокуса: прямий або через допоміжне поле)
@@ -23320,6 +23452,7 @@ function kbShotSawKeyboard(){ return KB_PIPE.state === 'animating' || KB_PIPE.st
 let kbShotTimer = null;
 function kbShotCancel(){ if(kbShotTimer){ clearTimeout(kbShotTimer); kbShotTimer = null; } }
 window.addEventListener('focus', function(){
+  kbBlurSnap = null; // Rev 2.32.438 (KB-RESUME-7): вікно знову активне — знімок недійсний
   kbWinDiag('kb-win-focus');
   kbShotCancel();
   try{
@@ -23334,15 +23467,21 @@ window.addEventListener('focus', function(){
     }, KB_SHOT_CONFIRM_MS);
   }catch(e){}
 });
-window.addEventListener('blur', function(){ kbShotCancel(); kbWinDiag('kb-win-blur'); });
+window.addEventListener('blur', function(){ kbBlurSnapOnBlur(); kbShotCancel(); kbWinDiag('kb-win-blur'); });
 document.addEventListener('visibilitychange', function(){ kbWinDiag('kb-visibility'); });
 // Rev 2.32.258 (KB-5a): згортання застосунку (свайп додому, інший застосунок) лишало поле «у фокусі» без клавіатури — після повернення дотик у те саме поле клавіатуру не відкривав (фокус уже там), лише другий перехід. Тепер при visibilitychange:hidden і pagehide фокус знімається з поля і конвеєр клавіатури скидається тим самим шляхом, що звичайне закриття (blur → handleKeyboardFieldFocusSettle: лок фону, exitKbSheet, kb-open). Спільна зміна для всіх форм. Ризик: якщо iOS позначає сторінку прихованою під час Face ID/панелі паролів, фокус там теж знімуть — діагностика kb-visibility покаже (KB-3). Альтернатива (лишати фокус) відтворює збій.
 function kbResetOnBackground(why){
   try{
-    if(kbKeep) return; // Rev 2.32.435 (KB-RESUME-4): шторку вже лишено піднятою (повторні виклики pagehide тощо)
+    if(kbKeep){ if(why === 'hidden') kbKeepBackAgain(); else kbKeepShieldOff(); return; } // Rev 2.32.435 (KB-RESUME-4): шторку вже лишено піднятою (повторні виклики pagehide тощо); Rev 2.32.438 (KB-RESUME-7): hidden знову — знову спокій без переходу
+    kbKeepShieldOff();
     if(kbCloseConfirmTimer){ clearTimeout(kbCloseConfirmTimer); kbCloseConfirmTimer = null; }
     kbHiddenSince = 0;
-    if(why === 'hidden' && kbResumeVariant() === 'keep-lift' && kbKeepEligible()){ kbKeepEnter(); return; } // Rev 2.32.435 (KB-RESUME-4)
+    if(why === 'hidden' && kbResumeVariant() === 'keep-lift'){ // Rev 2.32.435 (KB-RESUME-4), Rev 2.32.438 (KB-RESUME-7): вхід зараз або за знімком на blur
+      const info = kbKeepDecide();
+      if(info.by !== 'none'){ kbKeepEnter(info); return; }
+      if(kbSheetActive) kbKeepEmit('keep-skip', { eligibleBy: 'none', blurToHiddenMs: info.blurToHiddenMs, kbKind: info.kind, kbHSource: info.kbHSource || (info.wouldBy !== 'none' ? 'invalid' : null), kbHUsed: info.kbH ? Math.round(info.kbH) : null });
+      kbBlurSnap = null;
+    }
     const a = document.activeElement;
     const had = !!(a && a !== document.body && isKeyboardField(a));
     if(!had && !document.body.classList.contains('kb-open')) return;
@@ -23354,7 +23493,7 @@ function kbResetOnBackground(why){
 }
 document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'hidden') kbResetOnBackground('hidden'); });
 window.addEventListener('pagehide', function(){ kbResetOnBackground('pagehide'); });
-if(window.visualViewport) window.visualViewport.addEventListener('resize', function(){ kbWinDiag('kb-vv-resize'); });
+if(window.visualViewport) window.visualViewport.addEventListener('resize', function(){ kbBlurSnapNote(); kbWinDiag('kb-vv-resize'); });
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize', function(){
     if(kbKeep) return; // Rev 2.32.435 (KB-RESUME-4)

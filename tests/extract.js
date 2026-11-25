@@ -100,7 +100,9 @@ function buildSandbox(globals, names){
     + "if(typeof recErr === 'undefined') var recErr = function(){};"
     + "if(typeof kbKeep === 'undefined') var kbKeep = null;"
     + "if(typeof kbKeepAcceptUntil === 'undefined') var kbKeepAcceptUntil = 0;"
-    + "if(typeof kbKeepGrow === 'undefined') var kbKeepGrow = null;" // Rev 2.32.437 (KB-RESUME-6)
+    + "if(typeof kbKeepGrow === 'undefined') var kbKeepGrow = null;"
+    + "if(typeof kbBlurSnap === 'undefined') var kbBlurSnap = null;" // Rev 2.32.438 (KB-RESUME-7)
+    + "if(typeof kbKeepShieldOff === 'undefined') var kbKeepShieldOff = function(){};" // Rev 2.32.437 (KB-RESUME-6)
     + "if(typeof kbKeepGrowClear === 'undefined') var kbKeepGrowClear = function(){};" // Rev 2.32.436 (KB-RESUME-5) // Rev 2.32.435 (KB-RESUME-4): стан «піднята шторка» живе в модулі клавіатури; у тестах за замовчуванням відсутній
     + "if(typeof kbResumeVariant === 'undefined') var kbResumeVariant = function(){ return 'control'; };" // ERR-1a: слід помилок у самописці; у тестах за замовчуванням порожня (тест може передати власну)
     + "if(typeof isCloudWriteReady === 'undefined') var isCloudWriteReady = function(){ return !isWriteBlocked() && (typeof isCloudSessionReady === 'function' ? isCloudSessionReady() : false); };", context);
