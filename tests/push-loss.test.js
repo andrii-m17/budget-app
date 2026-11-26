@@ -269,11 +269,11 @@ test('PUSH-RETRY: усі вказані підписки зникли (410 ра�
   assert.equal(res.status, 200); assert.equal(w.sends.length, 0);
   assert.equal(w.logs[0].statuses[0].reason, 'sub_gone'); assert.equal(w.logs[0].failed, 0); assert.equal(w.logs[0].attempt, 3);
 });
-test('PUSH-RETRY: attempt поза 1..3 або не число — 1; only_subs не масив — усі підписки; 410 видаляє підписку й transient false', async function () {
-  assert.equal(P.attemptOf(0), 1); assert.equal(P.attemptOf(4), 1); assert.equal(P.attemptOf('x'), 1); assert.equal(P.attemptOf(2), 2); assert.equal(P.attemptOf('3'), 3);
+test('PUSH-RETRY: attempt < 1 або не число — 1, більше 3 — 3; 410 видаляє підписку й transient false', async function () {
+  assert.equal(P.attemptOf(0), 1); assert.equal(P.attemptOf(4), 3); assert.equal(P.attemptOf(99), 3); assert.equal(P.attemptOf('x'), 1); assert.equal(P.attemptOf(2), 2); assert.equal(P.attemptOf('3'), 3);
   const w = mk({ send: async function () { throw err(410); } });
-  await P.handlePush(req(Object.assign({}, BODY, { only_subs: 'не-масив', attempt: 99 })), w.deps);
-  assert.equal(w.deleted[0], 's1'); assert.equal(w.logs[0].attempt, 1); assert.equal(w.logs[0].statuses[0].transient, false);
+  await P.handlePush(req(Object.assign({}, BODY, { attempt: 99 })), w.deps);
+  assert.equal(w.deleted[0], 's1'); assert.equal(w.logs[0].attempt, 3); assert.equal(w.logs[0].statuses[0].transient, false);
 });
 test('PUSH-RETRY: ранні виходи — subs_read_error і auth_check_error transient true; no_subscriptions і config_missing false; attempt пишеться скрізь', async function () {
   let w = mk({ getSubs: async function () { return { data: null, error: { message: 'db' } }; } });
@@ -318,5 +318,24 @@ test('PUSH-RETRY: відсутня колонка attempt (Postgres 42703 і Pos
   L = mkLog(function () { return { message: 'permission denied for table push_delivery_log (attempt)', code: '42501' }; });
   w = mk({ insertLog: L.fn }); res = await P.handlePush(req(BODY), w.deps);
   assert.equal(L.rows.length, 1, 'не «колонки нема» — повтору вставки немає'); assert.match((await res.json()).log_error, /permission denied/);
+});
+test('PUSH-RETRY: only_subs не масив (рядок, число, об\'єкт) — 400, нічого не шлемо й не пишемо; порожній масив — нікому; null — як не заданий', async function () {
+  for (const bad of ['s1', 5, { a: 1 }]) {
+    const w = mk(); const res = await P.handlePush(req(Object.assign({}, BODY, { only_subs: bad })), w.deps);
+    assert.equal(res.status, 400); assert.equal(w.sends.length, 0); assert.equal(w.logs.length, 0);
+  }
+  let w = mk(); let res = await P.handlePush(req(Object.assign({}, BODY, { only_subs: [] })), w.deps);
+  assert.equal(res.status, 200); assert.equal(w.sends.length, 0);
+  w = mk(); res = await P.handlePush(req(Object.assign({}, BODY, { only_subs: null })), w.deps);
+  assert.equal(w.sends.length, 1);
+});
+test('PUSH-RETRY exception: синхронний виняток send посеред списку — не дійшли підписки позначені unsent (sub_id, transient true), відправлені лишаються ok', async function () {
+  let n = 0; const S3 = { id: 's3', endpoint: 'https://push.test/e3', p256dh: 'k3', auth: 'a3', app_visible: false };
+  const w = mk({ getSubs: async function () { return { data: [SUB, SUB2, S3], error: null }; }, send: function () { n++; if (n === 2) throw new Error('boom'); return Promise.resolve({ statusCode: 201 }); } });
+  const res = await P.handlePush(req(BODY), w.deps);
+  assert.equal(res.status, 500);
+  const st = w.logs[0].statuses;
+  assert.deepEqual(st.map(function (x) { return [x.sub_id || null, x.ok, x.reason || null]; }), [['s1', true, null], ['s2', false, 'unsent'], ['s3', false, 'unsent'], [null, false, 'exception']]);
+  assert.equal(st[1].transient, true); assert.equal(w.logs[0].sent, 1);
 });
 

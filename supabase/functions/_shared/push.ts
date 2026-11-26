@@ -75,7 +75,8 @@ export function isTransientStatus(status: number | null | undefined): boolean {
 const ATTEMPT_MAX = 3;
 export function attemptOf(v: unknown): number {
   const n = typeof v === "number" ? v : typeof v === "string" && /^\d+$/.test(v) ? Number(v) : NaN;
-  return Number.isInteger(n) && n >= 1 && n <= ATTEMPT_MAX ? n : 1;
+  // Не число або < 1 — 1; більше межі — обрізаємо до ATTEMPT_MAX (лічильник ніколи не скидається назад на 1: повтори не підуть по колу).
+  return Number.isInteger(n) && n >= 1 ? Math.min(n, ATTEMPT_MAX) : 1;
 }
 const ONLY_SUBS_MAX = 20;
 export function onlySubsOf(v: unknown): string[] | null {
@@ -212,13 +213,18 @@ export async function handlePush(req: Request, deps: PushDeps): Promise<Response
 
   const type = type0;
   const pushId = topPushId ?? pushIdOf(notifData); // v18: повтор передає той самий push_id (верхній рівень тіла має пріоритет)
-  const onlySubs = onlySubsOf(payload.only_subs); // v18: null — усі підписки користувача
+  // v18: only_subs не заданий — усі підписки користувача; заданий, але не масив — помилка запиту (щоб збій у SQL не розіслав усім підпискам).
+  if (payload.only_subs !== undefined && payload.only_subs !== null && !Array.isArray(payload.only_subs)) {
+    return reply({ error: "only_subs має бути масивом" }, 400);
+  }
+  const onlySubs = onlySubsOf(payload.only_subs);
   const delivery = DELIVERY[type] ?? DEFAULT_DELIVERY;
   const base = { userId: String(user_id), type, title: String(title), pushId, urgency: delivery.urgency as string, ttl: delivery.ttl, attempt };
 
   // Статуси підписок, що вже відправлялись (ok або збій): потрібні, якщо далі станеться виняток, щоб повтор не дублював уже відправлені.
   const entries: Array<Record<string, unknown> | undefined> = [];
   const sendPromises: Array<Promise<unknown>> = [];
+  let attempted: any[] = []; // підписки поточної відправки (для рядків unsent, якщо виняток перервав цикл)
   try {
     const { data: subsAll, error } = await deps.getSubs(String(user_id));
 
@@ -253,6 +259,7 @@ export async function handlePush(req: Request, deps: PushDeps): Promise<Response
       return reply(out, 200);
     }
     const list = subs as any[];
+    attempted = list;
 
     const legacyMessage = JSON.stringify({ title, body: body || "", data: notifData || {} });
     const declarativeMessage = JSON.stringify({
@@ -306,7 +313,9 @@ export async function handlePush(req: Request, deps: PushDeps): Promise<Response
     // Непередбачений виняток: слід у журналі й у відповіді (pg_net збереже її кілька годин).
     // v18: якщо відправка вже почалась, у statuses лежать sub_id уже оброблених підписок (ok:true) — повтор їх не дублює; без відправок повтор іде всім підпискам.
     await Promise.allSettled(sendPromises);
-    const done = (entries.filter((x) => x !== undefined)) as Array<Record<string, unknown>>;
+    // Підписки, до яких цикл не дійшов (синхронний виняток send посеред списку): unsent з sub_id і transient true — повтор їх підхопить.
+    const unsent = attempted.map((x, i) => entries[i] === undefined ? { ok: false, status: null, reason: "unsent", sub_id: x.id, transient: true } : null).filter(Boolean) as Array<Record<string, unknown>>;
+    const done = ([...entries.filter((x) => x !== undefined), ...unsent]) as Array<Record<string, unknown>>;
     const sentDone = done.filter((x) => x.ok === true).length;
     const le = await writeLog(deps, {
       ...base, subscriptions: done.length, sent: sentDone, failed: done.length - sentDone + 1,
