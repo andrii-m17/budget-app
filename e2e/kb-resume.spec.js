@@ -452,6 +452,29 @@ test('control (KB-RESUME-7, X5): перемикач застосунків бе�
   } finally { await ctx.close(); }
 });
 
+test('keep-lift (KB-RESUME-8, Крок 0): повторний вихід без закриття клавіатури — центр поля після keep-enter = centerTarget ±2 (3 цикли поспіль)', async ({ browser }) => {
+  const { ctx, page } = await open(browser, 'keep-lift', true);
+  const KB = 388;
+  const kb = () => page.evaluate((k) => { window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); }, KB);
+  try {
+    await page.setViewportSize({ width: 390, height: 1100 }); await page.evaluate(() => { window.__H0 = window.innerHeight; }); await page.waitForTimeout(500); // вища сторінка: шторка нижча за максимум, є запас зверху
+    await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
+    await page.waitForTimeout(250); await kb(); await page.waitForTimeout(1000);
+    const inner = await page.evaluate(() => window.__H0), target = (inner - KB) / 2 - 2;
+    const centers = [];
+    for (let i = 0; i < 3; i++) {
+      await setVisibility(page, 'hidden'); await hideKeyboard(page); await page.waitForTimeout(500); await setVisibility(page, 'visible'); await page.waitForTimeout(400);
+      const c = await fieldCenter(page); centers.push(Math.round(c));
+      const ev = (await events(page)).filter(e => e.branch === 'keep-enter')[i];
+      expect(ev, 'keep-enter №' + (i + 1)).toBeTruthy();
+      expect(Math.abs(c - target), 'цикл ' + (i + 1) + ', центри ' + centers.join(',') + ', ціль ' + target).toBeLessThanOrEqual(2);
+      await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
+      await page.evaluate(() => document.querySelector('#cdd-balance').focus());
+      await kb(); await page.waitForTimeout(900);
+    }
+  } finally { await ctx.close(); }
+});
+
 test('варіанти kb-resume: control, proxy-tap, keep-lift (await-focus і ro-tap відсутні); типово control', async ({ browser }) => {
   const { ctx, page } = await open(browser, null, true);
   try {
