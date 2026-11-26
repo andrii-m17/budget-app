@@ -16,7 +16,6 @@ async function open(browser, variant, hasFocus){
     const vv = window.visualViewport, H0 = window.innerHeight; window.__H0 = H0;
     Object.defineProperty(vv, 'height', { configurable: true, get(){ return window.__vv.h == null ? H0 : window.__vv.h; } });
     Object.defineProperty(vv, 'offsetTop', { configurable: true, get(){ return window.__vv.top; } });
-    if (v) setVariant('kb-resume', v);
     if (hf === false) document.hasFocus = () => false;
     recBuf.length = 0; switchTab('accounting'); openCardDebtEditor(0);
   }, [variant, hasFocus]);
@@ -46,66 +45,18 @@ async function openWithKeyboard(page){
   await page.waitForTimeout(250); await showKeyboard(page); await page.waitForTimeout(1000);
 }
 
-test('control при hasFocus false: перехоплення як зараз; замінника нема; подія branch none, intercept true, fieldTopAtTouch число', async ({ browser }) => {
+test('hasFocus false (без варіантів): перехоплення як раніше; замінника нема; подія branch none, intercept true, fieldTopAtTouch число', async ({ browser }) => {
   const { ctx, page } = await open(browser, null, false);
   try {
     const s = await touch(page, 'touchstart', FIELD); const e = await touch(page, 'touchend', FIELD);
     expect(s.prevented).toBe(true); expect(e.prevented).toBe(true);
     await page.waitForTimeout(1200);
     const ev = await events(page);
-    expect(ev.length).toBe(1); expect(ev[0]).toMatchObject({ variant: 'control', branch: 'none', hasFocusStart: false, intercept: true, keptLift: false });
+    expect(ev.length).toBe(1); expect(ev[0]).toMatchObject({ branch: 'none', hasFocusStart: false, intercept: true, keptLift: false });
     expect(typeof ev[0].fieldTopAtTouch).toBe('number');
   } finally { await ctx.close(); }
 });
 
-test('proxy-tap (hasFocus false): замінник 44×44 під дотиком на touchstart (без preventDefault), угорі на touchend; після focusin замінника — фокус на цільовому полі; branch proxy-focus', async ({ browser }) => {
-  const { ctx, page } = await open(browser, 'proxy-tap', false);
-  try {
-    const s = await touch(page, 'touchstart', FIELD);
-    expect(s.prevented).toBe(false);
-    let p = await proxyInfo(page);
-    expect(p.parent).toBe('BODY'); expect(p.pos).toBe('fixed'); expect(p.pe).toBe('auto'); expect(p.w).toBe(44); expect(p.h).toBe(44); expect(parseFloat(p.fs)).toBeGreaterThanOrEqual(16);
-    expect(Math.abs(p.left + 22 - s.x)).toBeLessThanOrEqual(1); expect(Math.abs(p.top + 22 - s.y)).toBeLessThanOrEqual(1);
-    const e = await touch(page, 'touchend', FIELD);
-    expect(e.prevented).toBe(false);
-    p = await proxyInfo(page);
-    expect(p.top).toBeLessThan(80); expect(p.left).toBeLessThan(30);
-    await page.evaluate(() => document.getElementById('kb-focus-proxy').focus());
-    await page.waitForTimeout(150); await showKeyboard(page); await page.waitForTimeout(900);
-    expect(await active(page), 'фокус перенесено на цільове поле').toBe('cdd-balance');
-    await page.waitForTimeout(500);
-    const ev = await events(page);
-    expect(ev.length).toBe(1); expect(ev[0]).toMatchObject({ variant: 'proxy-tap', branch: 'proxy-focus', hasFocusStart: false, intercept: false });
-  } finally { await ctx.close(); }
-});
-
-test('proxy-tap: фокус на замінник не прийшов за 400 мс — замінник сховано; branch proxy-miss. Два швидкі дотики: активний лише останній сеанс', async ({ browser }) => {
-  const { ctx, page } = await open(browser, 'proxy-tap', false);
-  try {
-    await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
-    await page.waitForTimeout(250);
-    expect((await proxyInfo(page)).display).not.toBe('none');
-    await page.waitForTimeout(300);
-    expect((await proxyInfo(page)).display).toBe('none');
-    await page.waitForTimeout(800);
-    expect((await events(page))[0]).toMatchObject({ variant: 'proxy-tap', branch: 'proxy-miss' });
-  } finally { await ctx.close(); }
-  const b = await open(browser, 'proxy-tap', false);
-  try {
-    await touch(b.page, 'touchstart', FIELD); await touch(b.page, 'touchend', FIELD);
-    await b.page.waitForTimeout(200);
-    await touch(b.page, 'touchstart', FIELD); await touch(b.page, 'touchend', FIELD);
-    await b.page.waitForTimeout(300);
-    expect((await proxyInfo(b.page)).display).not.toBe('none');
-    await b.page.evaluate(() => document.getElementById('kb-focus-proxy').focus());
-    await b.page.waitForTimeout(150); await showKeyboard(b.page); await b.page.waitForTimeout(900);
-    expect(await active(b.page)).toBe('cdd-balance');
-    await b.page.waitForTimeout(500);
-    expect((await events(b.page)).filter(e => e.branch === 'proxy-focus').length).toBe(1);
-  } finally { await b.ctx.close(); }
-});
-
-// ---------- keep-lift ----------
 test('keep-lift: вихід у фон з відкритою клавіатурою — шторка не опускається (kb-keep, kb-sheet, підйом і положення ті самі), поле без фокусу', async ({ browser }) => {
   const { ctx, page } = await open(browser, 'keep-lift', true);
   try {
@@ -226,7 +177,7 @@ test('keep-lift: дотик по полю без focusin за 300 мс післ�
   } finally { await ctx.close(); }
 });
 
-test('keep-lift: зсув iOS при нативному фокусі приймається — без scrollTo(0,0) і pan-comp одним кадром; у control той самий зсув компенсується як раніше', async ({ browser }) => {
+test('keep-lift: зсув iOS при нативному фокусі приймається — без scrollTo(0,0) і pan-comp одним кадром', async ({ browser }) => {
   const run = async (variant) => {
     const { ctx, page } = await open(browser, variant, true);
     try {
@@ -294,7 +245,7 @@ test('keep-lift (KB-RESUME-6): після нативного фокусу й kb-
   } finally { await ctx.close(); }
 });
 
-test('keep-lift (KB-RESUME-6): перемикання на інше поле скидає збільшену висоту; звичайне відкриття (control) без змін', async ({ browser }) => {
+test('keep-lift (KB-RESUME-6): перемикання на інше поле скидає збільшену висоту', async ({ browser }) => {
   let h = await open(browser, 'keep-lift', true);
   try {
     await toKeep(h.page);
@@ -304,12 +255,6 @@ test('keep-lift (KB-RESUME-6): перемикання на інше поле с�
     const other = await h.page.evaluate(() => { const f = Array.from(document.querySelectorAll('#card-debt-drawer input')).find(i => i.id && i.id !== 'cdd-balance' && i.offsetParent); if (f) f.focus(); return !!f; });
     await h.page.waitForTimeout(500);
     if (other) expect(await h.page.evaluate(() => document.getElementById('card-debt-drawer').style.minHeight)).toBe('');
-  } finally { await h.ctx.close(); }
-  h = await open(browser, 'control', true);
-  try {
-    await openWithKeyboard(h.page);
-    expect(await h.page.evaluate(() => document.getElementById('card-debt-drawer').style.minHeight), 'у control висоту не чіпаємо').toBe('');
-    expect((await sheet(h.page)).kbKeep).toBe(false);
   } finally { await h.ctx.close(); }
 });
 
@@ -442,16 +387,6 @@ test('keep-lift (KB-RESUME-7): повернення з синхронізаці�
   } finally { await ctx.close(); }
 });
 
-test('control (KB-RESUME-7, X5): перемикач застосунків без keep-lift — знімка нема, подій keep-* нема, шторка опускається як раніше', async ({ browser }) => {
-  const { ctx, page } = await open(browser, 'control', true);
-  try {
-    await openWithKeyboard(page);
-    await leaveBySwitcher(page, 400); await page.waitForTimeout(700);
-    const s = await sheet(page); expect(s.kbKeep).toBe(false);
-    expect((await page.evaluate(() => recBuf.filter(e => e.type === 'kb-resume-lift' || (e.type === 'kb-resume' && /^keep/.test(e.branch || ''))).length))).toBe(0);
-  } finally { await ctx.close(); }
-});
-
 test('keep-lift (KB-RESUME-8, Rev 2.32.439): повторний вихід без закриття клавіатури — центр поля після keep-enter = centerTarget ±2 (3 цикли поспіль), growBefore у keep-enter', async ({ browser }) => {
   const { ctx, page } = await open(browser, 'keep-lift', true);
   const KB = 388;
@@ -476,30 +411,9 @@ test('keep-lift (KB-RESUME-8, Rev 2.32.439): повторний вихід бе�
   } finally { await ctx.close(); }
 });
 
-test('варіанти kb-resume: control, proxy-tap, keep-lift (await-focus і ro-tap відсутні); типово control', async ({ browser }) => {
-  const { ctx, page } = await open(browser, null, true);
-  try {
-    expect(await page.evaluate(() => findTestVariant('kb-resume').variants.map(v => v.key))).toEqual(['control', 'proxy-tap', 'keep-lift']);
-    expect(await page.evaluate(() => getVariant('kb-resume'))).toBe('control');
-  } finally { await ctx.close(); }
-});
-
-test('control і інші варіанти: вихід у фон з клавіатурою опускає шторку як зараз (kb-keep ніколи не ставиться)', async ({ browser }) => {
-  for (const v of ['control', 'proxy-tap']) {
-    const { ctx, page } = await open(browser, v, true);
-    try {
-      await openWithKeyboard(page);
-      await setVisibility(page, 'hidden'); await hideKeyboard(page);
-      await page.waitForTimeout(1200);
-      const s = await sheet(page);
-      expect(s.kbKeep, v).toBe(false); expect(s.kbSheet, v + ': шторку опущено').toBe(false); expect(s.lift, v).toBe(0);
-    } finally { await ctx.close(); }
-  }
-});
-
-for (const v of ['control', 'proxy-tap', 'keep-lift']) {
-  test('hasFocus true: ' + v + ' ідентичний control — перехоплено, замінника нема, фокус одразу, branch none', async ({ browser }) => {
-    const { ctx, page } = await open(browser, v, true);
+for (const v of ['звичайний']) {
+  test('hasFocus true (Rev 2.32.440, без варіантів): перший дотик перехоплено, замінника нема, фокус одразу, branch none', async ({ browser }) => {
+    const { ctx, page } = await open(browser, null, true);
     try {
       const s = await touch(page, 'touchstart', FIELD);
       expect(s.prevented).toBe(true);
@@ -508,7 +422,7 @@ for (const v of ['control', 'proxy-tap', 'keep-lift']) {
       await page.waitForTimeout(250);
       expect(await active(page)).toBe('cdd-balance');
       await page.waitForTimeout(1500);
-      expect((await events(page))[0]).toMatchObject({ variant: v, branch: 'none', hasFocusStart: true, intercept: true });
+      expect((await events(page))[0]).toMatchObject({ branch: 'none', hasFocusStart: true, intercept: true });
     } finally { await ctx.close(); }
   });
 }

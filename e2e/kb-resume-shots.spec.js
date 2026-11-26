@@ -14,7 +14,7 @@ test('знімок: піднята шторка картки ОЧ без кла�
     const vv = window.visualViewport, H0 = window.innerHeight; window.__H0 = H0;
     Object.defineProperty(vv, 'height', { configurable: true, get(){ return window.__vv.h == null ? H0 : window.__vv.h; } });
     Object.defineProperty(vv, 'offsetTop', { configurable: true, get(){ return window.__vv.top; } });
-    setVariant('kb-resume', 'keep-lift'); switchTab('accounting'); openCardDebtEditor(0);
+    switchTab('accounting'); openCardDebtEditor(0);
   });
   await page.waitForTimeout(900);
   const fire = (type) => page.evaluate((t) => { const el = document.querySelector('#cdd-balance'); const r = el.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2; const ev = new Event(t, { bubbles: true, cancelable: true }); const tt = [{ clientX: x, clientY: y, identifier: 1, target: el }]; Object.defineProperty(ev, 'touches', { value: t === 'touchend' ? [] : tt }); Object.defineProperty(ev, 'changedTouches', { value: tt }); el.dispatchEvent(ev); }, type);

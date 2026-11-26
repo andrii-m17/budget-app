@@ -9,41 +9,25 @@ const SRC = ex.readIndexWithCss();
 const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const store = {};
 const ls = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
-const c = ex.buildSandbox({ localStorage: ls }, ['TEST_VARIANTS_LS_KEY', 'TEST_VARIANTS', 'readTestVariantsMap', 'writeTestVariantsMap', 'findTestVariant', 'getVariant', 'setVariant', 'resetVariant', 'KB_RESUME_PROXY_MS', 'KB_KEEP_FOCUS_MS', 'KB_KEEP_DRAG_PX', 'kbKeepTouchKind', 'kbKeepOutcome', 'kbKeepCenterPlan', 'kbKeepUngrown', 'kbKeepEntryBy', 'kbKeepPickKbH', 'kbKeepLiftPlan', 'kbKeepShieldMs', 'kbResumeVariant', 'kbResumeDecide']);
+const c = ex.buildSandbox({ localStorage: ls }, ['TEST_VARIANTS_LS_KEY', 'TEST_VARIANTS', 'readTestVariantsMap', 'writeTestVariantsMap', 'findTestVariant', 'getVariant', 'setVariant', 'resetVariant', 'pruneVariants', 'KB_KEEP_FOCUS_MS', 'KB_KEEP_DRAG_PX', 'kbKeepTouchKind', 'kbKeepOutcome', 'kbKeepCenterPlan', 'kbKeepUngrown', 'kbKeepEntryBy', 'kbKeepPickKbH', 'kbKeepLiftPlan', 'kbKeepShieldMs']);
 const j = v => JSON.parse(JSON.stringify(v));
 
-test('kbResumeDecide: hasFocus не false — none; control, keep-lift, await-focus — none; false + proxy-tap — proxy-tap; ro-tap і невідомі — none', function(){
-  ['control', 'proxy-tap', 'keep-lift', 'await-focus', 'ro-tap', 'щось'].forEach(function(v){ assert.equal(c.kbResumeDecide(v, true), 'none', v + ' + hasFocus true'); assert.equal(c.kbResumeDecide(v, undefined), 'none'); });
-  ['control', 'keep-lift', 'await-focus', 'ro-tap', 'win-focus', 'native', 'щось'].forEach(function(v){ assert.equal(c.kbResumeDecide(v, false), 'none', v); });
-  assert.equal(c.kbResumeDecide('proxy-tap', false), 'proxy-tap');
-});
-test('страховки: proxy-tap 400 мс, keep-lift (очікування focusin після touchend) 300 мс, межа тягнення 10 pt', function(){
-  assert.equal(ex.evalInSandbox(c, 'KB_RESUME_PROXY_MS'), 400); assert.equal(ex.evalInSandbox(c, 'KB_KEEP_FOCUS_MS'), 300); assert.equal(ex.evalInSandbox(c, 'KB_KEEP_DRAG_PX'), 10);
-  assert.match(SRC, /timer = setTimeout\(function\(\)\{[\s\S]{0,200}proxy-miss[\s\S]{0,200}\}, KB_RESUME_PROXY_MS\);/);
+test('страховки: keep-lift (очікування focusin після touchend) 300 мс, межа тягнення 10 pt', function(){
+  assert.equal(ex.evalInSandbox(c, 'KB_KEEP_FOCUS_MS'), 300); assert.equal(ex.evalInSandbox(c, 'KB_KEEP_DRAG_PX'), 10);
   assert.match(SRC, /kbKeep\.waitTimer = setTimeout\(function\(\)\{[^\n]*\}, KB_KEEP_FOCUS_MS\);/);
-});
-test('варіант: типово control; перемикання зберігається; прибрані (ro-tap, win-focus, native) → control; у реєстрі control, proxy-tap, keep-lift', function(){
-  assert.equal(c.kbResumeVariant(), 'control');
-  assert.equal(c.setVariant('kb-resume', 'keep-lift'), true); assert.equal(c.kbResumeVariant(), 'keep-lift');
-  assert.equal(c.setVariant('kb-resume', 'ro-tap'), false); assert.equal(c.setVariant('kb-resume', 'await-focus'), false); assert.equal(c.setVariant('kb-resume', 'native'), false); assert.equal(c.kbResumeVariant(), 'keep-lift');
-  store['budget_variants_v1'] = JSON.stringify({ 'kb-resume': 'ro-tap' }); assert.equal(c.kbResumeVariant(), 'control', 'збережений вибір прибраного варіанта → control');
-  delete store['budget_variants_v1'];
-  const t = j(c.findTestVariant('kb-resume'));
-  assert.deepEqual(t.variants.map(v => v.key), ['control', 'proxy-tap', 'keep-lift']); assert.equal(t.defaultVariant, 'control');
-  assert.equal(t.title, 'Клавіатура після повернення в застосунок (експеримент)');
 });
 test('самописець: тип kb-resume і ключі variant, branch, hasFocusStart, hasFocusEnd, intercept, transferMs, kbShownMs, panMax, jumpMax, keptLift, liftTarget, fieldTopAtTouch, released, by у білих списках; подія — лише числа, булеві й назви', function(){
   const D = read('js/diag.js');
   assert.match(D, /const REC_ALLOWED_TYPES = \[[^\]]*'kb-resume'[^\]]*\]/);
   const keys = D.slice(D.indexOf('const REC_ALLOWED_KEYS = ['), D.indexOf('];', D.indexOf('const REC_ALLOWED_KEYS = [')));
   ['variant', 'branch', 'hasFocusStart', 'hasFocusEnd', 'kbShownMs', 'panMax', 'intercept', 'transferMs', 'jumpMax', 'keptLift', 'liftTarget', 'centerTarget', 'fieldCenterAtTouch', 'liftMore', 'liftClamped', 'eligibleBy', 'blurToHiddenMs', 'kbKind', 'kbHSource', 'kbHUsed', 'liftAnimMs', 'touchDuringLift', 'visibleToTouchMs', 'fieldTopAtTouch', 'released', 'releaseAt', 'moveMax', 'docScrollH'].forEach(function(k){ assert.match(keys, new RegExp("'" + k + "'"), k); });
-  assert.match(SRC, /pushDebugEvent\(\{ type: 'kb-resume', variant: rec\.variant, branch: rec\.branch, hasFocusStart: rec\.hasFocusStart, hasFocusEnd: rec\.hasFocusEnd, intercept: rec\.intercept, transferMs: rec\.transferMs, kbShownMs: rec\.kbShownMs, panMax: rec\.panMax, jumpMax: rec\.jumpMax, keptLift: rec\.keptLift, liftTarget: rec\.liftTarget, centerTarget: rec\.centerTarget, fieldCenterAtTouch: rec\.fieldCenterAtTouch, liftMore: rec\.liftMore, liftClamped: rec\.liftClamped, eligibleBy: rec\.eligibleBy, blurToHiddenMs: rec\.blurToHiddenMs, kbKind: rec\.kbKind, kbHSource: rec\.kbHSource, kbHUsed: rec\.kbHUsed, liftAnimMs: rec\.liftAnimMs, touchDuringLift: rec\.touchDuringLift, visibleToTouchMs: rec\.visibleToTouchMs, released: rec\.released, releaseAt: rec\.releaseAt, moveMax: rec\.moveMax, docScrollH: rec\.docScrollH, innerH: rec\.innerH, scrollY: rec\.scrollY, fieldTopAtTouch: rec\.fieldTopAtTouch \}\)/);
-  ['proxy-focus', 'proxy-miss', 'keep-enter', 'keep-release'].forEach(function(b){ assert.ok(SRC.indexOf("'" + b + "'") !== -1, b); });
+  assert.match(SRC, /pushDebugEvent\(Object\.assign\(rec\.variant \? \{ variant: rec\.variant \} : \{\}, \{ type: 'kb-resume', branch: rec\.branch, hasFocusStart: rec\.hasFocusStart, hasFocusEnd: rec\.hasFocusEnd, intercept: rec\.intercept, transferMs: rec\.transferMs, kbShownMs: rec\.kbShownMs, panMax: rec\.panMax, jumpMax: rec\.jumpMax, keptLift: rec\.keptLift, liftTarget: rec\.liftTarget, centerTarget: rec\.centerTarget, fieldCenterAtTouch: rec\.fieldCenterAtTouch, liftMore: rec\.liftMore, liftClamped: rec\.liftClamped, eligibleBy: rec\.eligibleBy, blurToHiddenMs: rec\.blurToHiddenMs, kbKind: rec\.kbKind, kbHSource: rec\.kbHSource, kbHUsed: rec\.kbHUsed, liftAnimMs: rec\.liftAnimMs, touchDuringLift: rec\.touchDuringLift, visibleToTouchMs: rec\.visibleToTouchMs, released: rec\.released, releaseAt: rec\.releaseAt, moveMax: rec\.moveMax, docScrollH: rec\.docScrollH, innerH: rec\.innerH, scrollY: rec\.scrollY, fieldTopAtTouch: rec\.fieldTopAtTouch \}\)/);
+  ['keep-enter', 'keep-release'].forEach(function(b){ assert.ok(SRC.indexOf("'" + b + "'") !== -1, b); });
   ['tap-field', 'tap-other', 'drag', 'close', 'reset'].forEach(function(r){ assert.ok(SRC.indexOf("kbKeepRelease('" + r + "'") !== -1, r); });
   assert.ok(SRC.indexOf('kbKeepOutcome(mv, false)') !== -1, 'tap-miss через kbKeepOutcome');
 });
 test('keep-lift: вхід лише з visibilitychange hidden, варіант keep-lift, .drawer з підйомом і відкритою клавіатурою; охоронці скидання (геометрія, focusout, vv resize, settle) вимкнені, поки kbKeep; ro-tap і await-focus прибрано з коду', function(){
-  assert.match(SRC, /if\(why === 'hidden' && kbResumeVariant\(\) === 'keep-lift'\)\{[^\n]*\n\s*const info = kbKeepDecide\(\);\n\s*if\(info\.by !== 'none'\)\{ kbKeepEnter\(info\); return; \}/);
+  assert.match(SRC, /if\(why === 'hidden'\)\{[^\n]*\n\s*const info = kbKeepDecide\(\);\n\s*if\(info\.by !== 'none'\)\{ kbKeepEnter\(info\); return; \}/);
   assert.match(SRC, /function kbKeepEligible\(\)\{[\s\S]{0,700}classList\.contains\('drawer'\)[\s\S]{0,400}isKeyboardOpen\(getBaseViewportHeight\(\), vv\.height\)[\s\S]{0,120}kbSheetCurrentLift > 1/);
   assert.match(SRC, /function updateKbSheetGeometry\(\)\{\s*if\(!kbSheetActive \|\| !window\.visualViewport\) return;\s*if\(kbKeep\) return;/);
   assert.match(SRC, /function handleKeyboardFieldFocusSettle\(\)\{\s*if\(kbKeep\) return;/);
@@ -54,15 +38,13 @@ test('keep-lift: вхід лише з visibilitychange hidden, варіант ke
   ['kbResumeRoPrepare', 'kbResumeRoArm', 'data-kb-resume-ro', 'KB_RESUME_RO_MS', "'ro-click'", "'ro-focus'", "'ro-timeout'", 'kbResumeAwaitFocus', 'KB_RESUME_AWAIT_MS', "'await-ok'", "'await-miss'"].forEach(function(w){ assert.equal(SRC.indexOf(w), -1, w + ' прибрано'); });
 });
 test('обробники: гілки лише в блоці «клавіатура закрита» touchstart і в kbTapEnd; оригінальний вираз intercept без змін; нативні гілки без preventDefault', function(){
-  assert.match(SRC, /const resumeMode = resumeTap \? kbResumeDecide\(kbResumeVariant\(\), document\.hasFocus\(\)\) : 'none';/);
-  assert.match(SRC, /if\(resumeTap && resumeMode === 'none' && shouldInterceptFirstFocus\(\{ field: field, kbSheetOpen: false, moved: false, durationMs: 0 \}\)\)\{/);
+  assert.doesNotMatch(SRC.replace(/\/\/[^\n]*/g, ''), /kbResumeDecide|kbResumeVariant|kbResumeProxy|KB_RESUME_PROXY_MS|resumeMode|nativeProxy|proxy-tap|proxy-focus|proxy-miss/, 'Rev 2.32.440: гілки proxy-tap і перемикач варіанта прибрано з коду');
+  assert.match(SRC, /if\(resumeTap && shouldInterceptFirstFocus\(\{ field: field, kbSheetOpen: false, moved: false, durationMs: 0 \}\)\)\{/);
   assert.match(SRC, /const intercept = \(start\.first && !!target\) \? true : shouldInterceptFirstFocus\(\{/);
   assert.match(SRC, /if\(start\.keepNative\)\{ kbKeepTouchEnd\(start\); return; \}/);
   assert.match(SRC, /if\(en && en\.keepNative\)\{ const dk = [^\n]*en\.moveMax = dk; \}/, 'на touchmove лише міряємо рух (без опускання)');
   assert.match(SRC, /if\(kbKeepAcceptUntil && performance\.now\(\) < kbKeepAcceptUntil\) return;/);
   assert.match(SRC, /if\(kbSheetActive && !kbProxyActive && !kbKeep\)\{/);
-  const a = SRC.indexOf('function kbResumeProxyPrepare'), b = SRC.indexOf('function kbResumeTapEnd');
-  assert.doesNotMatch(SRC.slice(a, b), /preventDefault/, 'у нативних гілках preventDefault не викликається');
   const a2 = SRC.indexOf('let kbKeep = null'), b2 = SRC.indexOf("window.addEventListener('orientationchange'");
   const sa = SRC.indexOf('function kbKeepShieldOn'), sb = SRC.indexOf('function kbKeepEndRest');
   const rest = SRC.slice(a2, b2).replace(SRC.slice(sa, sb), '');
@@ -121,7 +103,7 @@ test('охоронці keep-lift (KB-RESUME-7): kbNoteKbH, applyLiveSheetLift, s
   assert.match(SRC, /function exitKbSheet\(removeKbOpen\)\{\n  kbBlurSnap = null; kbKeepShieldOff\(\);/);
   assert.match(SRC, /function kbResetOnBackground\(why\)\{\n  try\{\n    if\(kbKeep\)\{ if\(why === 'hidden'\) kbKeepBackAgain\(\); else kbKeepShieldOff\(\); return; \}/);
   assert.match(SRC, /kbBlurSnapNote\(\); kbWinDiag\('kb-vv-resize'\)/);
-  assert.match(SRC, /function kbBlurSnapNote\(\)\{[\s\S]{0,900}kbResumeVariant\(\) !== 'keep-lift'/, 'знімок лише у варіанті keep-lift (control без змін)');
+  assert.match(SRC, /function kbBlurSnapNote\(\)\{\s*try\{\s*if\(kbKeep \|\| !kbSheetActive \|\| !kbSheetDrawerEl \|\| kbProxyActive\) return;/, 'знімок без перемикача варіанта (Rev 2.32.440)');
 });
 
 test('Rev 2.32.439 (KB-RESUME-8): повторний вхід зі збільшенням 46 — план від звичайної висоти: liftMore 46 (не 0), центр після входу = ціль ±1; стабільно 3 рази', () => {
@@ -137,4 +119,18 @@ test('Rev 2.32.439 (KB-RESUME-8): повторний вхід зі збільш�
   }
   assert.deepEqual({ ...c.kbKeepUngrown({ fieldCenter: 300, drawerTop: 90, growBefore: 0 }) }, { fieldCenter: 300, drawerTop: 90 });
   assert.equal(c.kbKeepUngrown({ fieldCenter: 300, drawerTop: 90, growBefore: -5 }).fieldCenter, 300);
+});
+
+test('Rev 2.32.440 (KB-RESUME-8): експеримент kb-resume прибрано — реєстр порожній, збережений варіант ігнорується й прибирається, keep-lift без перемикача', function(){
+  assert.deepEqual(JSON.parse(ex.evalInSandbox(c, 'JSON.stringify(TEST_VARIANTS)')), []);
+  assert.equal(c.getVariant('kb-resume'), null);
+  ['control', 'proxy-tap', 'keep-lift'].forEach(function(v){
+    store['budget_variants_v1'] = JSON.stringify({ 'kb-resume': v });
+    assert.equal(c.getVariant('kb-resume'), null, v);
+    c.pruneVariants();
+    assert.equal(store['budget_variants_v1'], undefined, 'ключ ' + v + ' прибрано зі сховища');
+  });
+  assert.match(SRC, /function kbResetOnBackground\(why\)\{[\s\S]{0,900}if\(why === 'hidden'\)\{[^\n]*\n\s*const info = kbKeepDecide\(\);/);
+  assert.match(SRC, /id="testing-variants-label"/); assert.match(SRC, /lab\.classList\.toggle\('hidden', !TEST_VARIANTS\.length\)/);
+  assert.doesNotMatch(read('js/diag.js'), /kb-resume'\)/);
 });

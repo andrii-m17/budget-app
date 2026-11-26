@@ -15,12 +15,12 @@ test('шторка «Для розробника»: порядок груп, р�
   if (tag === 'before') return;
   const labels = await page.evaluate(() => Array.from(document.querySelectorAll('#testing-drawer > .chk-label')).filter(e => getComputedStyle(e).display !== 'none').map(e => e.textContent.trim()));
   // «Середовище» (лише поза робочим origin) іде останнім; на моку воно є
-  expect(labels.slice(0, 4)).toEqual(['Самописець', 'Діагностика', 'Дані', 'Експерименти']); // Rev 2.32.433: активний експеримент kb-resume
+  expect(labels.slice(0, 3)).toEqual(['Самописець', 'Діагностика', 'Дані']); expect(labels).not.toContain('Експерименти'); // Rev 2.32.440: експеримент kb-resume завершено
   expect(labels).not.toContain('Лабораторія входу'); expect(labels).not.toContain('Варіанти для перевірки');
   const rows = await page.evaluate(() => Array.from(document.querySelectorAll('#testing-drawer .chk-row')).map(e => e.textContent.replace(/\s+/g, ' ').trim()));
   ['Записує постійно', 'Повідомити про проблему', 'Надіслані звіти', 'Скопіювати запис', 'Розширена діагностика', 'Перевірка цілісності даних'].forEach(t => expect(rows.some(r => r.indexOf(t) === 0), t).toBe(true));
   expect(await page.evaluate(() => !!document.getElementById('login-lab-link'))).toBe(false);
-  expect(await page.evaluate(() => Array.from(document.querySelectorAll('#testing-drawer [data-test-id]')).map(x => x.getAttribute('data-test-id')))).toEqual(['kb-resume']);
+  expect(await page.evaluate(() => Array.from(document.querySelectorAll('#testing-drawer [data-test-id]')).map(x => x.getAttribute('data-test-id')))).toEqual([]);
   // «Повідомити про проблему» з цього екрана відкриває шторку звіту
   await page.evaluate(() => document.getElementById('rec-report-row').click());
   await page.waitForTimeout(600);
