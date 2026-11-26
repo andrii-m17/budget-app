@@ -171,3 +171,60 @@ test('push_id читається лише з data.push_id, верхній рів
   await P.handlePush(req({ user_id: 'u1', title: 'T', data: { type: 'test', push_id: PID } }), w.deps);
   assert.equal(w.logs[1].push_id, PID);
 });
+
+// PUSH-GUARD (v17): обов'язкові секрети VAPID; нема хоча б одного — не шлемо, пишемо config_missing, 503. Лише назви секретів у журналі й відповіді.
+const REQUIRED = ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT'];
+function missingOf(env) { return REQUIRED.filter(function (n) { return !String(env[n] == null ? '' : env[n]).trim(); }); }
+
+test('PUSH-GUARD X1: без VAPID_SUBJECT — send не викликається, журнал config_missing з missing, відповідь 503', async function () {
+  const w = mk(); w.deps.missingConfig = missingOf({ VAPID_PUBLIC_KEY: 'pub', VAPID_PRIVATE_KEY: 'priv' });
+  const res = await P.handlePush(req(BODY), w.deps);
+  assert.equal(res.status, 503);
+  assert.deepEqual(await res.json(), { error: 'config_missing' });
+  assert.equal(w.sends.length, 0);
+  assert.equal(w.logs.length, 1);
+  assert.equal(w.logs[0].subscriptions, 0); assert.equal(w.logs[0].sent, 0); assert.equal(w.logs[0].failed, 1);
+  assert.equal(w.logs[0].push_id, PID);
+  assert.deepEqual(w.logs[0].statuses, [{ ok: false, status: null, reason: 'config_missing', missing: ['VAPID_SUBJECT'] }]);
+});
+test('PUSH-GUARD X2: кожен із трьох секретів (відсутній чи порожній рядок/пробіли) блокує відправку; значення секретів у журнал і відповідь не потрапляють', async function () {
+  const full = { VAPID_PUBLIC_KEY: 'pub-secret-value', VAPID_PRIVATE_KEY: 'priv-secret-value', VAPID_SUBJECT: 'mailto:ops@test.invalid' };
+  for (const name of REQUIRED) {
+    for (const bad of [undefined, '', '   ']) {
+      const env = Object.assign({}, full); if (bad === undefined) delete env[name]; else env[name] = bad;
+      const w = mk(); w.deps.missingConfig = missingOf(env);
+      const res = await P.handlePush(req(BODY), w.deps);
+      const txt = await res.text();
+      assert.equal(res.status, 503, name + ' ' + JSON.stringify(bad));
+      assert.equal(w.sends.length, 0);
+      assert.deepEqual(w.logs[0].statuses[0].missing, [name]);
+      const all = txt + JSON.stringify(w.logs);
+      assert.doesNotMatch(all, /secret-value|ops@test/, 'значень секретів у журналі й відповіді нема');
+    }
+  }
+  const w = mk(); w.deps.missingConfig = missingOf({});
+  await P.handlePush(req(BODY), w.deps);
+  assert.deepEqual(w.logs[0].statuses[0].missing, REQUIRED);
+});
+test('PUSH-GUARD: невірний секрет запиту при відсутній конфігурації — 401 без запису (захист журналу); без user_id — 503 без запису', async function () {
+  const w = mk({ verify: async function () { return { data: false, error: null }; } }); w.deps.missingConfig = ['VAPID_SUBJECT'];
+  const r1 = await P.handlePush(req(BODY), w.deps);
+  assert.equal(r1.status, 401); assert.equal(w.logs.length, 0);
+  const w2 = mk(); w2.deps.missingConfig = ['VAPID_SUBJECT'];
+  const r2 = await P.handlePush(req({ title: 'T' }), w2.deps);
+  assert.equal(r2.status, 503); assert.equal(w2.logs.length, 0);
+});
+test('PUSH-GUARD X3: з усіма секретами (порожній missingConfig) поведінка як раніше', async function () {
+  const w = mk(); w.deps.missingConfig = missingOf({ VAPID_PUBLIC_KEY: 'a', VAPID_PRIVATE_KEY: 'b', VAPID_SUBJECT: 'c' });
+  const res = await P.handlePush(req(BODY), w.deps);
+  assert.equal(res.status, 200); assert.equal(w.sends.length, 1); assert.equal(w.logs[0].statuses[0].ok, true);
+});
+test('PUSH-GUARD: index.ts — обов\'язкові секрети без запасних значень, setVapidDetails лише коли конфігурація повна', function () {
+  const SRCI = require('node:fs').readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'send-push-notification', 'index.ts'), 'utf8');
+  assert.doesNotMatch(SRCI, /noreply@example/);
+  assert.match(SRCI, /REQUIRED_SECRETS = \["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"\]/);
+  assert.match(SRCI, /if \(!MISSING_CONFIG\.length\) \{\s*webpush\.setVapidDetails\(/);
+  assert.match(SRCI, /missingConfig: MISSING_CONFIG/);
+  assert.doesNotMatch(SRCI, /VAPID_SUBJECT"\) \?\?/);
+});
+

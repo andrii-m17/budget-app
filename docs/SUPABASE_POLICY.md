@@ -184,3 +184,10 @@
 ## Витрати: один запит на дію (13.11, NET-1, Rev 2.32.300; клієнт)
 - Додавання, зміна, видалення й відновлення витрати = **один** запит (POST/PATCH з `select` повного рядка). Раніше ще: негайний GET `expenses` і після Realtime-луни `sync_heads` + GET. Сервер не змінювався: тригери `expenses` (`set_updated_at_*`, `set_deleted_at_server`, `expenses_resolve_refs`, `mono_expense_sync`, `bump_purge_epoch`) лишились; усе, що вони доповнюють у рядку (`updated_at`, `deleted_at`, `created_by`, alias `category`/`subcategory`), повертається у відповіді на запис.
 - Realtime-подія власного запису (`updated_by` = поточний користувач, той самий `id` і `updated_at`) не запускає перевірку; чужі зміни (інший `updated_by`, інший час, DELETE) — як раніше.
+
+## Обов'язкові секрети функцій (PUSH-GUARD, v17)
+- **send-push-notification:** обов'язкові `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`; необов'язковий `DECLARATIVE_PUSH_USERS` (порожній = нікому декларативний формат).
+- **Правило: запасних значень для секретів у коді немає.** Інцидент 20–22.11: запасна адреса `VAPID_SUBJECT` давала Apple 403 `BadJwtToken`, усі сповіщення відхилялись мовчки.
+- Якщо хоч одного обов'язкового секрету немає або він порожній: функція не шле, пише в `push_delivery_log` рядок `subscriptions 0, sent 0, failed 1, statuses [{ ok: false, status: null, reason: "config_missing", missing: [назви] }]` з `push_id` і відповідає 503 `{ error: "config_missing" }`. Значення секретів у журнал і відповідь не потрапляють. Невірний секрет запиту, як і раніше, 401 без запису.
+- Функцію деплоїть лише чат (спершу тестовий проєкт, потім робочий); `send-test-push` цим не змінюється.
+

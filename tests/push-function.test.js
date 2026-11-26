@@ -26,5 +26,6 @@ test('v12: журнал — format у statuses кожної підписки; TT
 });
 test('v12: у репозиторії немає значень секретів, id користувачів і email', () => {
   assert.doesNotMatch(SRC, /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-  assert.doesNotMatch(SRC, /@gmail\.com|@proton|mailto:(?!noreply@example\.invalid)/);
+  assert.doesNotMatch(SRC, /@gmail\.com|@proton|mailto:/);
+  assert.doesNotMatch(SRC, /noreply@example/, 'PUSH-GUARD (v17): запасної адреси VAPID у коді немає');
 });

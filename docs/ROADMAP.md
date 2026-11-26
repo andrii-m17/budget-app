@@ -14915,3 +14915,9 @@ KB-5b (код не змінено). Поле назви/примітки у «В
 - Тести: node --test; kb-resume.spec; dev-sheet.spec; keyboard.spec (без 44); e2e:smoke.
 - Перевірити на iPhone: 3 повторні виходи поспіль на «Термін»; 2 звичайні повернення на сумі доходу; 1 вихід без клавіатури; «Експерименти» зникли.
 
+## PUSH-GUARD (v17 функції send-push-notification; клас A, клієнт без змін, новий Rev застосунку не потрібен)
+- Що: прибрано запасну адресу VAPID; обов'язкові секрети `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`; якщо хоч одного нема чи він порожній — `handlePush` не шле, пише в `push_delivery_log` `config_missing` (+`missing` з назвами) і відповідає 503.
+- Чому: інцидент 20–22.11 (Apple 403 BadJwtToken через запасну адресу), 29 недоставлених сповіщень помічено за 2 дні.
+- Тести: +5 у `tests/push-loss.test.js`, оновлено `tests/push-function.test.js`; усього 2459.
+- Деплой: лише чат (файли: `supabase/functions/send-push-notification/index.ts`, `supabase/functions/_shared/push.ts`). Перевірити на iPhone: не потрібно.
+

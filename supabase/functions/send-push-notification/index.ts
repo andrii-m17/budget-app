@@ -11,7 +11,9 @@
 //   (push_subscriptions.app_visible = true): при відкритому застосунку notificationclick не викликається (WebKit 268797), тож iOS сама
 //   відкриває notification.navigate. Верхні title/body/data лишаються для сумісності зі старим sw.js. Інакше формат як раніше.
 //   У push_delivery_log.statuses для кожної підписки пишеться format: "declarative" | "legacy".
-//   VAPID_SUBJECT (secret): контакт для VAPID; у репозиторії лише запасне значення.
+//   VAPID_SUBJECT (secret): контакт для VAPID (з v17 обов'язковий, запасного значення нема).
+// v17 (PUSH-GUARD): обов'язкові секрети VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT без запасних значень; якщо хоч одного нема — не шлемо,
+//   журнал push_delivery_log з reason "config_missing" (лише назви секретів), відповідь 503. Деталі: docs/SUPABASE_POLICY.md.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3";
@@ -25,11 +27,19 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-webpush.setVapidDetails(
-  Deno.env.get("VAPID_SUBJECT") ?? "mailto:noreply@example.invalid",
-  Deno.env.get("VAPID_PUBLIC_KEY")!,
-  Deno.env.get("VAPID_PRIVATE_KEY")!,
-);
+// v17 (PUSH-GUARD): інцидент 20–22.11 — запасна адреса VAPID_SUBJECT давала Apple 403 BadJwtToken, і всі сповіщення відхилялись мовчки.
+//   Тепер запасних значень для секретів немає: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT обов'язкові. Якщо хоч одного немає
+//   або він порожній — setVapidDetails не викликається, handlePush не шле, пише в push_delivery_log причину config_missing
+//   (statuses[0].missing — лише назви секретів) і відповідає 503. DECLARATIVE_PUSH_USERS необов'язковий.
+const REQUIRED_SECRETS = ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"];
+const MISSING_CONFIG = REQUIRED_SECRETS.filter((n) => !(Deno.env.get(n) ?? "").trim());
+if (!MISSING_CONFIG.length) {
+  webpush.setVapidDetails(
+    Deno.env.get("VAPID_SUBJECT")!,
+    Deno.env.get("VAPID_PUBLIC_KEY")!,
+    Deno.env.get("VAPID_PRIVATE_KEY")!,
+  );
+}
 
 // Адреса застосунку для notification.navigate (той самий документ, що start_url: index.html → hashchange без перезавантаження).
 const APP_URL = "https://andrii-m17.github.io/budget-app/index.html"; // PRIV-2-HANDLE: робоча адреса (рішення власника 18.11)
@@ -49,5 +59,6 @@ Deno.serve((req) =>
     insertLog: (row) => supabase.from("push_delivery_log").insert(row),
     declarativeUsers: DECLARATIVE_USERS,
     appUrl: APP_URL,
+    missingConfig: MISSING_CONFIG,
   })
 );

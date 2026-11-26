@@ -14,6 +14,8 @@ export interface PushDeps {
   insertLog(row: Record<string, unknown>): PromiseLike<{ error: any }>;
   declarativeUsers: Set<string>;
   appUrl: string;
+  // v17 (PUSH-GUARD): назви обов'язкових секретів, яких немає або які порожні (значення сюди не потрапляють). Є хоча б одна — не шлемо.
+  missingConfig?: string[];
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -145,6 +147,20 @@ export async function handlePush(req: Request, deps: PushDeps): Promise<Response
       });
     }
     return reply(logError ? { error: "unauthorized", log_error: logError } : { error: "unauthorized" }, 401);
+  }
+
+  // v17 (PUSH-GUARD): запасних значень для секретів немає. Нема VAPID_* — не шлемо, а пишемо причину в журнал (лише назви секретів).
+  const missing = (deps.missingConfig ?? []).filter((n) => typeof n === "string" && n);
+  if (missing.length) {
+    let logError: string | null = null;
+    if (userId) {
+      logError = await writeLog(deps, {
+        userId, type: type0, title: String(payload?.title ?? ""), pushId: pushIdOf(payload?.data),
+        urgency: null, ttl: null, subscriptions: 0, sent: 0, failed: 1,
+        statuses: [{ ok: false, status: null, reason: "config_missing", missing }],
+      });
+    }
+    return reply(logError ? { error: "config_missing", log_error: logError } : { error: "config_missing" }, 503);
   }
 
   if (parseFailed || !payload) {
