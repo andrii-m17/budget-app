@@ -452,7 +452,7 @@ test('control (KB-RESUME-7, X5): перемикач застосунків бе�
   } finally { await ctx.close(); }
 });
 
-test('keep-lift (KB-RESUME-8, Крок 0): повторний вихід без закриття клавіатури — центр поля після keep-enter = centerTarget ±2 (3 цикли поспіль)', async ({ browser }) => {
+test('keep-lift (KB-RESUME-8, Rev 2.32.439): повторний вихід без закриття клавіатури — центр поля після keep-enter = centerTarget ±2 (3 цикли поспіль), growBefore у keep-enter', async ({ browser }) => {
   const { ctx, page } = await open(browser, 'keep-lift', true);
   const KB = 388;
   const kb = () => page.evaluate((k) => { window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); }, KB);
@@ -467,6 +467,7 @@ test('keep-lift (KB-RESUME-8, Крок 0): повторний вихід без 
       const c = await fieldCenter(page); centers.push(Math.round(c));
       const ev = (await events(page)).filter(e => e.branch === 'keep-enter')[i];
       expect(ev, 'keep-enter №' + (i + 1)).toBeTruthy();
+      if (i > 0) expect(ev.growBefore, 'growBefore цикл ' + (i + 1)).toBeGreaterThan(0); else expect(ev.growBefore).toBe(0);
       expect(Math.abs(c - target), 'цикл ' + (i + 1) + ', центри ' + centers.join(',') + ', ціль ' + target).toBeLessThanOrEqual(2);
       await touch(page, 'touchstart', FIELD); await touch(page, 'touchend', FIELD);
       await page.evaluate(() => document.querySelector('#cdd-balance').focus());

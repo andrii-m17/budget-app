@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.438"><link rel="stylesheet" href="./css/app.css?v=2.32.438"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.439"><link rel="stylesheet" href="./css/app.css?v=2.32.439"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -875,7 +875,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.438</div>
+  <div class="version-footer">Money Tree · Rev 2.32.439</div>
 </div>
   </div>
 </div>
@@ -1663,16 +1663,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.438"></script>
-<script src="./js/util-date.js?v=2.32.438"></script>
-<script src="./js/util-safe.js?v=2.32.438"></script>
-<script src="./js/util-misc.js?v=2.32.438"></script>
-<script src="./js/diag.js?v=2.32.438"></script>
-<script src="./js/shell.js?v=2.32.438"></script>
-<script src="./js/structure.js?v=2.32.438"></script>
-<script src="./js/analytics.js?v=2.32.438"></script>
-<script src="./js/payments.js?v=2.32.438"></script>
-<script src="./js/sheets.js?v=2.32.438"></script>
+<script src="./js/util-format.js?v=2.32.439"></script>
+<script src="./js/util-date.js?v=2.32.439"></script>
+<script src="./js/util-safe.js?v=2.32.439"></script>
+<script src="./js/util-misc.js?v=2.32.439"></script>
+<script src="./js/diag.js?v=2.32.439"></script>
+<script src="./js/shell.js?v=2.32.439"></script>
+<script src="./js/structure.js?v=2.32.439"></script>
+<script src="./js/analytics.js?v=2.32.439"></script>
+<script src="./js/payments.js?v=2.32.439"></script>
+<script src="./js/sheets.js?v=2.32.439"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6829,7 +6829,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.438';
+const APP_VERSION = '2.32.439';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -16268,6 +16268,11 @@ function kbKeepCenterPlan(o){
   const extra = Math.min(want, room);
   return { centerTarget: centerTarget, extra: extra, clamped: want > room + 0.5 };
 }
+// Rev 2.32.439 (KB-RESUME-8): повторний вхід у keep-lift зі збільшеною шторкою. Виміри fieldCenter і drawerTop взято при застосованому збільшенні висоти (growBefore, pt); низ шторки стоїть біля клавіатури, тож без збільшення і поле, і верх шторки нижчі рівно на growBefore. План рахуємо від звичайної висоти (інакше extra = 0 і шторка коротшає без компенсації: зсув iOS ≈ 44). Альтернатива (спершу повернути висоту, потім міряти) зайвий раз ворушить розкладку.
+function kbKeepUngrown(o){
+  const g = o.growBefore > 0 ? o.growBefore : 0;
+  return { fieldCenter: o.fieldCenter + g, drawerTop: o.drawerTop + g };
+}
 // KB-RESUME-7: чисті правила входу в keep-lift. kbOpenNow — клавіатура відкрита зараз; snapAgeMs — вік знімка від window blur (-1: знімка нема); межа 3000 мс: 0..2999 — так, 3000 і більше — ні.
 function kbKeepEntryBy(o){
   if(!(o.lift > 1) || !o.drawerOpen) return 'none';
@@ -21996,7 +22001,7 @@ function kbKeepGrowApply(drawerEl, field, plan){
   kbKeepGrowClear();
   if(!(plan.extra > 0.5) || !drawerEl) return;
   const h = drawerEl.getBoundingClientRect().height, cm = parseFloat(getComputedStyle(drawerEl).maxHeight);
-  kbKeepGrow = { drawerEl: drawerEl, fieldId: (field && field.id) || '', minH: drawerEl.style.minHeight, maxH: drawerEl.style.maxHeight };
+  kbKeepGrow = { drawerEl: drawerEl, fieldId: (field && field.id) || '', minH: drawerEl.style.minHeight, maxH: drawerEl.style.maxHeight, extra: plan.extra };
   drawerEl.style.minHeight = (h + plan.extra) + 'px'; // низ шторки лишається біля клавіатури (прив’язка знизу), верх і поля піднімаються на extra
   drawerEl.style.maxHeight = Math.max(isNaN(cm) ? 0 : cm, h + plan.extra) + 'px';
 }
@@ -22008,8 +22013,10 @@ function kbKeepEnter(info){
     const fr = a && a.getBoundingClientRect ? a.getBoundingClientRect() : null, innerH = getBaseViewportHeight();
     if(fr && info.kbH > 0){
       const dTop = kbSheetDrawerEl.getBoundingClientRect().top, minTop = debugSafeAreaInsets().top + 8;
-      const plan = kbKeepCenterPlan({ innerH: innerH, kbH: info.kbH, fieldCenter: fr.top + fr.height / 2, drawerTop: dTop, minTop: minTop });
-      kbKeep.plan = { centerTarget: Math.round(plan.centerTarget), liftMore: Math.round(plan.extra), liftClamped: plan.clamped };
+      const growBefore = (kbKeepGrow && kbKeepGrow.drawerEl === kbSheetDrawerEl) ? kbKeepGrow.extra : 0; // Rev 2.32.439 (KB-RESUME-8)
+      const um = kbKeepUngrown({ fieldCenter: fr.top + fr.height / 2, drawerTop: dTop, growBefore: growBefore });
+      const plan = kbKeepCenterPlan({ innerH: innerH, kbH: info.kbH, fieldCenter: um.fieldCenter, drawerTop: um.drawerTop, minTop: minTop });
+      kbKeep.plan = { centerTarget: Math.round(plan.centerTarget), liftMore: Math.round(plan.extra), liftClamped: plan.clamped, growBefore: Math.round(growBefore) };
       kbKeepGrowApply(kbSheetDrawerEl, a, plan);
     }
   }catch(e){}
@@ -22594,7 +22601,7 @@ function kbRestBottomLayout(el){
 // Rev 2.32.276 (KB-22): скільки різних kbH було до спокою при відкритті (звіти MT-1110: 416 → 389 на полях суми). Подія kb-heights через 700 мс після останньої зміни.
 let kbHSeen = [], kbHTimer = null, kbOpenVia = 'direct';
 function kbNoteKbH(kbH){
-  if(kbKeep) return; // Rev 2.32.438 (KB-RESUME-7): у стані keep-lift і під час підйому kbH не змінюємо
+  if(kbKeep) return; // Rev 2.32.439 (KB-RESUME-7): у стані keep-lift і під час підйому kbH не змінюємо
   if(!kbSheetActive || typeof kbH !== 'number') return;
   const v = Math.round(kbH);
   if(v > 0 && kbHSeen.indexOf(v) < 0) kbHSeen.push(v);
@@ -22648,7 +22655,7 @@ const KB_LIFT_SETTLE_MS = 120;
 const KB_PAN_SAME_MS = 150; // Rev 2.32.294 (KB-39, D)
 function applyLiveSheetLift(){
   KB_LIVE.raf = 0;
-  if(kbKeep) return; // Rev 2.32.438 (KB-RESUME-7): положення піднятої шторки не змінюємо
+  if(kbKeep) return; // Rev 2.32.439 (KB-RESUME-7): положення піднятої шторки не змінюємо
   if(!kbSheetActive || !window.visualViewport) return;
   const vv = window.visualViewport, baseVh = getBaseViewportHeight();
   if(!isKeyboardOpen(baseVh, vv.height)) return;
@@ -22670,7 +22677,7 @@ function applyLiveSheetLift(){
   }
 }
 function scheduleLiveSheetLift(){
-  if(kbKeep) return; // Rev 2.32.438 (KB-RESUME-7)
+  if(kbKeep) return; // Rev 2.32.439 (KB-RESUME-7)
   const vv = window.visualViewport; if(!vv) return;
   const top = Math.round(vv.offsetTop), unstable = KB_LIVE.lastTop !== null && top !== KB_LIVE.lastTop;
   KB_LIVE.lastTop = top;
@@ -22718,7 +22725,7 @@ function correctPanIfNeeded(){
 // напр. фокус перейшов на "Витрати", клавіатура лишається на екрані).
 const KB_CLOSE_FOLLOW = { raf: 0, frames: 0 };
 function kbVvTopCloseFollow(gen){
-  if(kbKeep) return; // Rev 2.32.438 (KB-RESUME-7)
+  if(kbKeep) return; // Rev 2.32.439 (KB-RESUME-7)
   KB_CLOSE_FOLLOW.frames = 0;
   if(KB_CLOSE_FOLLOW.raf) return;
   const step = function(){
@@ -22733,7 +22740,7 @@ function kbVvTopCloseFollow(gen){
   KB_CLOSE_FOLLOW.raf = requestAnimationFrame(step);
 }
 function exitKbSheet(removeKbOpen){
-  kbBlurSnap = null; kbKeepShieldOff(); // Rev 2.32.438 (KB-RESUME-7)
+  kbBlurSnap = null; kbKeepShieldOff(); // Rev 2.32.439 (KB-RESUME-7)
   kbKeepGrowClear(); // Rev 2.32.437 (KB-RESUME-6): і без активної шторки збільшену висоту не лишаємо
   if(!kbSheetActive) return;
   if(kbKeep) kbKeepRelease('close', true); // Rev 2.32.435 (KB-RESUME-4): будь-яке опускання шторки (закриття) знімає стан «піднята без клавіатури»
@@ -23093,7 +23100,7 @@ if(window.visualViewport) window.visualViewport.addEventListener('resize', funct
 });
 document.addEventListener('focusout', function(e){
   if(!isKeyboardField(e.target)) return;
-  if(kbBlurSnap && e.target === kbBlurSnap.field && document.hasFocus()) kbBlurSnap = null; // Rev 2.32.438 (KB-RESUME-7): поле втратило фокус не через вікно — знімок недійсний
+  if(kbBlurSnap && e.target === kbBlurSnap.field && document.hasFocus()) kbBlurSnap = null; // Rev 2.32.439 (KB-RESUME-7): поле втратило фокус не через вікно — знімок недійсний
   if(kbKeep) return; // Rev 2.32.435 (KB-RESUME-4): blur при виході з застосунку не опускає шторку
   { const km = kbMode().mode; if(km === 'never' || (km === 'resize' && !kbSheetActive)) return; } // Rev 2.32.9 (B)
   // Невелика затримка: якщо фокус одразу перескочив на ІНШЕ поле вводу
@@ -23169,7 +23176,7 @@ document.addEventListener('touchstart', function(e){
         if(kf && kbSheetHostOf(kf) === kbKeep.drawerEl){
           entry.keepNative = true; entry.field = kf; entry.moveMax = 0;
           entry.rec = kbResumeBegin(document.hasFocus(), kbKeep.drawerEl, kf); entry.rec.variant = 'keep-lift'; entry.rec.keptLift = true; entry.rec.liftTarget = Math.round(kbKeep.lift); if(kbKeep.plan){ entry.rec.centerTarget = kbKeep.plan.centerTarget; entry.rec.liftMore = kbKeep.plan.liftMore; entry.rec.liftClamped = kbKeep.plan.liftClamped; } kbKeep.rec = entry.rec; kbKeepFillRec(entry.rec);
-        }else if(!(kbKeepShield && kbKeepShield.el === raw)) kbKeepRelease('tap-other'); // Rev 2.32.438 (KB-RESUME-7): дотик по щиту під час підйому шторку не опускає
+        }else if(!(kbKeepShield && kbKeepShield.el === raw)) kbKeepRelease('tap-other'); // Rev 2.32.439 (KB-RESUME-7): дотик по щиту під час підйому шторку не опускає
       }
       else if(!kbSheetActive && !kbProxyActive){
         // Rev 2.32.310 (KB-FINAL, C): клавіатура закрита: дотик у межах 12 пт від текстового поля шторки (input, підпис, заголовок поряд) — preventDefault одразу, фокус на touchend цього ж дотику (шлях першого фокуса: прямий або через допоміжне поле)
@@ -23452,7 +23459,7 @@ function kbShotSawKeyboard(){ return KB_PIPE.state === 'animating' || KB_PIPE.st
 let kbShotTimer = null;
 function kbShotCancel(){ if(kbShotTimer){ clearTimeout(kbShotTimer); kbShotTimer = null; } }
 window.addEventListener('focus', function(){
-  kbBlurSnap = null; // Rev 2.32.438 (KB-RESUME-7): вікно знову активне — знімок недійсний
+  kbBlurSnap = null; // Rev 2.32.439 (KB-RESUME-7): вікно знову активне — знімок недійсний
   kbWinDiag('kb-win-focus');
   kbShotCancel();
   try{
@@ -23472,11 +23479,11 @@ document.addEventListener('visibilitychange', function(){ kbWinDiag('kb-visibili
 // Rev 2.32.258 (KB-5a): згортання застосунку (свайп додому, інший застосунок) лишало поле «у фокусі» без клавіатури — після повернення дотик у те саме поле клавіатуру не відкривав (фокус уже там), лише другий перехід. Тепер при visibilitychange:hidden і pagehide фокус знімається з поля і конвеєр клавіатури скидається тим самим шляхом, що звичайне закриття (blur → handleKeyboardFieldFocusSettle: лок фону, exitKbSheet, kb-open). Спільна зміна для всіх форм. Ризик: якщо iOS позначає сторінку прихованою під час Face ID/панелі паролів, фокус там теж знімуть — діагностика kb-visibility покаже (KB-3). Альтернатива (лишати фокус) відтворює збій.
 function kbResetOnBackground(why){
   try{
-    if(kbKeep){ if(why === 'hidden') kbKeepBackAgain(); else kbKeepShieldOff(); return; } // Rev 2.32.435 (KB-RESUME-4): шторку вже лишено піднятою (повторні виклики pagehide тощо); Rev 2.32.438 (KB-RESUME-7): hidden знову — знову спокій без переходу
+    if(kbKeep){ if(why === 'hidden') kbKeepBackAgain(); else kbKeepShieldOff(); return; } // Rev 2.32.435 (KB-RESUME-4): шторку вже лишено піднятою (повторні виклики pagehide тощо); Rev 2.32.439 (KB-RESUME-7): hidden знову — знову спокій без переходу
     kbKeepShieldOff();
     if(kbCloseConfirmTimer){ clearTimeout(kbCloseConfirmTimer); kbCloseConfirmTimer = null; }
     kbHiddenSince = 0;
-    if(why === 'hidden' && kbResumeVariant() === 'keep-lift'){ // Rev 2.32.435 (KB-RESUME-4), Rev 2.32.438 (KB-RESUME-7): вхід зараз або за знімком на blur
+    if(why === 'hidden' && kbResumeVariant() === 'keep-lift'){ // Rev 2.32.435 (KB-RESUME-4), Rev 2.32.439 (KB-RESUME-7): вхід зараз або за знімком на blur
       const info = kbKeepDecide();
       if(info.by !== 'none'){ kbKeepEnter(info); return; }
       if(kbSheetActive) kbKeepEmit('keep-skip', { eligibleBy: 'none', blurToHiddenMs: info.blurToHiddenMs, kbKind: info.kind, kbHSource: info.kbHSource || (info.wouldBy !== 'none' ? 'invalid' : null), kbHUsed: info.kbH ? Math.round(info.kbH) : null });

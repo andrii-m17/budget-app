@@ -9,7 +9,7 @@ const SRC = ex.readIndexWithCss();
 const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const store = {};
 const ls = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
-const c = ex.buildSandbox({ localStorage: ls }, ['TEST_VARIANTS_LS_KEY', 'TEST_VARIANTS', 'readTestVariantsMap', 'writeTestVariantsMap', 'findTestVariant', 'getVariant', 'setVariant', 'resetVariant', 'KB_RESUME_PROXY_MS', 'KB_KEEP_FOCUS_MS', 'KB_KEEP_DRAG_PX', 'kbKeepTouchKind', 'kbKeepOutcome', 'kbKeepCenterPlan', 'kbKeepEntryBy', 'kbKeepPickKbH', 'kbKeepLiftPlan', 'kbKeepShieldMs', 'kbResumeVariant', 'kbResumeDecide']);
+const c = ex.buildSandbox({ localStorage: ls }, ['TEST_VARIANTS_LS_KEY', 'TEST_VARIANTS', 'readTestVariantsMap', 'writeTestVariantsMap', 'findTestVariant', 'getVariant', 'setVariant', 'resetVariant', 'KB_RESUME_PROXY_MS', 'KB_KEEP_FOCUS_MS', 'KB_KEEP_DRAG_PX', 'kbKeepTouchKind', 'kbKeepOutcome', 'kbKeepCenterPlan', 'kbKeepUngrown', 'kbKeepEntryBy', 'kbKeepPickKbH', 'kbKeepLiftPlan', 'kbKeepShieldMs', 'kbResumeVariant', 'kbResumeDecide']);
 const j = v => JSON.parse(JSON.stringify(v));
 
 test('kbResumeDecide: hasFocus не false — none; control, keep-lift, await-focus — none; false + proxy-tap — proxy-tap; ro-tap і невідомі — none', function(){
@@ -122,4 +122,19 @@ test('охоронці keep-lift (KB-RESUME-7): kbNoteKbH, applyLiveSheetLift, s
   assert.match(SRC, /function kbResetOnBackground\(why\)\{\n  try\{\n    if\(kbKeep\)\{ if\(why === 'hidden'\) kbKeepBackAgain\(\); else kbKeepShieldOff\(\); return; \}/);
   assert.match(SRC, /kbBlurSnapNote\(\); kbWinDiag\('kb-vv-resize'\)/);
   assert.match(SRC, /function kbBlurSnapNote\(\)\{[\s\S]{0,900}kbResumeVariant\(\) !== 'keep-lift'/, 'знімок лише у варіанті keep-lift (control без змін)');
+});
+
+test('Rev 2.32.439 (KB-RESUME-8): повторний вхід зі збільшенням 46 — план від звичайної висоти: liftMore 46 (не 0), центр після входу = ціль ±1; стабільно 3 рази', () => {
+  // геометрія телефона: innerH 894, kbH 389, поле стоїть у цілі (251) при застосованому збільшенні 46
+  let grow = 46, center = 251;
+  for(let i = 0; i < 3; i++){
+    const um = c.kbKeepUngrown({ fieldCenter: center, drawerTop: 120, growBefore: grow });
+    assert.equal(um.fieldCenter, center + grow); assert.equal(um.drawerTop, 120 + grow);
+    const plan = c.kbKeepCenterPlan({ innerH: 894, kbH: 389, fieldCenter: um.fieldCenter, drawerTop: um.drawerTop, minTop: 59 });
+    assert.ok(Math.abs(plan.extra - 46) <= 1, 'цикл ' + (i + 1) + ': liftMore ≈ 46, не 0');
+    assert.ok(Math.abs(um.fieldCenter - plan.extra - 251) <= 1, 'центр після входу');
+    grow = plan.extra; center = um.fieldCenter - plan.extra; // поле у цілі при новому збільшенні
+  }
+  assert.deepEqual({ ...c.kbKeepUngrown({ fieldCenter: 300, drawerTop: 90, growBefore: 0 }) }, { fieldCenter: 300, drawerTop: 90 });
+  assert.equal(c.kbKeepUngrown({ fieldCenter: 300, drawerTop: 90, growBefore: -5 }).fieldCenter, 300);
 });
