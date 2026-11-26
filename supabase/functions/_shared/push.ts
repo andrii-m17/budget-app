@@ -5,6 +5,9 @@
 // і push_id (з data.push_id, яким push_send позначає кожне сповіщення), а помилка вставки потрапляє у відповідь (log_error).
 // Свідомий виняток: невірний секрет (authorized !== true) НЕ пишеться, щоб сторонній не міг засмічувати журнал; збій самої перевірки (RPC error) пишеться.
 // Якщо колонки push_id ще нема (серверну міграцію робить чат), вставка повторюється без неї: журнал не губиться.
+// v18 (PUSH-RETRY): у statuses кожної підписки є sub_id (push_subscriptions.id, не endpoint) і transient (чи варто повторити); тіло приймає необов'язкові
+// push_id (той самий для повтору), attempt (1..3, типово 1) і only_subs (масив sub_id: шлемо лише їм; відсутні — reason "sub_gone", без відправки);
+// журнал пише attempt (якщо колонки ще нема — рядок пишеться без неї, як із push_id; розпізнаємо лише помилку «колонки не існує»).
 
 export interface PushDeps {
   verifySecret(secret: string): PromiseLike<{ data: any; error: any }>;
@@ -63,6 +66,24 @@ function reply(obj: Record<string, unknown>, status: number): Response {
   return new Response(JSON.stringify(obj), { status, headers: JSON_HEADERS });
 }
 
+// v18 (PUSH-RETRY): чи тимчасовий збій відправки: 429, ≥ 500, 408 і мережевий (статусу нема). 400, 401, 403, 404, 410, 413 та інші 4xx — ні.
+export function isTransientStatus(status: number | null | undefined): boolean {
+  if (status === null || status === undefined) return true;
+  return status === 429 || status === 408 || status >= 500;
+}
+
+const ATTEMPT_MAX = 3;
+export function attemptOf(v: unknown): number {
+  const n = typeof v === "number" ? v : typeof v === "string" && /^\d+$/.test(v) ? Number(v) : NaN;
+  return Number.isInteger(n) && n >= 1 && n <= ATTEMPT_MAX ? n : 1;
+}
+const ONLY_SUBS_MAX = 20;
+export function onlySubsOf(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null;
+  const ids = v.filter((x) => typeof x === "string" && x.length > 0 && x.length <= 64).slice(0, ONLY_SUBS_MAX) as string[];
+  return Array.from(new Set(ids));
+}
+
 function short(e: unknown): string {
   const x = e as { body?: string; message?: string } | null;
   return String(x?.body ?? x?.message ?? e ?? "").slice(0, 120);
@@ -79,6 +100,18 @@ interface LogInput {
   sent: number;
   failed: number;
   statuses: unknown[];
+  attempt?: number;
+}
+
+const OPTIONAL_COLUMNS = ["push_id", "attempt"];
+// Назва необов'язкової колонки, якої «не існує» (Postgres 42703 «column "x" does not exist»; PostgREST PGRST204 «Could not find the 'x' column»); інакше null.
+function missingColumnOf(err: any): string | null {
+  const msg = String(err?.message ?? err ?? "");
+  const code = String(err?.code ?? "");
+  const looks = /does not exist/i.test(msg) || /Could not find the '[^']+' column/i.test(msg) || code === "42703" || code === "PGRST204";
+  if (!looks) return null;
+  for (const c of OPTIONAL_COLUMNS) if (new RegExp("\\b" + c + "\\b", "i").test(msg)) return c;
+  return null;
 }
 
 // Запис журналу. Ніколи не кидає; повертає текст помилки або null.
@@ -94,12 +127,15 @@ async function writeLog(deps: PushDeps, l: LogInput): Promise<string | null> {
     failed: l.failed,
     statuses: l.statuses,
     push_id: l.pushId,
+    attempt: l.attempt ?? 1,
   };
   try {
     let r = await deps.insertLog(row);
-    if (r && r.error && /push_id/i.test(String(r.error.message ?? r.error))) {
-      // Колонки push_id ще нема на сервері: пишемо без неї, щоб запис не загубився.
-      delete row.push_id;
+    // Необов'язкові колонки (їх додає чат міграціями): якщо сервер каже, що колонки не існує, пишемо без неї. Інші помилки вставки не чіпаємо (log_error).
+    for (let i = 0; i < OPTIONAL_COLUMNS.length && r && r.error; i++) {
+      const col = missingColumnOf(r.error);
+      if (!col || !(col in row)) break;
+      delete row[col];
       r = await deps.insertLog(row);
     }
     return r && r.error ? short(r.error) : null;
@@ -124,7 +160,7 @@ export async function handlePush(req: Request, deps: PushDeps): Promise<Response
     authError = e ?? new Error("verify failed");
   }
 
-  let payload: { user_id?: string; title?: string; body?: string; data?: unknown } | null = null;
+  let payload: { user_id?: string; title?: string; body?: string; data?: unknown; push_id?: unknown; attempt?: unknown; only_subs?: unknown } | null = null;
   let parseFailed = false;
   try {
     payload = await req.json();
@@ -132,6 +168,8 @@ export async function handlePush(req: Request, deps: PushDeps): Promise<Response
     parseFailed = true;
   }
   const userId = payload && typeof payload.user_id === "string" ? payload.user_id : "";
+  const attempt = attemptOf(payload?.attempt); // v18 (PUSH-RETRY)
+  const topPushId = pushIdOf({ push_id: payload?.push_id });
   const type0 = payload && payload.data && typeof payload.data === "object" && (payload.data as Record<string, unknown>).type
     ? String((payload.data as Record<string, unknown>).type)
     : "";
@@ -141,9 +179,9 @@ export async function handlePush(req: Request, deps: PushDeps): Promise<Response
     let logError: string | null = null;
     if (authError && userId) {
       logError = await writeLog(deps, {
-        userId, type: type0, title: String(payload?.title ?? ""), pushId: pushIdOf(payload?.data),
-        urgency: null, ttl: null, subscriptions: 0, sent: 0, failed: 1,
-        statuses: [{ ok: false, status: null, reason: "auth_check_error", msg: short(authError) }],
+        userId, type: type0, title: String(payload?.title ?? ""), pushId: topPushId ?? pushIdOf(payload?.data),
+        urgency: null, ttl: null, subscriptions: 0, sent: 0, failed: 1, attempt,
+        statuses: [{ ok: false, status: null, reason: "auth_check_error", msg: short(authError), transient: true }],
       });
     }
     return reply(logError ? { error: "unauthorized", log_error: logError } : { error: "unauthorized" }, 401);
@@ -155,9 +193,9 @@ export async function handlePush(req: Request, deps: PushDeps): Promise<Response
     let logError: string | null = null;
     if (userId) {
       logError = await writeLog(deps, {
-        userId, type: type0, title: String(payload?.title ?? ""), pushId: pushIdOf(payload?.data),
-        urgency: null, ttl: null, subscriptions: 0, sent: 0, failed: 1,
-        statuses: [{ ok: false, status: null, reason: "config_missing", missing }],
+        userId, type: type0, title: String(payload?.title ?? ""), pushId: topPushId ?? pushIdOf(payload?.data),
+        urgency: null, ttl: null, subscriptions: 0, sent: 0, failed: 1, attempt,
+        statuses: [{ ok: false, status: null, reason: "config_missing", missing, transient: false }],
       });
     }
     return reply(logError ? { error: "config_missing", log_error: logError } : { error: "config_missing" }, 503);
@@ -173,29 +211,48 @@ export async function handlePush(req: Request, deps: PushDeps): Promise<Response
   }
 
   const type = type0;
-  const pushId = pushIdOf(notifData);
+  const pushId = topPushId ?? pushIdOf(notifData); // v18: повтор передає той самий push_id (верхній рівень тіла має пріоритет)
+  const onlySubs = onlySubsOf(payload.only_subs); // v18: null — усі підписки користувача
   const delivery = DELIVERY[type] ?? DEFAULT_DELIVERY;
-  const base = { userId: String(user_id), type, title: String(title), pushId, urgency: delivery.urgency as string, ttl: delivery.ttl };
+  const base = { userId: String(user_id), type, title: String(title), pushId, urgency: delivery.urgency as string, ttl: delivery.ttl, attempt };
 
+  // Статуси підписок, що вже відправлялись (ok або збій): потрібні, якщо далі станеться виняток, щоб повтор не дублював уже відправлені.
+  const entries: Array<Record<string, unknown> | undefined> = [];
+  const sendPromises: Array<Promise<unknown>> = [];
   try {
-    const { data: subs, error } = await deps.getSubs(String(user_id));
+    const { data: subsAll, error } = await deps.getSubs(String(user_id));
 
     if (error) {
       const le = await writeLog(deps, {
         ...base, subscriptions: 0, sent: 0, failed: 1,
-        statuses: [{ ok: false, status: null, reason: "subs_read_error", msg: short(error) }],
+        statuses: [{ ok: false, status: null, reason: "subs_read_error", msg: short(error), transient: true }],
       });
       return reply(le ? { error: String(error.message ?? error), log_error: le } : { error: String(error.message ?? error) }, 500);
     }
-    if (!subs || subs.length === 0) {
+
+    let subs = subsAll;
+    const goneStatuses: unknown[] = [];
+    if (onlySubs) {
+      // Повтор: лише вказані підписки цього користувача (чужі id ігноруються за побудовою: getSubs читає за user_id); відсутні — sub_gone.
+      const have = new Set((subsAll ?? []).map((x) => String(x.id)));
+      for (const id of onlySubs) if (!have.has(id)) goneStatuses.push({ ok: false, status: null, reason: "sub_gone", sub_id: id, transient: false });
+      subs = (subsAll ?? []).filter((x) => onlySubs.includes(String(x.id)));
+      if (subs.length === 0) {
+        const le = await writeLog(deps, { ...base, subscriptions: onlySubs.length, sent: 0, failed: 0, statuses: goneStatuses });
+        const out: Record<string, unknown> = { sent: 0, failed: 0, note: "підписок для повтору немає" };
+        if (le) out.log_error = le;
+        return reply(out, 200);
+      }
+    } else if (!subs || subs.length === 0) {
       const le = await writeLog(deps, {
         ...base, subscriptions: 0, sent: 0, failed: 0,
-        statuses: [{ ok: false, status: null, reason: "no_subscriptions" }],
+        statuses: [{ ok: false, status: null, reason: "no_subscriptions", transient: false }],
       });
       const out: Record<string, unknown> = { sent: 0, note: "немає підписок для цього user_id" };
       if (le) out.log_error = le;
       return reply(out, 200);
     }
+    const list = subs as any[];
 
     const legacyMessage = JSON.stringify({ title, body: body || "", data: notifData || {} });
     const declarativeMessage = JSON.stringify({
@@ -211,49 +268,49 @@ export async function handlePush(req: Request, deps: PushDeps): Promise<Response
       body: body || "",
       data: notifData || {},
     });
-    const formats: Format[] = subs.map((s) => pickFormat(type, String(user_id), s.app_visible, deps.declarativeUsers));
+    const formats: Format[] = list.map((s) => pickFormat(type, String(user_id), s.app_visible, deps.declarativeUsers));
 
-    const results = await Promise.allSettled(
-      subs.map((s, i) =>
-        deps.send(
-          { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth },
-          formats[i] === "declarative" ? declarativeMessage : legacyMessage,
-          { TTL: delivery.ttl, urgency: delivery.urgency },
-        ).catch(async (err) => {
+    list.forEach((s, i) => {
+      // Збій окремої підписки не кидає далі: її статус одразу лягає в entries (потрібно й для шляху «виняток»).
+      // Синхронний виняток самого виклику send (до проміса) свідомо йде у зовнішній catch (шлях «exception»): раніше відправлені підписки вже в entries.
+      const p = deps.send(
+        { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth },
+        formats[i] === "declarative" ? declarativeMessage : legacyMessage,
+        { TTL: delivery.ttl, urgency: delivery.urgency },
+      )
+        .then((r) => {
+          entries[i] = { ok: true, status: (r as { statusCode?: number })?.statusCode ?? null, format: formats[i], sub_id: s.id };
+        })
+        .catch(async (err) => {
           // 410/404 — підписка більше не дійсна — видаляємо.
           if (err && (err.statusCode === 410 || err.statusCode === 404)) {
             try {
               await deps.deleteSub(s.id);
             } catch (_) { /* видалення не має ховати причину збою */ }
           }
-          throw err;
-        })
-      ),
-    );
+          const st = (err as { statusCode?: number })?.statusCode ?? null;
+          entries[i] = { ok: false, status: st, msg: short(err), reason: "send_failed", format: formats[i], sub_id: s.id, transient: isTransientStatus(st) };
+        });
+      sendPromises.push(p);
+    });
+    await Promise.all(sendPromises);
 
-    const sent = results.filter((r) => r.status === "fulfilled").length;
-    const failed = results.length - sent;
-    const statuses = results.map((r, i) =>
-      r.status === "fulfilled"
-        ? { ok: true, status: (r.value as { statusCode?: number })?.statusCode ?? null, format: formats[i] }
-        : {
-          ok: false,
-          status: (r.reason as { statusCode?: number })?.statusCode ?? null,
-          msg: short(r.reason),
-          reason: "send_failed",
-          format: formats[i],
-        }
-    );
-
-    const le = await writeLog(deps, { ...base, subscriptions: subs.length, sent, failed, statuses });
+    const statuses = [...(entries as Array<Record<string, unknown>>), ...goneStatuses];
+    const sent = (entries as Array<Record<string, unknown>>).filter((e) => e.ok === true).length;
+    const failed = list.length - sent;
+    const le = await writeLog(deps, { ...base, subscriptions: onlySubs ? onlySubs.length : list.length, sent, failed, statuses });
     const out: Record<string, unknown> = { sent, failed };
     if (le) out.log_error = le;
     return reply(out, 200);
   } catch (e) {
     // Непередбачений виняток: слід у журналі й у відповіді (pg_net збереже її кілька годин).
+    // v18: якщо відправка вже почалась, у statuses лежать sub_id уже оброблених підписок (ok:true) — повтор їх не дублює; без відправок повтор іде всім підпискам.
+    await Promise.allSettled(sendPromises);
+    const done = (entries.filter((x) => x !== undefined)) as Array<Record<string, unknown>>;
+    const sentDone = done.filter((x) => x.ok === true).length;
     const le = await writeLog(deps, {
-      ...base, subscriptions: 0, sent: 0, failed: 1,
-      statuses: [{ ok: false, status: null, reason: "exception", msg: short(e) }],
+      ...base, subscriptions: done.length, sent: sentDone, failed: done.length - sentDone + 1,
+      statuses: [...done, { ok: false, status: null, reason: "exception", msg: short(e), transient: true }],
     });
     const out: Record<string, unknown> = { error: "internal", msg: short(e) };
     if (le) out.log_error = le;

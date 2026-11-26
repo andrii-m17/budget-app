@@ -164,12 +164,14 @@ test('формат: декларативний лише mono-inbox + пілот 
   assert.equal(P.inboxTarget({ inbox_id: '../x' }), 'latest');
 });
 
-test('push_id читається лише з data.push_id, верхній рівень тіла ігнорується', async function () {
+test('push_id: з data.push_id; з v18 верхній push_id (повтор) має пріоритет, невалідний ігнорується', async function () {
   const w = mk();
   await P.handlePush(req({ user_id: 'u1', title: 'T', push_id: PID, data: { type: 'test' } }), w.deps);
-  assert.equal(w.logs[0].push_id, null);
+  assert.equal(w.logs[0].push_id, PID);
+  await P.handlePush(req({ user_id: 'u1', title: 'T', push_id: 'не-uuid', data: { type: 'test' } }), w.deps);
+  assert.equal(w.logs[2 - 1].push_id, null);
   await P.handlePush(req({ user_id: 'u1', title: 'T', data: { type: 'test', push_id: PID } }), w.deps);
-  assert.equal(w.logs[1].push_id, PID);
+  assert.equal(w.logs[2].push_id, PID);
 });
 
 // PUSH-GUARD (v17): обов'язкові секрети VAPID; нема хоча б одного — не шлемо, пишемо config_missing, 503. Лише назви секретів у журналі й відповіді.
@@ -185,7 +187,7 @@ test('PUSH-GUARD X1: без VAPID_SUBJECT — send не викликається
   assert.equal(w.logs.length, 1);
   assert.equal(w.logs[0].subscriptions, 0); assert.equal(w.logs[0].sent, 0); assert.equal(w.logs[0].failed, 1);
   assert.equal(w.logs[0].push_id, PID);
-  assert.deepEqual(w.logs[0].statuses, [{ ok: false, status: null, reason: 'config_missing', missing: ['VAPID_SUBJECT'] }]);
+  assert.deepEqual(w.logs[0].statuses, [{ ok: false, status: null, reason: 'config_missing', missing: ['VAPID_SUBJECT'], transient: false }]);
 });
 test('PUSH-GUARD X2: кожен із трьох секретів (відсутній чи порожній рядок/пробіли) блокує відправку; значення секретів у журнал і відповідь не потрапляють', async function () {
   const full = { VAPID_PUBLIC_KEY: 'pub-secret-value', VAPID_PRIVATE_KEY: 'priv-secret-value', VAPID_SUBJECT: 'mailto:ops@test.invalid' };
@@ -226,5 +228,95 @@ test('PUSH-GUARD: index.ts — обов\'язкові секрети без за
   assert.match(SRCI, /if \(!MISSING_CONFIG\.length\) \{\s*webpush\.setVapidDetails\(/);
   assert.match(SRCI, /missingConfig: MISSING_CONFIG/);
   assert.doesNotMatch(SRCI, /VAPID_SUBJECT"\) \?\?/);
+});
+
+// PUSH-RETRY (v18): sub_id і transient у statuses, attempt у журналі, only_subs/sub_gone, той самий push_id, виняток після початку відправки.
+const SUB2 = { id: 's2', endpoint: 'https://push.test/e2', p256dh: 'k2', auth: 'a2', app_visible: false };
+const err = function (code) { const e = new Error('push ' + code); if (code !== null) e.statusCode = code; return e; };
+
+test('PUSH-RETRY: у statuses кожної підписки sub_id (не endpoint), ok без transient, збій з transient за межами; attempt типово 1', async function () {
+  const w = mk({ getSubs: async function () { return { data: [SUB, SUB2], error: null }; }, send: async function (s) { if (s.endpoint === SUB2.endpoint) throw err(503); return { statusCode: 201 }; } });
+  const res = await P.handlePush(req(BODY), w.deps);
+  assert.deepEqual(await res.json(), { sent: 1, failed: 1 });
+  assert.equal(w.logs[0].attempt, 1);
+  const st = w.logs[0].statuses;
+  assert.equal(st[0].sub_id, 's1'); assert.equal(st[0].ok, true);
+  assert.equal(st[1].sub_id, 's2'); assert.equal(st[1].transient, true); assert.equal(st[1].status, 503);
+  assert.doesNotMatch(JSON.stringify(w.logs), /push\.test|"k2"|"a2"/, 'endpoint і ключі в журнал не потрапляють');
+});
+test('PUSH-RETRY: transient для кожного коду (429, 500, 503, 408, без статусу — так; 400, 401, 403, 404, 410, 413, 422 — ні)', async function () {
+  const yes = [429, 500, 502, 503, 408, null], no = [400, 401, 403, 404, 410, 413, 422];
+  for (const code of yes.concat(no)) {
+    const w = mk({ send: async function () { throw err(code); } });
+    await P.handlePush(req(BODY), w.deps);
+    assert.equal(w.logs[0].statuses[0].transient, yes.indexOf(code) !== -1, String(code));
+    assert.equal(w.logs[0].statuses[0].reason, 'send_failed');
+  }
+  assert.equal(P.isTransientStatus(undefined), true);
+});
+test('PUSH-RETRY: only_subs шле лише вказаним, attempt і push_id з тіла у журналі; чужі/відсутні id — sub_gone без відправки, у failed не рахуються', async function () {
+  const w = mk({ getSubs: async function () { return { data: [SUB, SUB2], error: null }; } });
+  const res = await P.handlePush(req(Object.assign({}, BODY, { push_id: PID, attempt: 2, only_subs: ['s2', 'нема-такої'] })), w.deps);
+  assert.equal(res.status, 200); assert.deepEqual(await res.json(), { sent: 1, failed: 0 });
+  assert.equal(w.sends.length, 1); assert.equal(w.sends[0].s.endpoint, SUB2.endpoint);
+  assert.equal(w.logs[0].attempt, 2); assert.equal(w.logs[0].push_id, PID);
+  assert.deepEqual(w.logs[0].statuses.map(function (x) { return [x.sub_id, x.ok, x.reason || null]; }), [['s2', true, null], ['нема-такої', false, 'sub_gone']]);
+  assert.equal(w.logs[0].statuses[1].transient, false);
+});
+test('PUSH-RETRY: усі вказані підписки зникли (410 раніше) — 200, нічого не шлемо, журнал sub_gone, без повтору', async function () {
+  const w = mk({ getSubs: async function () { return { data: [SUB], error: null }; } });
+  const res = await P.handlePush(req(Object.assign({}, BODY, { attempt: 3, only_subs: ['втрачена'] })), w.deps);
+  assert.equal(res.status, 200); assert.equal(w.sends.length, 0);
+  assert.equal(w.logs[0].statuses[0].reason, 'sub_gone'); assert.equal(w.logs[0].failed, 0); assert.equal(w.logs[0].attempt, 3);
+});
+test('PUSH-RETRY: attempt поза 1..3 або не число — 1; only_subs не масив — усі підписки; 410 видаляє підписку й transient false', async function () {
+  assert.equal(P.attemptOf(0), 1); assert.equal(P.attemptOf(4), 1); assert.equal(P.attemptOf('x'), 1); assert.equal(P.attemptOf(2), 2); assert.equal(P.attemptOf('3'), 3);
+  const w = mk({ send: async function () { throw err(410); } });
+  await P.handlePush(req(Object.assign({}, BODY, { only_subs: 'не-масив', attempt: 99 })), w.deps);
+  assert.equal(w.deleted[0], 's1'); assert.equal(w.logs[0].attempt, 1); assert.equal(w.logs[0].statuses[0].transient, false);
+});
+test('PUSH-RETRY: ранні виходи — subs_read_error і auth_check_error transient true; no_subscriptions і config_missing false; attempt пишеться скрізь', async function () {
+  let w = mk({ getSubs: async function () { return { data: null, error: { message: 'db' } }; } });
+  await P.handlePush(req(Object.assign({}, BODY, { attempt: 2 })), w.deps);
+  assert.equal(w.logs[0].statuses[0].transient, true); assert.equal(w.logs[0].attempt, 2);
+  w = mk({ verify: async function () { throw new Error('rpc'); } });
+  await P.handlePush(req(BODY), w.deps);
+  assert.equal(w.logs[0].statuses[0].reason, 'auth_check_error'); assert.equal(w.logs[0].statuses[0].transient, true);
+  w = mk({ getSubs: async function () { return { data: [], error: null }; } });
+  await P.handlePush(req(BODY), w.deps);
+  assert.equal(w.logs[0].statuses[0].transient, false);
+});
+test('PUSH-RETRY exception: виняток ПІСЛЯ початку відправки — у statuses sub_id уже відправлених (ok true), exception transient; повтор не дублює їх', async function () {
+  let n = 0;
+  const w = mk({ getSubs: async function () { return { data: [SUB, SUB2], error: null }; }, send: function (s) { n++; if (n === 2) throw new Error('boom'); return Promise.resolve({ statusCode: 201 }); } });
+  const res = await P.handlePush(req(BODY), w.deps);
+  assert.equal(res.status, 500);
+  const st = w.logs[0].statuses;
+  assert.deepEqual(st[0], { ok: true, status: 201, format: 'legacy', sub_id: 's1' });
+  assert.equal(st[st.length - 1].reason, 'exception'); assert.equal(st[st.length - 1].transient, true);
+  assert.equal(w.logs[0].sent, 1);
+});
+test('PUSH-RETRY exception: виняток ДО відправки — у statuses лише exception без sub_id (повтор усім підпискам)', async function () {
+  const w = mk({ getSubs: async function () { throw new Error('rpc down'); } });
+  const res = await P.handlePush(req(BODY), w.deps);
+  assert.equal(res.status, 500);
+  assert.equal(w.logs[0].statuses.length, 1);
+  assert.equal(w.logs[0].statuses[0].reason, 'exception'); assert.equal('sub_id' in w.logs[0].statuses[0], false); assert.equal(w.logs[0].statuses[0].transient, true);
+});
+test('PUSH-RETRY: відсутня колонка attempt (Postgres 42703 і PostgREST PGRST204) — запис без неї; без push_id і attempt — обидві знімаються; інша помилка вставки — log_error без повтору', async function () {
+  const mkLog = function (msgFor) { const rows = []; return { rows, fn: async function (row) { rows.push(Object.assign({}, row)); const m = msgFor(row); return m ? { error: m } : { error: null }; } }; };
+  let L = mkLog(function (r) { return 'attempt' in r ? { message: 'column "attempt" of relation "push_delivery_log" does not exist', code: '42703' } : null; });
+  let w = mk({ insertLog: L.fn });
+  let res = await P.handlePush(req(BODY), w.deps);
+  assert.equal(L.rows.length, 2); assert.equal('attempt' in L.rows[1], false); assert.equal(L.rows[1].push_id, PID); assert.equal('log_error' in (await res.json()), false);
+  L = mkLog(function (r) { return 'attempt' in r ? { message: "Could not find the 'attempt' column of 'push_delivery_log' in the schema cache", code: 'PGRST204' } : null; });
+  w = mk({ insertLog: L.fn }); await P.handlePush(req(BODY), w.deps);
+  assert.equal(L.rows.length, 2); assert.equal('attempt' in L.rows[1], false);
+  L = mkLog(function (r) { if ('attempt' in r) return { message: 'column "attempt" does not exist' }; if ('push_id' in r) return { message: 'column "push_id" does not exist' }; return null; });
+  w = mk({ insertLog: L.fn }); res = await P.handlePush(req(BODY), w.deps);
+  assert.equal(L.rows.length, 3); assert.equal('push_id' in L.rows[2], false); assert.equal('attempt' in L.rows[2], false); assert.equal('log_error' in (await res.json()), false);
+  L = mkLog(function () { return { message: 'permission denied for table push_delivery_log (attempt)', code: '42501' }; });
+  w = mk({ insertLog: L.fn }); res = await P.handlePush(req(BODY), w.deps);
+  assert.equal(L.rows.length, 1, 'не «колонки нема» — повтору вставки немає'); assert.match((await res.json()).log_error, /permission denied/);
 });
 

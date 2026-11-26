@@ -14921,3 +14921,9 @@ KB-5b (код не змінено). Поле назви/примітки у «В
 - Тести: +5 у `tests/push-loss.test.js`, оновлено `tests/push-function.test.js`; усього 2459.
 - Деплой: лише чат (файли: `supabase/functions/send-push-notification/index.ts`, `supabase/functions/_shared/push.ts`). Перевірити на iPhone: не потрібно.
 
+## PUSH-RETRY (v18 функції send-push-notification; клас C, клієнт без змін, не запушено)
+- Що: `sub_id` і `transient` у statuses; тіло приймає `push_id`, `attempt`, `only_subs` (відсутні — `sub_gone`); журнал пише `attempt` (нема колонки — без неї; лише помилка «колонки не існує»); `exception` після початку відправки зберігає `sub_id` відправлених.
+- Чому: тимчасові збої (Apple 429/5xx, мережа) мають повторюватись автоматично лише на пристрої, де не дійшло; повтор планує чат (SQL + pg_cron).
+- Тести: +9 у `tests/push-loss.test.js`, оновлено 2; усього 2468.
+- Деплой: лише чат (`send-push-notification/index.ts`, `_shared/push.ts`). Перевірка на iPhone не потрібна.
+

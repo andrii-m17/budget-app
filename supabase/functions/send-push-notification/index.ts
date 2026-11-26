@@ -14,6 +14,9 @@
 //   VAPID_SUBJECT (secret): контакт для VAPID (з v17 обов'язковий, запасного значення нема).
 // v17 (PUSH-GUARD): обов'язкові секрети VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT без запасних значень; якщо хоч одного нема — не шлемо,
 //   журнал push_delivery_log з reason "config_missing" (лише назви секретів), відповідь 503. Деталі: docs/SUPABASE_POLICY.md.
+// v18 (PUSH-RETRY): тіло приймає необов'язкові push_id (повтор з тим самим id), attempt (1..3) і only_subs (масив sub_id); у statuses кожної підписки sub_id і
+//   transient (429, ≥ 500, 408, мережа — тимчасові; 4xx, no_subscriptions, config_missing, sub_gone — ні); журнал пише attempt (нема колонки — без неї).
+//   Логіка в _shared/push.ts; повтори планує чат (SQL push_resend / push_retry_failed). Деталі: docs/SUPABASE_POLICY.md.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3";
