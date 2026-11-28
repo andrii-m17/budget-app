@@ -34,7 +34,7 @@ test('paidOffHideFromMonth: наступний місяць; перехід че
   assert.equal(c.paidOffHideLabel('2027-01'), 'січня'); assert.equal(c.paidOffHideLabel('2026-10'), 'жовтня'); assert.equal(c.paidOffHideLabel('2026-11'), 'листопада');
 });
 test('installmentPaidOffOffer: приховані й непогашені не пропонуються', function(){
-  const mk = function(debts, hidden){ return buildSandbox({ activeDebts: function(){ return debts; }, monthKey2: function(m){ return m; }, isHiddenForMonth: function(n, k, m){ return !!hidden && m >= hidden; } }, base.concat(['installmentPaidOffOffer'])); };
+  const mk = function(debts, hidden){ return buildSandbox({ activeDebts: function(){ return debts; }, monthKey2: function(m){ return m; }, isHiddenForMonth: function(n, k, m){ return !!hidden && m >= hidden; } }, base.concat(['installmentPaidOffOffer', 'installmentPaidOffState', 'PAIDOFF_THRESHOLD', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc'])); };
   const paid = [{ kind: 'installment', name: 'A', month: '2026-09', balance: 0, monthlyPayment: 100 }];
   assert.deepEqual(JSON.parse(JSON.stringify(mk(paid).installmentPaidOffOffer('A'))), { from: '2026-10', label: 'жовтня' });
   assert.equal(mk(paid, '2026-10').installmentPaidOffOffer('A'), null); // вже прихована
@@ -58,7 +58,7 @@ test('діалог не з\'являється без пропозиції (за
   assert.equal(ctx.offerHidePaidOffInstallment('X'), false);
 });
 test('охоронні: діалог після збереження лише при нульовому залишку; підпис у рядку ОЧ; той самий механізм у removeInstallmentAccount; кнопка «Не зараз»', function(){
-  assert.match(SRC, /if\(pushedRecord && !pushedRecord\.deletedAt && pushedRecord\.balance === 0\) setTimeout\(function\(\)\{ offerHidePaidOffInstallment\(newName\); \}, 350\);/);
+  assert.match(SRC, /if\(!paidBefore && installmentPaidOffNow\(newName\)\) setTimeout\(function\(\)\{ offerHidePaidOffInstallment\(newName\); \}, 350\);/); // Rev 2.32.441 (OCH-CLOSE): перехід «не погашено» -> «погашено», поріг 10 грн
   assert.match(SRC, /cancel\.textContent = 'Не зараз'/);
   assert.match(SRC, /Погашено · Приховати з \$\{escapeHtml\(paidOff\.label\)\}/);
   assert.match(SRC, /hideEntityFromMonth\(hideKey\(name,'installment'\), fromMonth, hideKeyLegacy\(name,'installment'\), name\);/);

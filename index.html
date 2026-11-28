@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.440"><link rel="stylesheet" href="./css/app.css?v=2.32.440"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.441"><link rel="stylesheet" href="./css/app.css?v=2.32.441"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -875,7 +875,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.440</div>
+  <div class="version-footer">Money Tree · Rev 2.32.441</div>
 </div>
   </div>
 </div>
@@ -1663,16 +1663,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.440"></script>
-<script src="./js/util-date.js?v=2.32.440"></script>
-<script src="./js/util-safe.js?v=2.32.440"></script>
-<script src="./js/util-misc.js?v=2.32.440"></script>
-<script src="./js/diag.js?v=2.32.440"></script>
-<script src="./js/shell.js?v=2.32.440"></script>
-<script src="./js/structure.js?v=2.32.440"></script>
-<script src="./js/analytics.js?v=2.32.440"></script>
-<script src="./js/payments.js?v=2.32.440"></script>
-<script src="./js/sheets.js?v=2.32.440"></script>
+<script src="./js/util-format.js?v=2.32.441"></script>
+<script src="./js/util-date.js?v=2.32.441"></script>
+<script src="./js/util-safe.js?v=2.32.441"></script>
+<script src="./js/util-misc.js?v=2.32.441"></script>
+<script src="./js/diag.js?v=2.32.441"></script>
+<script src="./js/shell.js?v=2.32.441"></script>
+<script src="./js/structure.js?v=2.32.441"></script>
+<script src="./js/analytics.js?v=2.32.441"></script>
+<script src="./js/payments.js?v=2.32.441"></script>
+<script src="./js/sheets.js?v=2.32.441"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6829,7 +6829,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.440';
+const APP_VERSION = '2.32.441';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10952,10 +10952,12 @@ async function addExpenseCore(){
   if(confirmedInstallmentLinkIdx !== -1 && installmentAccounts[confirmedInstallmentLinkIdx]){
     rec.linkedInstallment = installmentAccounts[confirmedInstallmentLinkIdx].name;
   }
+  const paidBefore = rec.linkedInstallment ? installmentPaidOffNow(rec.linkedInstallment) : true; // Rev 2.32.441 (OCH-CLOSE)
   expenses.unshift(rec);
   reportSaveResult(await saveExpenses());
   pushExpenseRecordPilot(rec); // Rev #30 (6D.5) — не блокуючий, push ОДНОГО щойно доданого запису
   resetExpenseForm(); populateMonths(); renderAll();
+  if(rec.linkedInstallment) offerPaidOffOnTransition(rec.linkedInstallment, paidBefore); // Rev 2.32.441 (OCH-CLOSE): платіж закрив ОЧ (залишок <= 10 грн) — пропозиція приховати після закриття форми
   return true;
 }
 // Rev 2.0.1 — дохід тепер вводиться як таблиця з фіксованими джерелами
@@ -11491,7 +11493,7 @@ function populateInstallmentTable(){
       : pview.badge === 'half' ? installmentProgressRingHtml(pview.frac, pview.text || BADGE_TITLES.half) // Rev 2.32.155: кільце замість «½»
       : pview.badge === 'bang' ? `<span class="cdr-paid-badge bang" role="img" aria-label="${BADGE_TITLES.bang}">${INSTALLMENT_BANG_SVG}</span>` : '';
     const dueSub = acc.dueDay ? ` · до ${acc.dueDay} числа` : '';
-    const paidOff = installmentPaidOffOffer(name); // Rev 2.32.69: тихий підпис «Погашено · Приховати з …» (тап відкриває діалог)
+    const paidOff = installmentPaidOffOffer(name, selectedMonth); // Rev 2.32.441 (OCH-CLOSE): стан із ланцюжка й записів боргу; у місяцях до останнього платежу підпису нема; Rev 2.32.69: тихий підпис «Погашено · Приховати з …» (тап відкриває діалог)
     const subHtml = paidOff ? `<span class="cdr-sub"><span class="cdr-paidoff" role="button" tabindex="0" data-paidoff="${i}" onclick="event.stopPropagation(); offerHidePaidOffInstallment(installmentAccounts[${i}].name)">Погашено · Приховати з ${escapeHtml(paidOff.label)}</span></span>` : `<span class="cdr-sub${pview.accent ? ' warn' : ''}">${pview.text ? escapeHtml(pview.text) : 'Оплата частинами' + dueSub}</span>`; // Rev 2.32.151: підпис стану замінює «Оплата частинами · до N числа» (один рядок)
     return `<button type="button" class="card-debt-compact-row" id="installment-row-${i}" onclick="openInstallmentEditor(${i})" aria-label="${escapeAttr(stripLeadingEmoji(name))}, редагувати${paidOff ? ', погашено' : ''}">
       <span class="cdr-avatar">${bankIcon(name, 38, true, 'installment')}${paidBadge}</span>
@@ -11922,6 +11924,7 @@ async function saveInstallmentDrawer(confirmedDup){
     reportSaveResult(await saveInstallmentAccounts());
   }
 
+  const paidBefore = installmentPaidOffNow(acc.name); // Rev 2.32.441 (OCH-CLOSE): стан до збереження запису боргу
   const rawBal = document.getElementById('idd-balance').value.trim();
   const balance = parseAmount(rawBal);
   // Rev #30 (6D.44) — existingIdx МАЄ лишатись сирим (не activeDebts()), той
@@ -11967,7 +11970,7 @@ async function saveInstallmentDrawer(confirmedDup){
   if(pushedRecord) pushDebtRecordPilot(pushedRecord);
   closeInstallmentEditor();
   renderAll();
-  if(pushedRecord && !pushedRecord.deletedAt && pushedRecord.balance === 0) setTimeout(function(){ offerHidePaidOffInstallment(newName); }, 350); // Rev 2.32.69: пропозиція приховати (нічого не ховається без підтвердження)
+  if(!paidBefore && installmentPaidOffNow(newName)) setTimeout(function(){ offerHidePaidOffInstallment(newName); }, 350); // Rev 2.32.69: пропозиція приховати (нічого не ховається без підтвердження); Rev 2.32.441 (OCH-CLOSE): лише при переході «не погашено» -> «погашено» (поріг 10 грн, ланцюжок і записи боргу)
   showToast({ kind: 'success', title: 'Збережено', subtitle: stripLeadingEmoji(newName) }); // Rev 2.32.413 (FIX-1119 п.8): стандартний тост TOAST-1
 }
 function deleteInstallmentFromDrawer(){
@@ -12003,14 +12006,16 @@ function openAddInstallmentModal(){
 /* ============ Погашена ОЧ: пропозиція приховати (Rev 2.32.69) ============
    Запис місяця ОЧ: balance — залишок ПІСЛЯ платежу місяця (estimateInstallment: попередній залишок − платіж). Нічого не ховається автоматично: лише після явного підтвердження (діалог після збереження або тихий підпис у «Обліку»). Приховування — наявний механізм hideEntityFromMonth (hiddenFrom), серверні нагадування його вже поважають (hidden_from_month). */
 // records: [{ month: 'YYYY-MM', balance, monthlyPayment }] одного рядка ОЧ (без видалених). ОЧ погашена, якщо в останньому відомому записі залишок ≤ 0, або платіж останнього запису ≥ попереднього відомого залишку (> 0).
-function isInstallmentPaidOff(records){
+// Rev 2.32.441 (OCH-CLOSE): необовязковий поріг threshold (типово 0, як раніше): залишок не більший за поріг або платіж покриває попередній залишок з точністю до порогу.
+function isInstallmentPaidOff(records, threshold){
+  const th = threshold > 0 ? Number(threshold) : 0;
   const list = (records || []).filter(function(r){ return r && r.month; }).slice().sort(function(a, b){ return a.month.localeCompare(b.month); });
   if(!list.length) return false;
   const last = list[list.length - 1];
-  if(last.balance != null && last.balance <= 0) return true;
+  if(last.balance != null && last.balance <= th) return true;
   if(last.monthlyPayment != null && list.length > 1){
     const prev = list.slice(0, -1).filter(function(r){ return r.balance != null; }).pop();
-    if(prev && prev.balance > 0 && last.monthlyPayment >= prev.balance) return true;
+    if(prev && prev.balance > 0 && last.monthlyPayment >= prev.balance - th) return true;
   }
   return false;
 }
@@ -12021,12 +12026,46 @@ function paidOffHideFromMonth(records){
   return ppNextMonth(list[list.length - 1].month);
 }
 function paidOffHideLabel(fromMonth){ return PAY_MONTHS_GEN[+fromMonth.slice(5, 7) - 1]; }
-// Дані пропозиції для ОЧ за назвою: { from, label } або null (не погашена / вже прихована до цього місяця).
-function installmentPaidOffOffer(name){
-  const recs = activeDebts().filter(function(d){ return d.kind === 'installment' && d.name === name; }).map(function(d){ return { month: monthKey2(d.month), balance: d.balance, monthlyPayment: d.monthlyPayment }; });
-  const from = paidOffHideFromMonth(recs);
-  if(!from || isHiddenForMonth(name, 'installment', from)) return null;
-  return { from: from, label: paidOffHideLabel(from) };
+// Rev 2.32.441 (OCH-CLOSE): стан «ОЧ погашена» з двох джерел: ланцюжок залишку (installmentChainCalc: прив язані витрати й опорні записи) і записи боргу. Поріг 10 грн. Чиста функція: списки передаються параметрами, видимість (прихована чи ні) тут не перевіряється. Місяць останнього платежу = пізніший із місяця останньої прив язаної витрати й останнього запису боргу; приховувати з наступного.
+const PAIDOFF_THRESHOLD = 10;
+function installmentPaidOffState(acc, expenses, debtList, threshold){
+  const none = { paidOff: false, lastPayMonth: null, hideFrom: null, source: null };
+  if(!acc) return none;
+  const th = threshold === undefined || threshold === null ? PAIDOFF_THRESHOLD : Number(threshold);
+  const exps = (expenses || []).filter(function(e){ return e && !e.deletedAt && e.date && (acc.cloudId && e.linkedInstallmentId ? e.linkedInstallmentId === acc.cloudId : e.linkedInstallment === acc.name); });
+  const recs = (debtList || []).filter(function(d){ return d && !d.deletedAt && d.kind === 'installment' && d.month && (acc.cloudId && d.accountId ? d.accountId === acc.cloudId : d.name === acc.name); });
+  let last = null;
+  const linked = {};
+  exps.forEach(function(e){ const m = String(e.date).slice(0, 7); linked[m] = (linked[m] || 0) + (Number(e.amount) || 0); if(last === null || m > last) last = m; });
+  recs.forEach(function(d){ const m = String(d.month).slice(0, 7); if(last === null || m > last) last = m; });
+  if(last === null) return none;
+  const spec = { initial: acc.initialAmount, firstMonth: acc.firstMonth || null, std: installmentStandardPayment(acc), termMonths: acc.termMonths, startDate: acc.startDate, firstPayment: acc.firstPayment, payMode: acc.payMode, recs: recs, linked: linked };
+  const chain = installmentChainCalc(spec, last);
+  let source = null;
+  if(chain.balance != null && chain.balance <= th) source = 'chain';
+  else if(isInstallmentPaidOff(recs.map(function(d){ return { month: String(d.month).slice(0, 7), balance: d.balance, monthlyPayment: d.monthlyPayment }; }), th)) source = 'debt';
+  if(!source) return { paidOff: false, lastPayMonth: last, hideFrom: null, source: null };
+  return { paidOff: true, lastPayMonth: last, hideFrom: ppNextMonth(last), source: source };
+}
+// Дані пропозиції для ОЧ за назвою: { from, label, source } або null (не погашена / вже прихована з цього місяця). month (необовязковий): у місяцях до останнього платежу підпис у рядку не показуємо.
+function installmentPaidOffOffer(name, month){
+  // Рахунок і списки беремо з глобального стану; без рахунку (синтетичний виклик) стан рахується лише за записами боргу.
+  const acc = (typeof installmentAccounts !== 'undefined' ? installmentAccounts.find(function(a){ return a.name === name; }) : null) || { name: name };
+  const st = installmentPaidOffState(acc, typeof activeExpenses === 'function' ? activeExpenses() : [], activeDebts());
+  if(!st.paidOff || !st.hideFrom) return null;
+  if(month && month < st.lastPayMonth) return null;
+  if(isHiddenForMonth(name, 'installment', st.hideFrom)) return null;
+  return { from: st.hideFrom, label: paidOffHideLabel(st.hideFrom) };
+}
+// Rev 2.32.441 (OCH-CLOSE): стан до збереження платежу (true — вже погашена або ОЧ нема: діалог не потрібен) і діалог при переході «не погашено» -> «погашено».
+function installmentPaidOffNow(name){
+  const acc = installmentAccounts.find(function(a){ return a.name === name; });
+  return !!acc && installmentPaidOffState(acc, activeExpenses(), activeDebts()).paidOff;
+}
+function offerPaidOffOnTransition(name, wasPaid){
+  if(wasPaid || !name || !installmentPaidOffNow(name)) return false;
+  setTimeout(function(){ offerHidePaidOffInstallment(name); }, 350); // після закриття форми; offerHidePaidOffInstallment сама перевіряє, чи ОЧ не прихована
+  return true;
 }
 // Спільне приховування «з місяця» (те саме, що removeInstallmentAccount після вибору місяця).
 async function applyHideInstallmentFrom(name, fromMonth){
@@ -14202,6 +14241,8 @@ async function saveRecordEditCore(id){
     renderAll();
     return true;
   }
+  const paidLink = instSel ? (instSel.value || '') : (rec.linkedInstallment || ''); // Rev 2.32.441 (OCH-CLOSE)
+  const paidBefore = paidLink ? installmentPaidOffNow(paidLink) : true;
   rec.name = name;
   rec.amount = amount;
   rec.date = date;
@@ -14245,6 +14286,7 @@ async function saveRecordEditCore(id){
   pushExpenseRecordPilot(rec);
   editingRecordKey = null;
   populateMonths(); renderAll();
+  if(paidLink) offerPaidOffOnTransition(paidLink, paidBefore); // Rev 2.32.441 (OCH-CLOSE): лише при переході «не погашено» -> «погашено»
   return true;
 }
 // Ті самі довідники CATEGORIES/SUBCATEGORIES, що й для форми "Нова витрата",

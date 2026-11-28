@@ -96,7 +96,7 @@ test('приховані ОЧ не потрапляють у «Найближч�
   assert.equal(r.items.length + r.later.length + r.unconfirmed.length, 0);
 });
 test('розмітка рядка ОЧ: значки ✓/½/«!» за станом, «!» лише для overdue, typicalMonthlyPayment у рядку не використовується для статусу; формули оцінки не змінені', function(){
-  const row = SRC.slice(SRC.indexOf('const pst = installmentPaymentState('), SRC.indexOf('const paidOff = installmentPaidOffOffer(name)'));
+  const row = SRC.slice(SRC.indexOf('const pst = installmentPaymentState('), SRC.indexOf('const paidOff = installmentPaidOffOffer(name'));
   assert.match(row, /days: installmentRemindDays\(\)/); assert.ok(!/typicalMonthlyPayment/.test(row));
   assert.match(row, /pview\.badge === 'bang'/); assert.match(row, /pview\.badge === 'half'/);
   assert.match(SRC, /const pay = linkedSum > 0 \? linkedSum : typicalPay;/);
