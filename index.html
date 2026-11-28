@@ -11859,6 +11859,7 @@ document.addEventListener('pointerdown', function(e){
 async function saveInstallmentDrawer(confirmedDup){
   const acc = installmentAccounts[editingInstallmentIdx];
   if(!acc || !selectedMonth) return;
+  const paidBefore = installmentPaidOffNow(acc.name); // Rev 2.32.441 (OCH-CLOSE): стан ДО будь-яких змін рахунку й запису боргу (за рев'ю)
   const rawName = document.getElementById('iddfielda1').value.trim();
   const newInitial = parseAmount(document.getElementById('idd-initial').value);
   if(!rawName){ flashField('iddfielda1'); return; }
@@ -11924,7 +11925,6 @@ async function saveInstallmentDrawer(confirmedDup){
     reportSaveResult(await saveInstallmentAccounts());
   }
 
-  const paidBefore = installmentPaidOffNow(acc.name); // Rev 2.32.441 (OCH-CLOSE): стан до збереження запису боргу
   const rawBal = document.getElementById('idd-balance').value.trim();
   const balance = parseAmount(rawBal);
   // Rev #30 (6D.44) — existingIdx МАЄ лишатись сирим (не activeDebts()), той
@@ -12057,14 +12057,14 @@ function installmentPaidOffOffer(name, month){
   if(isHiddenForMonth(name, 'installment', st.hideFrom)) return null;
   return { from: st.hideFrom, label: paidOffHideLabel(st.hideFrom) };
 }
-// Rev 2.32.441 (OCH-CLOSE): стан до збереження платежу (true — вже погашена або ОЧ нема: діалог не потрібен) і діалог при переході «не погашено» -> «погашено».
+// Rev 2.32.441 (OCH-CLOSE): стан до збереження платежу (true — вже погашена; false і коли ОЧ не знайдено: діалог тоді не покажеться, бо offerPaidOffOnTransition перевіряє стан після) і діалог при переході «не погашено» -> «погашено».
 function installmentPaidOffNow(name){
   const acc = installmentAccounts.find(function(a){ return a.name === name; });
   return !!acc && installmentPaidOffState(acc, activeExpenses(), activeDebts()).paidOff;
 }
 function offerPaidOffOnTransition(name, wasPaid){
   if(wasPaid || !name || !installmentPaidOffNow(name)) return false;
-  setTimeout(function(){ offerHidePaidOffInstallment(name); }, 350); // після закриття форми; offerHidePaidOffInstallment сама перевіряє, чи ОЧ не прихована
+  setTimeout(function(){ const m = document.getElementById('app-modal'); if(m && m.classList.contains('open')) return; offerHidePaidOffInstallment(name); }, 350); // після закриття форми; якщо тим часом відкрилась інша модалка — не перекриваємо її; offerHidePaidOffInstallment сама перевіряє, чи ОЧ не прихована
   return true;
 }
 // Спільне приховування «з місяця» (те саме, що removeInstallmentAccount після вибору місяця).

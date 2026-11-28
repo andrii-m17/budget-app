@@ -72,7 +72,7 @@ test('шляхи виклику діалогу: форма витрати, ре�
   assert.match(SRC, /if\(rec\.linkedInstallment\) offerPaidOffOnTransition\(rec\.linkedInstallment, paidBefore\);/);
   assert.match(SRC, /const paidLink = instSel \? \(instSel\.value \|\| ''\) : \(rec\.linkedInstallment \|\| ''\);[^\n]*\n\s*const paidBefore = paidLink \? installmentPaidOffNow\(paidLink\) : true;/);
   assert.match(SRC, /if\(paidLink\) offerPaidOffOnTransition\(paidLink, paidBefore\);/);
-  assert.match(SRC, /const paidBefore = installmentPaidOffNow\(acc\.name\);[^\n]*\n\s*const rawBal = /);
+  assert.match(SRC, /async function saveInstallmentDrawer\(confirmedDup\)\{\n  const acc = installmentAccounts\[editingInstallmentIdx\];\n  if\(!acc \|\| !selectedMonth\) return;\n  const paidBefore = installmentPaidOffNow\(acc\.name\);/);
   assert.match(SRC, /if\(!paidBefore && installmentPaidOffNow\(newName\)\) setTimeout\(function\(\)\{ offerHidePaidOffInstallment\(newName\); \}, 350\);/);
   const callers = (SRC.match(/offerPaidOffOnTransition\(/g) || []).length;
   assert.equal(callers, 3, 'визначення + 2 виклики (додавання, редагування); mono_accept, pull і відновлення не викликають діалог');
